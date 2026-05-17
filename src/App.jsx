@@ -17,8 +17,44 @@ const classificationOptions = [
 const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
 const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
 const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Shipped", "Completed", "Returned", "Written Off"];
+const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Shipped", "Completed"];
 const legacyStatusLabels = { "Written off": "Written Off", "Kept private": "Completed" };
 const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
+const itemTemplates = [
+  ["Private personal item", {
+    classification: "Private Sale / Personal Collection",
+    sourceType: "Private seller",
+    status: "Draft",
+    hasReceipt: "No",
+    receiptType: "Eigenbeleg needed",
+    proofType: "Private seller note",
+    ebayFeeMode: DEFAULT_EBAY_FEE_MODE,
+  }],
+  ["Flea-market stock", {
+    classification: "Business Stock / Resale Inventory",
+    sourceType: "Flea market",
+    status: "Sourced",
+    hasReceipt: "No",
+    receiptType: "Eigenbeleg needed",
+    proofType: "Eigenbeleg",
+  }],
+  ["Second-hand shop stock", {
+    classification: "Business Stock / Resale Inventory",
+    sourceType: "Second-hand shop",
+    status: "Sourced",
+    hasReceipt: "Yes",
+    receiptType: "Shop receipt",
+    proofType: "Shop receipt",
+  }],
+  ["Legacy stock", {
+    classification: "Legacy Stock / Previous Business",
+    sourceType: "Other",
+    status: "Draft",
+    hasReceipt: "No",
+    receiptType: "Eigenbeleg needed",
+    proofType: "Eigenbeleg",
+  }],
+];
 const classificationHelp = [
   ["Private Sale / Personal Collection", "Originally owned personal item."],
   ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
@@ -211,6 +247,12 @@ function hasProofRecord(item) {
     item.receiptType ||
     item.proofType
   );
+}
+
+function quickProofStatus(item) {
+  if (externallyStoredProof(item) || item.hasReceipt === "Yes") return "Proof available";
+  if ((item.proofType || item.receiptType) === "Eigenbeleg" || item.receiptType === "Eigenbeleg needed") return "Eigenbeleg needed";
+  return "Missing proof";
 }
 
 function itemStatus(item) {
@@ -451,8 +493,7 @@ export default function ResellerItApp() {
     persistAll(items, nextExpenses);
   }
 
-  function saveItem(e) {
-    e.preventDefault();
+  function saveCurrentItem({ keepAdding = false } = {}) {
     if (!form.name.trim()) return;
     const clean = {
       ...form,
@@ -470,6 +511,32 @@ export default function ResellerItApp() {
     persist(next);
     setForm(emptyItem);
     setEditingId(null);
+    if (keepAdding) setItemFormOpen(false);
+  }
+
+  function saveItem(e) {
+    e.preventDefault();
+    saveCurrentItem();
+  }
+
+  function applyItemTemplate(template) {
+    setForm({
+      ...form,
+      ...template,
+      ebayFeeMode: template.classification === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode,
+    });
+  }
+
+  function updateQuickProofStatus(value) {
+    if (value === "Proof available") {
+      setForm({ ...form, hasReceipt: "Yes", receiptType: "Shop receipt", proofType: "Shop receipt" });
+    } else if (value === "External proof recorded") {
+      setForm({ ...form, hasReceipt: "Yes", proofStoredExternally: "Yes", receiptType: form.receiptType || "Shop receipt", proofType: form.proofType || "Shop receipt" });
+    } else if (value === "Eigenbeleg needed") {
+      setForm({ ...form, hasReceipt: "No", receiptType: "Eigenbeleg needed", proofType: "Eigenbeleg" });
+    } else {
+      setForm({ ...form, hasReceipt: "No", receiptType: "", proofType: "", proofStoredExternally: "No" });
+    }
   }
 
   function editItem(item) {
@@ -681,6 +748,13 @@ export default function ResellerItApp() {
     };
   }, [items]);
 
+  const todayWorkflow = useMemo(() => ({
+    toResearch: items.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
+    readyToList: items.filter((item) => itemStatus(item) === "Ready to List"),
+    soldNotShipped: items.filter((item) => itemStatus(item) === "Sold"),
+    missingProof: items.filter((item) => !hasProofRecord(item)),
+  }), [items]);
+
   const inventoryManagerItems = useMemo(() => {
     const query = inventorySearch.trim().toLowerCase();
     const filteredItems = items.filter((item) => {
@@ -886,12 +960,57 @@ export default function ResellerItApp() {
         <form onSubmit={saveItem} className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-neutral-950">{editingId ? "Edit Item" : "Add Item"}</h2>
-              <p className="mt-1 text-sm text-neutral-500">Capture inventory, sourcing evidence, receipt status, eBay listing, and sale details for later reconciliation.</p>
+              <h2 className="text-lg font-semibold text-neutral-950">{editingId ? "Edit Item" : "Quick Add Item"}</h2>
+              <p className="mt-1 text-sm text-neutral-500">Fast daily capture first. Open the advanced item form for sourcing, fee, proof, research, and listing details.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50">{itemFormOpen ? "Hide form" : "Show form"}</button>
+              <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50">{itemFormOpen ? "Hide advanced item form" : "Advanced item form"}</button>
               {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cancel edit</button>}
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            {!editingId && (
+              <div className="rounded-2xl border border-[#eadfce] bg-white/80 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Item templates</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {itemTemplates.map(([label, template]) => (
+                    <button key={label} type="button" onClick={() => applyItemTemplate(template)} className="rounded-xl border border-stone-200 bg-[#fffdf8] px-3 py-2 text-sm font-semibold text-stone-700 transition hover:border-orange-200 hover:bg-orange-50">
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+              <Input label="Item name" className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sony CD Player" />
+              <Select label="Classification" className="lg:col-span-2" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value, ebayFeeMode: e.target.value === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode })}>
+                {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+              </Select>
+              <Input label="Expected/listing price EUR" value={form.chosenListingPrice || form.expectedSalePrice} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value, expectedSalePrice: e.target.value })} />
+              <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                {statusOptions.map((status) => <option key={status}>{status}</option>)}
+                {form.status && !statusOptions.includes(form.status) && <option>{form.status}</option>}
+              </Select>
+              <Input label="Purchase/source note" className="sm:col-span-2 lg:col-span-3" value={form.sourceName} onChange={(e) => setForm({ ...form, sourceName: e.target.value })} placeholder="Private collection, flea market seller, shop name..." />
+              <Select label="Proof status" className="sm:col-span-2 lg:col-span-3" value={quickProofStatus(form)} onChange={(e) => updateQuickProofStatus(e.target.value)}>
+                <option>Proof available</option>
+                <option>External proof recorded</option>
+                <option>Eigenbeleg needed</option>
+                <option>Missing proof</option>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e06b2c] px-5 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.22)] transition hover:bg-[#f0be45] sm:w-auto">
+                <Plus size={16} /> {editingId ? "Save Changes" : "Add Item"}
+              </button>
+              {!editingId && (
+                <button type="button" onClick={() => saveCurrentItem({ keepAdding: true })} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-white px-5 py-3 text-sm font-semibold text-stone-800 transition hover:bg-orange-50 sm:w-auto">
+                  <Plus size={16} /> Save + Add another
+                </button>
+              )}
             </div>
           </div>
 
@@ -1078,9 +1197,6 @@ export default function ResellerItApp() {
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Condition, missing receipt reason, storage location, defects, tax notes..." />
           </label>
 
-          <button type="submit" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e06b2c] px-5 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.22)] transition hover:bg-[#f0be45] sm:w-auto">
-            <Plus size={16} /> {editingId ? "Save Changes" : "Add Item"}
-          </button>
           </div>}
         </form>
 
@@ -1222,6 +1338,28 @@ export default function ResellerItApp() {
                   <StatCard icon={ReceiptText} label="Purchases" value={money(monthlySummary.purchaseTotal)} />
                   <StatCard icon={Euro} label="Fees + shipping" value={money(monthlySummary.feesTotal)} />
                   <StatCard icon={Package} label="Inventory items" value={items.length} sub={`${summary.sold} sold total`} />
+                </div>
+                <div className="mt-4 rounded-2xl border border-orange-100 bg-[#fffaf0] p-4">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-neutral-950">Today workflow</h3>
+                      <p className="text-xs text-neutral-500">Quick queues for the next daily actions.</p>
+                    </div>
+                    <button type="button" onClick={() => setActiveTab("inventory")} className="text-left text-xs font-semibold text-orange-700 hover:text-orange-900 sm:text-right">Open Inventory Manager</button>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                    {[
+                      ["Items to research", todayWorkflow.toResearch.length],
+                      ["Ready to list", todayWorkflow.readyToList.length],
+                      ["Sold not shipped", todayWorkflow.soldNotShipped.length],
+                      ["Missing proof", todayWorkflow.missingProof.length],
+                    ].map(([label, value]) => (
+                      <div key={label} className="rounded-xl border border-stone-200 bg-white p-3">
+                        <p className="text-xs font-semibold text-stone-500">{label}</p>
+                        <p className="mt-1 text-2xl font-semibold text-stone-950">{value}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
                 <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
                   <h3 className="text-sm font-semibold text-neutral-950">Classification counts</h3>
