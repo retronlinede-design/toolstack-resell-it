@@ -1091,6 +1091,7 @@ export default function ResellerItApp() {
               <div className="bg-transparent px-1 py-2">
                 <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-28 w-full object-contain mix-blend-screen sm:max-h-32 lg:max-h-36" />
               </div>
+              <p className="mt-1 text-center text-sm font-semibold tracking-wide text-[#f0be45] sm:text-base">The Complete Reseller System.</p>
             </div>
             <nav className="space-y-2">
               <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === "dashboard" ? "border-[#f0be45]/60 bg-white/8 shadow-[0_8px_22px_rgba(240,190,69,0.12)]" : "border-[#5a3028] bg-[#45251f] hover:border-[#f0be45]/35 hover:bg-white/7"}`}>
