@@ -80,11 +80,10 @@ const advancedFormSections = [
 ];
 
 const modules = [
-  ["dashboard", "Dashboard"],
-  ["stock", "Stock Control"],
-  ["sales", "Sales & Shipping"],
-  ["finance", "Finance"],
-  ["tools", "Tools"],
+  ["stock", "Stock Control", "bg-[#b7412e]", "text-[#b7412e]", "text-[#fff7e8]"],
+  ["sales", "Sales & Shipping", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#24110e]"],
+  ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#24110e]"],
+  ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#062f2d]"],
 ];
 const stockSections = [["items", "Items"], ["sourcing", "Sourcing"], ["proof", "Proof"], ["listings", "Listings"]];
 const financeSections = [["expenses", "Expenses"], ["monthly", "Monthly"], ["tax", "Tax Summary"], ["ebay", "eBay Import"]];
@@ -1555,16 +1554,29 @@ export default function ResellerItApp() {
           </div>}
         </form>
 
-        <nav className="rounded-3xl border border-[#5a3028] bg-[#351c17]/95 p-2 shadow-[0_12px_34px_rgba(0,0,0,0.2)]">
-          <div className="mb-2 flex h-1.5 overflow-hidden rounded-full">
-            <div className="flex-1 bg-[#b7412e]" />
-            <div className="flex-1 bg-[#e06b2c]" />
-            <div className="flex-1 bg-[#f0be45]" />
-            <div className="flex-1 bg-[#1f9d99]" />
-          </div>
-          <div className="grid grid-cols-2 gap-1.5 md:grid-cols-5 xl:flex xl:flex-wrap">
-          {modules.map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition sm:text-sm ${activeTab === key ? "bg-[#e06b2c] text-[#24110e] shadow-[0_8px_18px_rgba(224,107,44,0.2)]" : "border border-[#5a3028] bg-[#45251f] text-[#f3e6d6] hover:bg-[#5a3028]"}`}>{label}</button>
+        <nav className="grid gap-2 rounded-3xl border border-[#5a3028] bg-[#351c17]/95 p-2 shadow-[0_12px_34px_rgba(0,0,0,0.2)] lg:grid-cols-[220px_1fr]">
+          <button type="button" onClick={() => setActiveTab("dashboard")} className={`overflow-hidden rounded-2xl border text-left transition ${activeTab === "dashboard" ? "border-[#f0be45]/70 bg-[#45251f] shadow-[0_8px_22px_rgba(240,190,69,0.16)]" : "border-[#5a3028] bg-[#45251f] hover:bg-[#523029]"}`}>
+            <div className="flex h-1.5">
+              <div className="flex-1 bg-[#b7412e]" />
+              <div className="flex-1 bg-[#e06b2c]" />
+              <div className="flex-1 bg-[#f0be45]" />
+              <div className="flex-1 bg-[#1f9d99]" />
+            </div>
+            <div className="px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#f0be45]">Home</p>
+              <p className="mt-0.5 text-base font-semibold text-[#fff7e8]">Dashboard</p>
+            </div>
+          </button>
+
+          <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
+          {modules.map(([key, label, stripeClass, accentClass, activeTextClass]) => (
+            <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition ${activeTab === key ? `border-transparent ${stripeClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.18)]` : "border-[#5a3028] bg-[#45251f] text-[#f3e6d6] hover:bg-[#523029]"}`}>
+              <div className={`h-1.5 ${stripeClass}`} />
+              <div className="px-3 py-2.5">
+                <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
+                <p className="mt-0.5 text-sm font-semibold">{label}</p>
+              </div>
+            </button>
           ))}
           </div>
         </nav>
