@@ -280,6 +280,22 @@ function itemStatus(item) {
   return legacyStatusLabels[item.status] || item.status || "Draft";
 }
 
+function statusBadgeClass(item) {
+  const status = itemStatus(item);
+  if (status === "Completed") return "bg-lime-100 text-lime-800 border-lime-200";
+  if (status === "Sold") return "bg-[#e06b2c]/15 text-[#8a3915] border-[#e06b2c]/25";
+  if (status === "Shipped") return "bg-[#1f9d99]/15 text-[#0f5f5b] border-[#1f9d99]/25";
+  if (status === "Ready to List" || status === "Listed") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
+  if (status === "Returned" || status === "Written Off") return "bg-red-50 text-red-700 border-red-200";
+  return "bg-stone-100 text-stone-700 border-stone-200";
+}
+
+function proofBadgeClass(item) {
+  if (hasProofRecord(item)) return "bg-lime-50 text-lime-800 border-lime-200";
+  if (needsEigenbeleg(item)) return "bg-[#f0be45]/20 text-[#6f4e05] border-[#f0be45]/35";
+  return "bg-red-50 text-red-700 border-red-200";
+}
+
 function expectedListingValue(item) {
   return number(item.chosenListingPrice || item.expectedSalePrice);
 }
@@ -1099,8 +1115,8 @@ export default function ResellerItApp() {
                       <h3 className="text-xl font-semibold text-stone-950">{form.name || "Untitled item"}</h3>
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{form.classification || DEFAULT_CLASSIFICATION}</span>
-                        <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">{itemStatus(form)}</span>
-                        <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">{quickProofStatus(form)}</span>
+                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(form)}`}>{itemStatus(form)}</span>
+                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${proofBadgeClass(form)}`}>{quickProofStatus(form)}</span>
                         <span className={`rounded-full px-3 py-1 text-xs font-medium ${hasListingDraft(form) ? "bg-lime-100 text-lime-800" : "bg-orange-100 text-orange-800"}`}>{hasListingDraft(form) ? "Listing ready" : "Listing draft needed"}</span>
                       </div>
                     </div>
@@ -1287,6 +1303,14 @@ export default function ResellerItApp() {
                 <option>Eigenbeleg needed</option>
                 <option>Missing proof</option>
               </Select>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/60 p-2">
+              <span className="px-1 text-xs font-semibold text-stone-500">Status</span>
+              {["Draft", "Sourced", "Ready to List", "Listed"].map((status) => (
+                <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${form.status === status ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 text-[#8a3915]" : "border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20"}`}>
+                  {status}
+                </button>
+              ))}
             </div>
 
             <div className="flex flex-col gap-2 rounded-2xl border border-[#eadfce] bg-white/70 p-2 sm:flex-row sm:flex-wrap sm:items-center">
@@ -1682,14 +1706,14 @@ export default function ResellerItApp() {
               <div className="grid gap-3">
                 {inventoryManagerItems.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No inventory items match the current filters.</p>}
                 {inventoryManagerItems.map((item) => (
-                  <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-                    <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+                  <article key={item.id} className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
+                    <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
                       <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:items-center">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-neutral-950">{item.name}</h3>
                             <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{itemClassification(item)}</span>
-                            <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{itemStatus(item)}</span>
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
                           </div>
                           <p className="mt-1 text-sm text-neutral-600">{item.category || "No category"} / bought {item.purchaseDate || "no date"}</p>
                         </div>
@@ -1702,14 +1726,12 @@ export default function ResellerItApp() {
                           <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Health</p><p className="font-semibold">{[!hasProofRecord(item) && "Proof", !hasPriceResearch(item) && "Price", !hasListingDraft(item) && "Draft"].filter(Boolean).join(", ") || "OK"}</p></div>
                         </div>
                       </div>
-                      <div className="flex flex-wrap gap-2 xl:justify-end">
-                        <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
-                        <button type="button" onClick={() => duplicateItem(item)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Duplicate</button>
-                        <button type="button" onClick={() => updateItemStatus(item.id, "Ready to List")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Ready to List</button>
-                        <button type="button" onClick={() => updateItemStatus(item.id, "Listed")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Listed</button>
-                        <button type="button" onClick={() => updateItemStatus(item.id, "Sold")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Sold</button>
-                        <button type="button" onClick={() => updateItemStatus(item.id, "Shipped")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Shipped</button>
-                        <button type="button" onClick={() => updateItemStatus(item.id, "Completed")} className="rounded-xl bg-lime-100 px-3 py-2 text-sm font-semibold text-lime-800 hover:bg-lime-200">Mark Completed</button>
+                      <div className="flex flex-wrap gap-1.5 xl:max-w-sm xl:justify-end">
+                        <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
+                        <button type="button" onClick={() => duplicateItem(item)} className="rounded-xl border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Duplicate</button>
+                        {["Ready to List", "Listed", "Sold", "Shipped", "Completed"].map((status) => (
+                          <button key={status} type="button" onClick={() => updateItemStatus(item.id, status)} className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${itemStatus(item) === status ? statusBadgeClass({ status }) : "border-neutral-300 text-neutral-700 hover:bg-[#f0be45]/20"}`}>{status}</button>
+                        ))}
                       </div>
                     </div>
                   </article>
@@ -1743,7 +1765,7 @@ export default function ResellerItApp() {
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-neutral-950">{item.name}</h3>
                             <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{itemClassification(item)}</span>
-                            <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{itemStatus(item)}</span>
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
                           </div>
                           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                             <div className="rounded-xl bg-neutral-50 p-3">
@@ -1786,7 +1808,7 @@ export default function ResellerItApp() {
                   <StatCard icon={Euro} label="Fees + shipping" value={money(monthlySummary.feesTotal)} />
                   <StatCard icon={Package} label="Inventory items" value={items.length} sub={`${summary.sold} sold total`} />
                 </div>
-                <div className="mt-4 rounded-2xl border border-orange-100 bg-[#fffaf0] p-4">
+                <div className="mt-4 rounded-2xl border border-orange-100 bg-[#fffaf0] p-3">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                     <div>
                       <h3 className="text-sm font-semibold text-neutral-950">Today workflow</h3>
@@ -1796,15 +1818,18 @@ export default function ResellerItApp() {
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     {[
-                      ["Items to research", todayWorkflow.toResearch.length],
-                      ["Ready to list", todayWorkflow.readyToList.length],
-                      ["Sold not shipped", todayWorkflow.soldNotShipped.length],
-                      ["Missing proof", todayWorkflow.missingProof.length],
-                    ].map(([label, value]) => (
-                      <div key={label} className="rounded-xl border border-stone-200 bg-white p-3">
-                        <p className="text-xs font-semibold text-stone-500">{label}</p>
+                      ["Items to research", todayWorkflow.toResearch.length, "stock", "items", "Price checks"],
+                      ["Ready to list", todayWorkflow.readyToList.length, "stock", "listings", "Listing queue"],
+                      ["Sold not shipped", todayWorkflow.soldNotShipped.length, "sales", "", "Ship next"],
+                      ["Missing proof", todayWorkflow.missingProof.length, "stock", "proof", "Proof gaps"],
+                    ].map(([label, value, tab, section, sub]) => (
+                      <button key={label} type="button" onClick={() => { setActiveTab(tab); if (section === "items" || section === "proof" || section === "listings") setStockSection(section); }} className="rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-[#f0be45]/60 hover:bg-[#f0be45]/10">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-xs font-semibold text-stone-500">{label}</p>
+                          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-600">{sub}</span>
+                        </div>
                         <p className="mt-1 text-2xl font-semibold text-stone-950">{value}</p>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 </div>
@@ -1872,7 +1897,7 @@ export default function ResellerItApp() {
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-stone-950">{item.name}</h3>
                             <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{itemClassification(item)}</span>
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${hasProofRecord(item) ? "bg-lime-100 text-lime-800" : "bg-red-50 text-red-700"}`}>{proofStatus}</span>
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${proofBadgeClass(item)}`}>{proofStatus}</span>
                             {needsEigenbeleg(item) && <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">Eigenbeleg needed</span>}
                           </div>
                           <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
@@ -2232,13 +2257,13 @@ export default function ResellerItApp() {
             const proofStatus = hasProofRecord(item) ? "Proof recorded" : "Missing proof";
             const listingDraft = generateListingDraft(item);
             return (
-              <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <article key={item.id} className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="flex gap-3">
                     <div>
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-neutral-950">{item.name}</h3>
-                      <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{itemStatus(item)}</span>
+                      <h3 className="text-base font-semibold text-neutral-950 md:text-lg">{item.name}</h3>
+                      <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
                       <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{classification}</span>
                       <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{item.category || "No category"}</span>
                     </div>
@@ -2251,19 +2276,19 @@ export default function ResellerItApp() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-5">
+                <div className="mt-3 grid grid-cols-2 gap-2 md:grid-cols-5">
                   <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Purchase</p><p className="mt-1 font-semibold">{money(item.purchasePrice)}</p></div>
                   <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Listing</p><p className="mt-1 font-semibold">{money(item.chosenListingPrice || item.expectedSalePrice)}</p></div>
                   {isSoldStatus(item) && <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Final sale</p><p className="mt-1 font-semibold">{money(finalSaleValue(item))}</p></div>}
-                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Proof</p><p className="mt-1 font-semibold">{proofStatus}</p></div>
+                  <div className={`rounded-2xl border p-3 ${proofBadgeClass(item)}`}><p className="text-xs opacity-75">Proof</p><p className="mt-1 font-semibold">{proofStatus}</p></div>
                   <div className="col-span-2 rounded-2xl bg-lime-100 p-3 text-lime-900 md:col-span-1"><p className="text-xs text-lime-700">Profit</p><p className="mt-1 font-semibold">{money(itemProfit)}</p></div>
                 </div>
 
-                <div className="mt-3 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setExpandedCardPanel(priceExpanded ? "" : `${item.id}:price`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{priceExpanded ? "Hide price research" : "Price research"}</button>
-                  <button type="button" onClick={() => setExpandedCardPanel(listingExpanded ? "" : `${item.id}:listing`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{listingExpanded ? "Hide Listing Studio" : "Listing Studio"}</button>
-                  <button type="button" onClick={() => setExpandedProofId(proofExpanded ? null : item.id)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{proofExpanded ? "Hide proof" : "Proof details"}</button>
-                  <button type="button" onClick={() => setExpandedCardPanel(feeExpanded ? "" : `${item.id}:fees`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{feeExpanded ? "Hide fees" : "Fee details"}</button>
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  <button type="button" onClick={() => setExpandedCardPanel(priceExpanded ? "" : `${item.id}:price`)} className="rounded-xl border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">{priceExpanded ? "Hide price" : "Price"}</button>
+                  <button type="button" onClick={() => setExpandedCardPanel(listingExpanded ? "" : `${item.id}:listing`)} className="rounded-xl border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">{listingExpanded ? "Hide listing" : "Listing"}</button>
+                  <button type="button" onClick={() => setExpandedProofId(proofExpanded ? null : item.id)} className="rounded-xl border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">{proofExpanded ? "Hide proof" : "Proof"}</button>
+                  <button type="button" onClick={() => setExpandedCardPanel(feeExpanded ? "" : `${item.id}:fees`)} className="rounded-xl border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">{feeExpanded ? "Hide fees" : "Fees"}</button>
                 </div>
 
                 {priceExpanded && <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-4">
