@@ -7,12 +7,15 @@ const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const CURRENT_YEAR = new Date().getFullYear().toString();
 const ebayMappingHints = ["order date", "item title", "sale price", "fees", "shipping", "refund", "payout"];
 const DEFAULT_CLASSIFICATION = "Unsure / Review Later";
+const DEFAULT_EBAY_FEE_MODE = "Private Germany";
 const classificationOptions = [
   "Private Sale / Personal Collection",
   "Business Stock / Resale Inventory",
   "Legacy Stock / Previous Business",
   DEFAULT_CLASSIFICATION,
 ];
+const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
+const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
 const classificationHelp = [
   ["Private Sale / Personal Collection", "Originally owned personal item."],
   ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
@@ -48,8 +51,25 @@ const emptyItem = {
   ebayTitle: "",
   saleDate: "",
   salePrice: "",
+  finalSalePrice: "",
+  shippingChargedToBuyer: "",
+  actualShippingCost: "",
   ebayFees: "",
+  ebayFeeMode: DEFAULT_EBAY_FEE_MODE,
+  feePercent: "",
+  fixedFee: "",
+  estimatedEbayFee: "",
+  manualEbayFee: "",
+  promotedListingFee: "",
+  otherPlatformFees: "",
   shippingCost: "",
+  proofType: "Eigenbeleg",
+  proofDate: new Date().toISOString().slice(0, 10),
+  proofAmount: "",
+  proofNotes: "",
+  noReceiptReason: "",
+  proofImageDataUrl: "",
+  proofImageName: "",
   notes: "",
 };
 
@@ -117,6 +137,36 @@ function inYear(date, year = CURRENT_YEAR) {
 
 function itemClassification(item) {
   return item.classification || DEFAULT_CLASSIFICATION;
+}
+
+function finalSaleValue(item) {
+  return number(item.finalSalePrice || item.salePrice);
+}
+
+function shippingChargedValue(item) {
+  return number(item.shippingChargedToBuyer);
+}
+
+function actualShippingValue(item) {
+  return number(item.actualShippingCost || item.shippingCost);
+}
+
+function ebayBaseFee(item) {
+  const grossSale = finalSaleValue(item) + shippingChargedValue(item);
+  const mode = item.ebayFeeMode || (item.ebayFees ? "Legacy" : DEFAULT_EBAY_FEE_MODE);
+
+  if (mode === "Manual") return number(item.manualEbayFee || item.ebayFees);
+  if (mode === "Business Estimate") return (grossSale * number(item.feePercent)) / 100 + number(item.fixedFee);
+  if (mode === "Legacy") return number(item.ebayFees);
+  return 0;
+}
+
+function platformFees(item) {
+  return ebayBaseFee(item) + number(item.promotedListingFee) + number(item.otherPlatformFees);
+}
+
+function itemProfitValue(item) {
+  return finalSaleValue(item) + shippingChargedValue(item) - number(item.purchasePrice) - actualShippingValue(item) - platformFees(item);
 }
 
 function loadInitialItems() {
@@ -237,6 +287,7 @@ export default function ResellerItApp() {
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
+  const [expandedProofId, setExpandedProofId] = useState(null);
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -246,7 +297,13 @@ export default function ResellerItApp() {
   function saveItem(e) {
     e.preventDefault();
     if (!form.name.trim()) return;
-    const clean = { ...form, name: form.name.trim() };
+    const clean = {
+      ...form,
+      name: form.name.trim(),
+      classification: form.classification || DEFAULT_CLASSIFICATION,
+      ebayFeeMode: form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE,
+      estimatedEbayFee: form.ebayFeeMode === "Business Estimate" ? String(ebayBaseFee(form)) : form.estimatedEbayFee,
+    };
     const next = editingId
       ? items.map((item) => (item.id === editingId ? { ...item, ...clean } : item))
       : [{ id: crypto.randomUUID(), ...clean }, ...items];
@@ -326,11 +383,22 @@ export default function ResellerItApp() {
     persistEbayImportBatches(ebayImportBatches.filter((batch) => batch.id !== id));
   }
 
+  function handleProofImageUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      setForm({ ...form, proofImageDataUrl: String(reader.result || ""), proofImageName: file.name });
+    };
+    reader.readAsDataURL(file);
+  }
+
   const summary = useMemo(() => {
     const purchaseTotal = items.reduce((sum, item) => sum + number(item.purchasePrice), 0);
-    const salesTotal = items.reduce((sum, item) => sum + number(item.salePrice), 0);
-    const feesTotal = items.reduce((sum, item) => sum + number(item.ebayFees) + number(item.shippingCost), 0);
-    const profit = salesTotal - purchaseTotal - feesTotal;
+    const salesTotal = items.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
+    const feesTotal = items.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
+    const profit = items.reduce((sum, item) => sum + itemProfitValue(item), 0);
     const sold = items.filter((item) => item.status === "Sold").length;
     const eigenbeleg = items.filter((item) => item.hasReceipt === "No").length;
     return { purchaseTotal, salesTotal, feesTotal, profit, sold, eigenbeleg };
@@ -347,9 +415,9 @@ export default function ResellerItApp() {
     const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
     const monthlySales = items.filter((item) => inMonth(item.saleDate));
     const purchaseTotal = monthlyPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
-    const salesTotal = monthlySales.reduce((sum, item) => sum + number(item.salePrice), 0);
-    const feesTotal = monthlySales.reduce((sum, item) => sum + number(item.ebayFees) + number(item.shippingCost), 0);
-    const profit = salesTotal - purchaseTotal - feesTotal;
+    const salesTotal = monthlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
+    const feesTotal = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
+    const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - monthlyPurchases.filter((item) => !inMonth(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0);
     return { purchaseTotal, salesTotal, feesTotal, profit };
   }, [items]);
 
@@ -357,9 +425,9 @@ export default function ResellerItApp() {
     const yearlyPurchases = items.filter((item) => inYear(item.purchaseDate));
     const yearlySales = items.filter((item) => inYear(item.saleDate));
     const purchaseTotal = yearlyPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
-    const salesTotal = yearlySales.reduce((sum, item) => sum + number(item.salePrice), 0);
-    const feesTotal = yearlySales.reduce((sum, item) => sum + number(item.ebayFees) + number(item.shippingCost), 0);
-    const profit = salesTotal - purchaseTotal - feesTotal;
+    const salesTotal = yearlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
+    const feesTotal = yearlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
+    const profit = yearlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - yearlyPurchases.filter((item) => !inYear(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0);
     return { purchaseTotal, salesTotal, feesTotal, profit };
   }, [items]);
 
@@ -377,7 +445,15 @@ export default function ResellerItApp() {
     return nextItems.filter((item) => itemClassification(item) === classificationFilter);
   }, [activeTab, classificationFilter, items]);
 
-  const eigenbelegText = (item) => `Eigenbeleg / Self-Receipt\n\nDate: ${item.purchaseDate}\nItem: ${item.name}\nSource: ${item.sourceType} - ${item.sourceName || "private seller"}\nLocation: ${item.sourceLocation}\nPurchase price: ${money(item.purchasePrice)}\nPayment method: ${item.paymentMethod}\nReason no invoice: Private second-hand / flea-market purchase; no formal receipt available.\nNotes: ${item.notes || "-"}\n\nSigned: ______________________`;
+  const eigenbelegText = (item) => `Eigenbeleg / Self-Receipt\n\nDate: ${item.proofDate || item.purchaseDate}\nItem: ${item.name}\nClassification: ${itemClassification(item)}\nSource: ${item.sourceType} - ${item.sourceName || "private seller"}\nLocation: ${item.sourceLocation}\nPurchase price / proof amount: ${money(item.proofAmount || item.purchasePrice)}\nPayment method: ${item.paymentMethod}\nReason no invoice: ${item.noReceiptReason || "Private second-hand / flea-market purchase; no formal receipt available."}\nProof notes: ${item.proofNotes || item.notes || "-"}\n\nSigned: ______________________`;
+
+  async function copyEigenbeleg(item) {
+    try {
+      await navigator.clipboard.writeText(eigenbelegText(item));
+    } catch {
+      window.prompt("Copy Eigenbeleg text", eigenbelegText(item));
+    }
+  }
 
   return (
     <div className="min-h-screen bg-neutral-50 px-3 py-4 text-neutral-900 sm:px-5 md:px-8 md:py-8">
@@ -456,10 +532,57 @@ export default function ResellerItApp() {
             <FormSection title="eBay sale and fees">
               <Input label="Expected sale price EUR" value={form.expectedSalePrice} onChange={(e) => setForm({ ...form, expectedSalePrice: e.target.value })} />
               <Input label="Sale date" type="date" value={form.saleDate} onChange={(e) => setForm({ ...form, saleDate: e.target.value })} />
-              <Input label="Sale price EUR" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} />
-              <Input label="eBay fees EUR" value={form.ebayFees} onChange={(e) => setForm({ ...form, ebayFees: e.target.value })} />
-              <Input label="Shipping cost EUR" value={form.shippingCost} onChange={(e) => setForm({ ...form, shippingCost: e.target.value })} />
+              <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
+              <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
+              <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
+              <Select label="eBay fee mode" value={form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE} onChange={(e) => setForm({ ...form, ebayFeeMode: e.target.value })}>
+                {ebayFeeModes.map((mode) => <option key={mode}>{mode}</option>)}
+              </Select>
+              <Input label="Business fee percent" value={form.feePercent || ""} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} />
+              <Input label="Business fixed fee EUR" value={form.fixedFee || ""} onChange={(e) => setForm({ ...form, fixedFee: e.target.value })} />
+              <Input label="Estimated eBay fee EUR" value={form.ebayFeeMode === "Business Estimate" ? String(ebayBaseFee(form)) : (form.estimatedEbayFee || "")} onChange={(e) => setForm({ ...form, estimatedEbayFee: e.target.value })} readOnly={form.ebayFeeMode === "Business Estimate"} />
+              <Input label="Manual eBay fee EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value })} />
+              <Input label="Promoted listing fee EUR" value={form.promotedListingFee || ""} onChange={(e) => setForm({ ...form, promotedListingFee: e.target.value })} />
+              <Input label="Other platform fees EUR" value={form.otherPlatformFees || ""} onChange={(e) => setForm({ ...form, otherPlatformFees: e.target.value })} />
             </FormSection>
+
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+              <h3 className="text-sm font-semibold text-neutral-950">Fee calculation helper</h3>
+              <div className="mt-3 grid gap-3 text-sm text-neutral-600 md:grid-cols-2">
+                <p className="rounded-xl bg-neutral-50 p-3">Private Germany mode defaults the estimated eBay fee to 0. Optional services such as promoted listings or other platform fees can still be recorded.</p>
+                <p className="rounded-xl bg-neutral-50 p-3">Business Estimate mode is an estimate only; reconcile with the official eBay report before relying on final numbers.</p>
+              </div>
+              <p className="mt-3 rounded-xl bg-neutral-950 p-3 text-sm font-semibold text-white">Current final profit: {money(itemProfitValue(form))}</p>
+            </div>
+
+            <FormSection title="Receipt / evidence record">
+              <Select label="Proof type" value={form.proofType || "Eigenbeleg"} onChange={(e) => setForm({ ...form, proofType: e.target.value })}>
+                {proofTypes.map((type) => <option key={type}>{type}</option>)}
+              </Select>
+              <Input label="Proof date" type="date" value={form.proofDate || form.purchaseDate} onChange={(e) => setForm({ ...form, proofDate: e.target.value })} />
+              <Input label="Proof amount EUR" value={form.proofAmount || ""} onChange={(e) => setForm({ ...form, proofAmount: e.target.value })} />
+              <Input label="No receipt reason" value={form.noReceiptReason || ""} onChange={(e) => setForm({ ...form, noReceiptReason: e.target.value })} placeholder="e.g. private seller did not issue receipt" />
+            </FormSection>
+
+            <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
+              <h3 className="text-sm font-semibold text-neutral-950">Evidence attachment</h3>
+              <div className="mt-3 grid gap-3 md:grid-cols-[0.8fr_1.2fr]">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Receipt / evidence image</span>
+                  <input type="file" accept="image/*" onChange={handleProofImageUpload} className="block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Proof notes</span>
+                  <textarea value={form.proofNotes || ""} onChange={(e) => setForm({ ...form, proofNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Photo context, seller note, receipt reference, storage location..." />
+                </label>
+              </div>
+              {form.proofImageDataUrl && (
+                <div className="mt-3 flex items-center gap-3">
+                  <img src={form.proofImageDataUrl} alt="Proof attachment preview" className="h-16 w-16 rounded-xl border border-neutral-200 object-cover" />
+                  <p className="text-sm text-neutral-600">{form.proofImageName || "Attached image stored locally"}</p>
+                </div>
+              )}
+            </div>
           </div>
 
           <label className="mt-4 block">
@@ -669,12 +792,15 @@ export default function ResellerItApp() {
           )}
 
           {filtered.map((item) => {
-            const itemProfit = number(item.salePrice) - number(item.purchasePrice) - number(item.ebayFees) - number(item.shippingCost);
+            const itemProfit = itemProfitValue(item);
             const classification = itemClassification(item);
+            const proofExpanded = expandedProofId === item.id;
             return (
               <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                  <div>
+                  <div className="flex gap-3">
+                    {item.proofImageDataUrl && <img src={item.proofImageDataUrl} alt={`${item.name} proof`} className="h-16 w-16 shrink-0 rounded-2xl border border-neutral-200 object-cover" />}
+                    <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold text-neutral-950">{item.name}</h3>
                       <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{item.status}</span>
@@ -683,6 +809,7 @@ export default function ResellerItApp() {
                     </div>
                     <p className="mt-1 text-sm text-neutral-600">{item.sourceType} / {item.sourceLocation || "No location"} / bought {item.purchaseDate}</p>
                     {item.ebayTitle && <p className="mt-1 text-sm text-neutral-700">eBay: {item.ebayTitle}</p>}
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => editItem(item)} className="rounded-xl border border-neutral-300 p-2 text-neutral-700 hover:bg-neutral-50"><Edit3 size={16} /></button>
@@ -690,27 +817,54 @@ export default function ResellerItApp() {
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
                   <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Purchase</p><p className="mt-1 font-semibold">{money(item.purchasePrice)}</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Expected sale</p><p className="mt-1 font-semibold">{money(item.expectedSalePrice)}</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Actual sale</p><p className="mt-1 font-semibold">{money(item.salePrice)}</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Fees + shipping</p><p className="mt-1 font-semibold">{money(number(item.ebayFees) + number(item.shippingCost))}</p></div>
-                  <div className="col-span-2 rounded-2xl bg-neutral-950 p-3 text-white lg:col-span-1"><p className="text-xs text-neutral-300">Profit</p><p className="mt-1 font-semibold">{money(itemProfit)}</p></div>
+                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Expected/listing</p><p className="mt-1 font-semibold">{money(item.expectedSalePrice)}</p></div>
+                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Final sale</p><p className="mt-1 font-semibold">{money(finalSaleValue(item))}</p></div>
+                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Shipping charged</p><p className="mt-1 font-semibold">{money(shippingChargedValue(item))}</p></div>
+                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Ship cost + fees</p><p className="mt-1 font-semibold">{money(actualShippingValue(item) + platformFees(item))}</p></div>
+                  <div className="col-span-2 rounded-2xl bg-neutral-950 p-3 text-white lg:col-span-1"><p className="text-xs text-neutral-300">Final profit</p><p className="mt-1 font-semibold">{money(itemProfit)}</p></div>
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <div className="rounded-2xl bg-neutral-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Receipt record</p>
-                    <p className="mt-1 text-sm">Receipt: <strong>{item.hasReceipt}</strong> / Type: <strong>{item.receiptType}</strong> / Payment: <strong>{item.paymentMethod}</strong></p>
+                    <p className="mt-1 text-sm">Receipt: <strong>{item.hasReceipt}</strong> / Type: <strong>{item.proofType || item.receiptType || "Eigenbeleg"}</strong> / Payment: <strong>{item.paymentMethod}</strong></p>
                     <p className="mt-2 text-sm text-neutral-600">{item.notes || "No notes."}</p>
+                    <button type="button" onClick={() => setExpandedProofId(proofExpanded ? null : item.id)} className="mt-3 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-white">
+                      {proofExpanded ? "Hide proof details" : "View proof details"}
+                    </button>
                   </div>
-                  {item.hasReceipt === "No" && (
-                    <div className="rounded-2xl bg-neutral-50 p-4">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Eigenbeleg draft</p>
-                      <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap text-xs text-neutral-700">{eigenbelegText(item)}</pre>
-                    </div>
-                  )}
+                  <div className="rounded-2xl bg-neutral-50 p-4">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Fee model</p>
+                    <p className="mt-1 text-sm">Mode: <strong>{item.ebayFeeMode || (item.ebayFees ? "Legacy fee field" : DEFAULT_EBAY_FEE_MODE)}</strong></p>
+                    <p className="mt-2 text-sm text-neutral-600">eBay/platform fees: <strong>{money(platformFees(item))}</strong></p>
+                    {(item.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <p className="mt-2 text-xs font-medium text-neutral-500">Estimate only; reconcile with eBay report.</p>}
+                  </div>
                 </div>
+
+                {proofExpanded && (
+                  <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
+                    <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr]">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Proof details</p>
+                        <p className="mt-2 text-sm">Type: <strong>{item.proofType || item.receiptType || "Eigenbeleg"}</strong></p>
+                        <p className="mt-1 text-sm">Date: <strong>{item.proofDate || item.purchaseDate || "-"}</strong></p>
+                        <p className="mt-1 text-sm">Amount: <strong>{money(item.proofAmount || item.purchasePrice)}</strong></p>
+                        {item.noReceiptReason && <p className="mt-2 text-sm text-neutral-600">No receipt reason: {item.noReceiptReason}</p>}
+                        {item.proofImageDataUrl && <img src={item.proofImageDataUrl} alt={`${item.name} proof detail`} className="mt-3 max-h-56 rounded-2xl border border-neutral-200 object-contain" />}
+                      </div>
+                      <div>
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Eigenbeleg draft</p>
+                          <button type="button" onClick={() => copyEigenbeleg(item)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-white">Copy Eigenbeleg</button>
+                        </div>
+                        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded-xl bg-white p-3 text-xs text-neutral-700">{eigenbelegText(item)}</pre>
+                        {item.proofNotes && <p className="mt-3 text-sm text-neutral-600">{item.proofNotes}</p>}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </article>
             );
           })}
