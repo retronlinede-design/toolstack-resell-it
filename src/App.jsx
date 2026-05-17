@@ -2,6 +2,19 @@ import React, { useMemo, useState } from "react";
 import { Plus, Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3 } from "lucide-react";
 
 const STORAGE_KEY = "toolstack.resellerit.v1";
+const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
+const CURRENT_YEAR = new Date().getFullYear().toString();
+
+const modules = [
+  ["dashboard", "Dashboard"],
+  ["inventory", "Inventory"],
+  ["sourcing", "Sourcing Records"],
+  ["receipts", "Receipts / Eigenbelege"],
+  ["ebay-import", "eBay Import"],
+  ["reconciliation", "Monthly Reconciliation"],
+  ["expenses", "Expenses"],
+  ["tax", "Tax Summary"],
+];
 
 const emptyItem = {
   name: "",
@@ -78,6 +91,14 @@ function number(value) {
   return Number(String(value || "0").replace(",", ".")) || 0;
 }
 
+function inMonth(date, month = CURRENT_MONTH) {
+  return String(date || "").startsWith(month);
+}
+
+function inYear(date, year = CURRENT_YEAR) {
+  return String(date || "").startsWith(year);
+}
+
 function loadInitialItems() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -137,7 +158,7 @@ export default function ResellerItApp() {
   const [items, setItems] = useState(loadInitialItems);
   const [form, setForm] = useState(emptyItem);
   const [editingId, setEditingId] = useState(null);
-  const [activeTab, setActiveTab] = useState("inventory");
+  const [activeTab, setActiveTab] = useState("dashboard");
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -187,11 +208,33 @@ export default function ResellerItApp() {
     return { purchaseTotal, salesTotal, feesTotal, profit, sold, eigenbeleg };
   }, [items]);
 
+  const monthlySummary = useMemo(() => {
+    const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
+    const monthlySales = items.filter((item) => inMonth(item.saleDate));
+    const purchaseTotal = monthlyPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    const salesTotal = monthlySales.reduce((sum, item) => sum + number(item.salePrice), 0);
+    const feesTotal = monthlySales.reduce((sum, item) => sum + number(item.ebayFees) + number(item.shippingCost), 0);
+    const profit = salesTotal - purchaseTotal - feesTotal;
+    return { purchaseTotal, salesTotal, feesTotal, profit };
+  }, [items]);
+
+  const yearlySummary = useMemo(() => {
+    const yearlyPurchases = items.filter((item) => inYear(item.purchaseDate));
+    const yearlySales = items.filter((item) => inYear(item.saleDate));
+    const purchaseTotal = yearlyPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    const salesTotal = yearlySales.reduce((sum, item) => sum + number(item.salePrice), 0);
+    const feesTotal = yearlySales.reduce((sum, item) => sum + number(item.ebayFees) + number(item.shippingCost), 0);
+    const profit = salesTotal - purchaseTotal - feesTotal;
+    return { purchaseTotal, salesTotal, feesTotal, profit };
+  }, [items]);
+
   const filtered = useMemo(() => {
+    if (activeTab === "dashboard") return [];
     if (activeTab === "inventory") return items;
     if (activeTab === "sourcing") return items.filter((item) => item.status === "Sourced" || item.status === "Listed");
-    if (activeTab === "sales") return items.filter((item) => item.status === "Sold" || item.salePrice);
+    if (activeTab === "receipts") return items.filter((item) => item.hasReceipt === "No" || item.receiptType || item.notes);
     if (activeTab === "tax") return items;
+    if (activeTab === "ebay-import" || activeTab === "reconciliation" || activeTab === "expenses") return [];
     return items;
   }, [activeTab, items]);
 
@@ -205,7 +248,8 @@ export default function ResellerItApp() {
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">ToolStack</p>
               <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950 md:text-4xl">ResellIt</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-neutral-600">Stock, sourcing, receipts, Eigenbelege, eBay sales, and tax-support summaries for a small German reseller business.</p>
+              <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">Germany-focused tax-prep workspace for Kleinunternehmer and Einzelunternehmen resellers: inventory, sourcing records, receipts, Eigenbelege, eBay sales reconciliation, and EÜR-style monthly/yearly summaries.</p>
+              <p className="mt-2 max-w-3xl text-xs font-medium text-neutral-500">Tax support only, not legal or tax advice. Verify filings with a Steuerberater or the Finanzamt rules that apply to your business.</p>
             </div>
             <button onClick={exportJson} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-neutral-800 sm:w-auto">
               <Download size={16} /> Export Backup
@@ -213,25 +257,24 @@ export default function ResellerItApp() {
           </div>
         </header>
 
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard icon={Package} label="Items" value={items.length} sub={`${summary.sold} sold`} />
-          <StatCard icon={ReceiptText} label="Purchases" value={money(summary.purchaseTotal)} />
-          <StatCard icon={ShoppingCart} label="Sales" value={money(summary.salesTotal)} />
-          <StatCard icon={Euro} label="Profit" value={money(summary.profit)} sub="after purchase, fees, shipping" />
-          <StatCard icon={FileText} label="Eigenbelege" value={summary.eigenbeleg} sub="missing formal receipts" />
+        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard icon={ShoppingCart} label={`Monthly sales ${CURRENT_MONTH}`} value={money(monthlySummary.salesTotal)} />
+          <StatCard icon={ReceiptText} label="Monthly purchases" value={money(monthlySummary.purchaseTotal)} />
+          <StatCard icon={Euro} label="Monthly fees" value={money(monthlySummary.feesTotal)} sub="eBay fees + shipping" />
+          <StatCard icon={FileText} label="Estimated profit" value={money(monthlySummary.profit)} sub="sales minus purchases, fees, shipping" />
         </section>
 
         <form onSubmit={saveItem} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-neutral-950">{editingId ? "Edit Item" : "Add Item"}</h2>
-              <p className="mt-1 text-sm text-neutral-500">Capture sourcing, receipt, listing, and sale details.</p>
+              <p className="mt-1 text-sm text-neutral-500">Capture inventory, sourcing evidence, receipt status, eBay listing, and sale details for later reconciliation.</p>
             </div>
             {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); }} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Cancel edit</button>}
           </div>
 
           <div className="space-y-3">
-            <FormSection title="Item">
+            <FormSection title="Inventory item">
               <Input label="Item name" className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sony CD Player" />
               <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Electronics, clothing..." />
               <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
@@ -240,7 +283,7 @@ export default function ResellerItApp() {
               <Input label="eBay title" className="sm:col-span-2 lg:col-span-4" value={form.ebayTitle} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value })} />
             </FormSection>
 
-            <FormSection title="Sourcing">
+            <FormSection title="Sourcing record and receipt evidence">
               <Select label="Source type" value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })}>
                 <option>Flea market</option><option>Second-hand shop</option><option>Private seller</option><option>Online marketplace</option><option>Other</option>
               </Select>
@@ -256,7 +299,7 @@ export default function ResellerItApp() {
               </Select>
             </FormSection>
 
-            <FormSection title="Sale">
+            <FormSection title="eBay sale and fees">
               <Input label="Expected sale price EUR" value={form.expectedSalePrice} onChange={(e) => setForm({ ...form, expectedSalePrice: e.target.value })} />
               <Input label="Sale date" type="date" value={form.saleDate} onChange={(e) => setForm({ ...form, saleDate: e.target.value })} />
               <Input label="Sale price EUR" value={form.salePrice} onChange={(e) => setForm({ ...form, salePrice: e.target.value })} />
@@ -275,27 +318,83 @@ export default function ResellerItApp() {
           </button>
         </form>
 
-        <nav className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
-          {[
-            ["inventory", "Inventory"],
-            ["sourcing", "Sourcing"],
-            ["sales", "Sales"],
-            ["tax", "Tax Summary"],
-          ].map(([key, label]) => (
+        <nav className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:flex xl:flex-wrap">
+          {modules.map(([key, label]) => (
             <button key={key} onClick={() => setActiveTab(key)} className={`rounded-2xl px-4 py-2.5 text-sm font-semibold ${activeTab === key ? "bg-neutral-950 text-white" : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`}>{label}</button>
           ))}
         </nav>
 
         <section className="grid gap-4">
+          {activeTab === "dashboard" && (
+            <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-neutral-950">Monthly reseller dashboard</h2>
+                <p className="mt-1 text-sm text-neutral-600">Working view for the current month. Use it to compare eBay sales against purchases, fees, shipping, and missing receipt records before preparing your monthly bookkeeping pack.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <StatCard icon={ShoppingCart} label="Sales" value={money(monthlySummary.salesTotal)} />
+                  <StatCard icon={ReceiptText} label="Purchases" value={money(monthlySummary.purchaseTotal)} />
+                  <StatCard icon={Euro} label="Fees + shipping" value={money(monthlySummary.feesTotal)} />
+                  <StatCard icon={Package} label="Inventory items" value={items.length} sub={`${summary.sold} sold total`} />
+                </div>
+              </div>
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-neutral-950">German tax-prep checklist</h2>
+                <div className="mt-4 space-y-3 text-sm text-neutral-700">
+                  <p className="rounded-2xl bg-neutral-50 p-3">1. Record every sourced item with purchase date, seller/source, location, and payment method.</p>
+                  <p className="rounded-2xl bg-neutral-50 p-3">2. Attach receipt status or prepare an Eigenbeleg when no formal receipt exists.</p>
+                  <p className="rounded-2xl bg-neutral-50 p-3">3. Reconcile monthly eBay sales, fees, shipping, returns, and inventory status.</p>
+                  <p className="rounded-2xl bg-neutral-50 p-3">4. Review EÜR-style yearly totals before sending records to tax software or a Steuerberater.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "ebay-import" && (
+            <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-neutral-950">eBay Import Placeholder</h2>
+              <p className="mt-1 text-sm text-neutral-600">Planned local-only workflow for monthly eBay CSV/report uploads. No eBay API, backend, or cloud sync is connected yet.</p>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Planned input</p><p className="mt-1 text-sm">Monthly eBay sales report CSV</p></div>
+                <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Planned matching</p><p className="mt-1 text-sm">Match sale rows to local inventory items</p></div>
+                <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Planned output</p><p className="mt-1 text-sm">Sales, fees, shipping, and payout checks</p></div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "reconciliation" && (
+            <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-neutral-950">Monthly Reconciliation</h2>
+              <p className="mt-1 text-sm text-neutral-600">Placeholder for checking eBay reports against local inventory and receipt records.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard icon={ShoppingCart} label="Monthly sales" value={money(monthlySummary.salesTotal)} />
+                <StatCard icon={ReceiptText} label="Purchases booked" value={money(monthlySummary.purchaseTotal)} />
+                <StatCard icon={Euro} label="Fees booked" value={money(monthlySummary.feesTotal)} />
+                <StatCard icon={FileText} label="Missing receipts" value={summary.eigenbeleg} sub="Eigenbeleg candidates" />
+              </div>
+            </div>
+          )}
+
+          {activeTab === "expenses" && (
+            <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-neutral-950">Expenses Module</h2>
+              <p className="mt-1 text-sm text-neutral-600">Planned localStorage module for reseller business expenses such as packaging, labels, tools, mileage notes, storage, and platform-related costs. No new expense data model has been added in this pass.</p>
+              <div className="mt-4 grid gap-3 md:grid-cols-4">
+                {["Packaging", "Shipping labels", "Tools & supplies", "Mileage notes"].map((label) => (
+                  <div key={label} className="rounded-2xl bg-neutral-50 p-4 text-sm font-semibold text-neutral-700">{label}</div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeTab === "tax" && (
             <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-950">Tax Support Summary</h2>
-              <p className="mt-1 text-sm text-neutral-600">This is a support overview, not tax advice. Export and keep your detailed receipts, invoices, Eigenbelege, and sales records.</p>
+              <h2 className="text-lg font-semibold text-neutral-950">Tax Summary for EÜR-style yearly totals</h2>
+              <p className="mt-1 text-sm text-neutral-600">Year-to-date support overview for German reseller self-reporting. This is tax support, not legal or tax advice.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <StatCard icon={ReceiptText} label="Deductible purchases" value={money(summary.purchaseTotal)} />
-                <StatCard icon={ShoppingCart} label="Gross sales" value={money(summary.salesTotal)} />
-                <StatCard icon={Euro} label="Fees + shipping" value={money(summary.feesTotal)} />
-                <StatCard icon={Euro} label="Estimated profit" value={money(summary.profit)} />
+                <StatCard icon={ReceiptText} label={`Purchases ${CURRENT_YEAR}`} value={money(yearlySummary.purchaseTotal)} />
+                <StatCard icon={ShoppingCart} label={`Gross sales ${CURRENT_YEAR}`} value={money(yearlySummary.salesTotal)} />
+                <StatCard icon={Euro} label="Fees + shipping" value={money(yearlySummary.feesTotal)} />
+                <StatCard icon={Euro} label="Estimated EÜR profit" value={money(yearlySummary.profit)} />
               </div>
             </div>
           )}
