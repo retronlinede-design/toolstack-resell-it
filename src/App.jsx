@@ -408,6 +408,7 @@ export default function ResellerItApp() {
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
+  const [backupMessage, setBackupMessage] = useState("");
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -506,6 +507,47 @@ export default function ResellerItApp() {
     a.download = `reseller-it-backup-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
+  }
+
+  async function importBackupJson(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    setBackupMessage("");
+
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".json")) {
+      setBackupMessage("Import failed: please choose a JSON backup file.");
+      return;
+    }
+
+    try {
+      const parsed = JSON.parse(await file.text());
+      const validType = parsed?.type === "RESELLERIT_BACKUP" || parsed?.type === "RESELLIT_BACKUP";
+      const hasItems = Array.isArray(parsed?.items);
+      const hasExpenses = Array.isArray(parsed?.expenses);
+
+      if (!validType || (!hasItems && !hasExpenses)) {
+        setBackupMessage("Import failed: this does not look like a ResellIt backup with items and/or expenses.");
+        return;
+      }
+
+      const nextItems = hasItems ? parsed.items : [];
+      const nextExpenses = hasExpenses ? parsed.expenses : [];
+      const ok = window.confirm(`Restore this ResellIt backup?\n\nCurrent data will be replaced with ${nextItems.length} items and ${nextExpenses.length} expenses.`);
+      if (!ok) {
+        setBackupMessage("Import cancelled.");
+        return;
+      }
+
+      persistAll(nextItems, nextExpenses);
+      setForm(emptyItem);
+      setExpenseForm(emptyExpense);
+      setEditingId(null);
+      setEditingExpenseId(null);
+      setBackupMessage(`Import complete: restored ${nextItems.length} items and ${nextExpenses.length} expenses.`);
+    } catch {
+      setBackupMessage("Import failed: could not read or parse this JSON file.");
+    }
   }
 
   function exportMonthlyClosingJson() {
@@ -764,9 +806,18 @@ export default function ResellerItApp() {
               <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">Germany-focused tax-prep workspace for Kleinunternehmer and Einzelunternehmen resellers: inventory, sourcing records, receipts, Eigenbelege, eBay sales reconciliation, and EÜR-style monthly/yearly summaries.</p>
               <p className="mt-2 max-w-3xl text-xs font-medium text-neutral-500">Tax support only, not legal or tax advice. Verify filings with a Steuerberater or the Finanzamt rules that apply to your business.</p>
             </div>
-            <button onClick={exportJson} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(41,37,36,0.14)] transition hover:bg-stone-800 sm:w-auto">
-              <Download size={16} /> Export Backup
-            </button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto">
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 sm:w-auto">
+                  Import JSON
+                  <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
+                </label>
+                <button onClick={exportJson} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(41,37,36,0.14)] transition hover:bg-stone-800 sm:w-auto">
+                  <Download size={16} /> Export Backup
+                </button>
+              </div>
+              {backupMessage && <p className="max-w-sm text-xs font-medium text-stone-500">{backupMessage}</p>}
+            </div>
           </div>
         </header>
 
