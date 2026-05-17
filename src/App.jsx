@@ -1063,15 +1063,23 @@ export default function ResellerItApp() {
           <StatCard icon={FileText} label="Estimated profit" value={money(monthlySummary.profit)} sub="sales minus purchases, fees, shipping" />
         </section>
 
-        <form onSubmit={saveItem} className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-5">
-          <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <form onSubmit={saveItem} className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4">
+          <div className="mb-4 rounded-2xl border border-[#eadfce] bg-white/80 p-3 shadow-sm">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-lg font-semibold text-neutral-950">{editingId ? "Edit Item" : "Quick Add Item"}</h2>
-              <p className="mt-1 text-sm text-neutral-500">Fast daily capture first. Open the advanced item form for sourcing, fee, proof, research, and listing details.</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{editingId ? "Item Workspace" : "Add item"}</p>
+              <h2 className="mt-0.5 text-base font-semibold text-neutral-950">{editingId ? "Edit Item" : "Quick Add"}</h2>
+              <p className="mt-1 text-xs leading-5 text-neutral-500">Fast daily capture first. Open the advanced form only when you need deeper fields.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {!editingId && <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50">{itemFormOpen ? "Hide advanced item form" : "Advanced item form"}</button>}
+              {!editingId && (
+                <div className="inline-flex rounded-2xl border border-stone-200 bg-[#fffdf8] p-1">
+                  <button type="button" className="rounded-xl bg-[#351c17] px-3 py-1.5 text-xs font-semibold text-[#f0be45]">Quick Add</button>
+                  <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "bg-orange-100 text-stone-900" : "text-stone-600 hover:bg-stone-100"}`}>{itemFormOpen ? "Advanced open" : "Advanced Form"}</button>
+                </div>
+              )}
               {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cancel edit</button>}
+            </div>
             </div>
           </div>
 
@@ -1247,7 +1255,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {!editingId && <div className="space-y-4">
+          {!editingId && <div className="space-y-3">
             {!editingId && (
               <div className="rounded-2xl border border-[#eadfce] bg-white/80 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Item templates</p>
@@ -1280,19 +1288,20 @@ export default function ResellerItApp() {
               </Select>
             </div>
 
-            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-              <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e06b2c] px-5 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.22)] transition hover:bg-[#f0be45] sm:w-auto">
+            <div className="flex flex-col gap-2 rounded-2xl border border-[#eadfce] bg-white/70 p-2 sm:flex-row sm:flex-wrap sm:items-center">
+              <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#e06b2c] px-3 py-2 text-xs font-semibold text-[#24110e] shadow-[0_8px_18px_rgba(224,107,44,0.18)] transition hover:bg-[#f0be45] sm:w-auto">
                 <Plus size={16} /> {editingId ? "Save Changes" : "Add Item"}
               </button>
               {!editingId && (
-                <button type="button" onClick={() => saveCurrentItem({ keepAdding: true })} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-orange-200 bg-white px-5 py-3 text-sm font-semibold text-stone-800 transition hover:bg-orange-50 sm:w-auto">
+                <button type="button" onClick={() => saveCurrentItem({ keepAdding: true })} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-3 py-2 text-xs font-semibold text-stone-800 transition hover:bg-orange-50 sm:w-auto">
                   <Plus size={16} /> Save + Add another
                 </button>
               )}
+              <p className="px-1 text-xs text-stone-500 sm:ml-auto">Advanced sections stay below this action bar.</p>
             </div>
           </div>}
 
-          {!editingId && itemFormOpen && <div className="space-y-3">
+          {!editingId && itemFormOpen && <div className="mt-6 space-y-4 border-t border-[#eadfce] pt-5">
             <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
