@@ -843,28 +843,36 @@ export default function ResellerItApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f7f3ec] px-3 py-4 text-stone-900 sm:px-5 md:px-8 md:py-8">
+    <div className="min-h-screen bg-[#2a1713] px-3 py-4 text-stone-900 sm:px-5 md:px-8 md:py-8">
       <div className="mx-auto max-w-7xl space-y-4 md:space-y-6">
-        <header className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_18px_45px_rgba(41,37,36,0.06)] md:p-6">
+        <header className="overflow-hidden rounded-3xl border border-[#5a3028] bg-[#351c17] shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+          <div className="flex h-3">
+            <div className="flex-1 bg-[#b7412e]" />
+            <div className="flex-1 bg-[#e06b2c]" />
+            <div className="flex-1 bg-[#f0be45]" />
+            <div className="flex-1 bg-[#1f9d99]" />
+          </div>
+          <div className="p-5 md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">ToolStack</p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-stone-950 md:text-4xl">ResellIt</h1>
+              <p className="text-xs font-semibold uppercase tracking-wide text-[#f0be45]">ToolStack</p>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#fff7e8] md:text-4xl">ResellIt</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">Germany-focused tax-prep workspace for Kleinunternehmer and Einzelunternehmen resellers: inventory, sourcing records, receipts, Eigenbelege, eBay sales reconciliation, and EÜR-style monthly/yearly summaries.</p>
               <p className="mt-2 max-w-3xl text-xs font-medium text-neutral-500">Tax support only, not legal or tax advice. Verify filings with a Steuerberater or the Finanzamt rules that apply to your business.</p>
             </div>
             <div className="flex w-full flex-col gap-2 sm:w-auto">
               <div className="flex flex-col gap-2 sm:flex-row">
-                <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-stone-200 bg-white px-4 py-3 text-sm font-semibold text-stone-700 transition hover:bg-stone-50 sm:w-auto">
+                <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[#6c3a31] bg-[#45251f] px-4 py-3 text-sm font-semibold text-[#fff7e8] transition hover:bg-[#523029] sm:w-auto">
                   Import JSON
                   <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
                 </label>
-                <button onClick={exportJson} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(41,37,36,0.14)] transition hover:bg-stone-800 sm:w-auto">
+                <button onClick={exportJson} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e06b2c] px-4 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.22)] transition hover:bg-[#f0be45] sm:w-auto">
                   <Download size={16} /> Export Backup
                 </button>
               </div>
-              {backupMessage && <p className="max-w-sm text-xs font-medium text-stone-500">{backupMessage}</p>}
+              {backupMessage && <p className="max-w-sm text-xs font-medium text-[#d8c7b5]">{backupMessage}</p>}
             </div>
+          </div>
           </div>
         </header>
 
@@ -875,7 +883,7 @@ export default function ResellerItApp() {
           <StatCard icon={FileText} label="Estimated profit" value={money(monthlySummary.profit)} sub="sales minus purchases, fees, shipping" />
         </section>
 
-        <form onSubmit={saveItem} className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)] md:p-5">
+        <form onSubmit={saveItem} className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-neutral-950">{editingId ? "Edit Item" : "Add Item"}</h2>
@@ -1070,19 +1078,27 @@ export default function ResellerItApp() {
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Condition, missing receipt reason, storage location, defects, tax notes..." />
           </label>
 
-          <button type="submit" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-orange-300 px-5 py-3 text-sm font-semibold text-stone-950 shadow-[0_10px_24px_rgba(154,88,28,0.12)] transition hover:bg-orange-200 sm:w-auto">
+          <button type="submit" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e06b2c] px-5 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.22)] transition hover:bg-[#f0be45] sm:w-auto">
             <Plus size={16} /> {editingId ? "Save Changes" : "Add Item"}
           </button>
           </div>}
         </form>
 
-        <nav className="grid grid-cols-2 gap-1.5 md:grid-cols-5 xl:flex xl:flex-wrap">
+        <nav className="rounded-3xl border border-[#5a3028] bg-[#351c17]/95 p-2 shadow-[0_12px_34px_rgba(0,0,0,0.2)]">
+          <div className="mb-2 flex h-1.5 overflow-hidden rounded-full">
+            <div className="flex-1 bg-[#b7412e]" />
+            <div className="flex-1 bg-[#e06b2c]" />
+            <div className="flex-1 bg-[#f0be45]" />
+            <div className="flex-1 bg-[#1f9d99]" />
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 md:grid-cols-5 xl:flex xl:flex-wrap">
           {modules.map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition sm:text-sm ${activeTab === key ? "bg-orange-300 text-stone-950 shadow-[0_8px_18px_rgba(154,88,28,0.12)]" : "border border-stone-200 bg-[#fffdf8] text-stone-700 hover:bg-stone-50"}`}>{label}</button>
+            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition sm:text-sm ${activeTab === key ? "bg-[#f0be45] text-[#24110e] shadow-[0_8px_18px_rgba(240,190,69,0.2)]" : "border border-[#5a3028] bg-[#45251f] text-[#f3e6d6] hover:bg-[#523029]"}`}>{label}</button>
           ))}
+          </div>
         </nav>
 
-        <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
+        <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
               <option>All classifications</option>
