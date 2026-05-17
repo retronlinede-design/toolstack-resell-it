@@ -233,6 +233,18 @@ function isSoldStatus(item) {
   return ["Sold", "Shipped", "Completed"].includes(itemStatus(item)) || Boolean(item.finalSalePrice || item.salePrice || item.saleDate);
 }
 
+function needsEigenbeleg(item) {
+  return item.hasReceipt === "No" || (item.proofType || item.receiptType) === "Eigenbeleg";
+}
+
+function externallyStoredProof(item) {
+  return item.proofStoredExternally === "Yes" || Boolean(item.proofFileName || item.proofFolderLocation);
+}
+
+function receiptOrInvoiceProof(item) {
+  return ["Shop receipt", "Invoice"].includes(item.proofType || item.receiptType);
+}
+
 function priceResearchQuery(item) {
   return (item.researchQuery || item.ebayTitle || item.name || "").trim();
 }
@@ -421,6 +433,8 @@ export default function ResellerItApp() {
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
   const [backupMessage, setBackupMessage] = useState("");
+  const [proofFilter, setProofFilter] = useState("All");
+  const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -693,6 +707,27 @@ export default function ResellerItApp() {
     });
   }, [inventoryCategory, inventoryClassification, inventoryIssueFilter, inventorySearch, inventorySort, inventoryStatus, items]);
 
+  const proofSummary = useMemo(() => ({
+    totalItems: items.length,
+    proofComplete: items.filter(hasProofRecord).length,
+    missingProof: items.filter((item) => !hasProofRecord(item)).length,
+    needsEigenbeleg: items.filter(needsEigenbeleg).length,
+    externallyStored: items.filter(externallyStoredProof).length,
+  }), [items]);
+
+  const proofManagerItems = useMemo(() => (
+    items.filter((item) => {
+      if (proofFilter === "Missing proof") return !hasProofRecord(item);
+      if (proofFilter === "Needs Eigenbeleg") return needsEigenbeleg(item);
+      if (proofFilter === "Externally stored") return externallyStoredProof(item);
+      if (proofFilter === "Receipt / invoice") return receiptOrInvoiceProof(item);
+      if (proofFilter === "Private items") return itemClassification(item) === "Private Sale / Personal Collection";
+      if (proofFilter === "Business stock") return itemClassification(item) === "Business Stock / Resale Inventory";
+      if (proofFilter === "Legacy stock") return itemClassification(item) === "Legacy Stock / Previous Business";
+      return true;
+    })
+  ), [items, proofFilter]);
+
   const monthlySummary = useMemo(() => {
     const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
     const monthlySales = items.filter((item) => inMonth(item.saleDate));
@@ -770,7 +805,7 @@ export default function ResellerItApp() {
     if (activeTab === "dashboard") nextItems = [];
     else if (activeTab === "inventory") nextItems = [];
     else if (activeTab === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
-    else if (activeTab === "receipts") nextItems = items.filter((item) => !hasProofRecord(item) || item.hasReceipt === "No" || item.proofFileName || item.proofFolderLocation || item.receiptType || item.notes);
+    else if (activeTab === "receipts") nextItems = [];
     else if (activeTab === "tax") nextItems = items;
     else if (activeTab === "ebay-import" || activeTab === "reconciliation" || activeTab === "monthly-closing" || activeTab === "expenses") nextItems = [];
     else nextItems = items;
@@ -1192,6 +1227,85 @@ export default function ResellerItApp() {
                   <p className="rounded-2xl bg-neutral-50 p-3">3. Reconcile monthly eBay sales, fees, shipping, returns, and inventory status.</p>
                   <p className="rounded-2xl bg-neutral-50 p-3">4. Review EÜR-style yearly totals before sending records to tax software or a Steuerberater.</p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "receipts" && (
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
+                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-stone-950">Proof / Receipts Manager</h2>
+                    <p className="mt-1 text-sm text-stone-600">Track where receipts, invoices, seller notes, and Eigenbelege are stored. Originals stay in your own folder system.</p>
+                  </div>
+                  <p className="text-sm font-semibold text-stone-500">{proofManagerItems.length} shown</p>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <StatCard icon={Package} label="Total items" value={proofSummary.totalItems} />
+                  <StatCard icon={ReceiptText} label="Proof complete" value={proofSummary.proofComplete} />
+                  <StatCard icon={FileText} label="Missing proof" value={proofSummary.missingProof} />
+                  <StatCard icon={FileText} label="Needs Eigenbeleg" value={proofSummary.needsEigenbeleg} />
+                  <StatCard icon={ReceiptText} label="Externally stored" value={proofSummary.externallyStored} />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
+                <div className="flex flex-wrap gap-2">
+                  {["All", "Missing proof", "Needs Eigenbeleg", "Externally stored", "Receipt / invoice", "Private items", "Business stock", "Legacy stock"].map((filter) => (
+                    <button key={filter} type="button" onClick={() => setProofFilter(filter)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${proofFilter === filter ? "bg-orange-300 text-stone-950" : "border border-stone-200 bg-white text-stone-700 hover:bg-stone-50"}`}>{filter}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {proofManagerItems.length === 0 && <p className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 text-sm text-stone-600 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">No proof records match the current filter.</p>}
+                {proofManagerItems.map((item) => {
+                  const eigenbelegOpen = expandedEigenbelegId === item.id;
+                  const proofType = item.proofType || item.receiptType || "Eigenbeleg";
+                  const proofStatus = hasProofRecord(item) ? "Proof available" : "Missing proof";
+                  return (
+                    <article key={item.id} className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
+                      <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-stone-950">{item.name}</h3>
+                            <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{itemClassification(item)}</span>
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${hasProofRecord(item) ? "bg-lime-100 text-lime-800" : "bg-red-50 text-red-700"}`}>{proofStatus}</span>
+                            {needsEigenbeleg(item) && <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">Eigenbeleg needed</span>}
+                          </div>
+                          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Purchase date</p><p className="font-semibold">{item.purchaseDate || "-"}</p></div>
+                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Purchase price</p><p className="font-semibold">{money(item.purchasePrice)}</p></div>
+                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof type</p><p className="font-semibold">{proofType}</p></div>
+                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Stored externally</p><p className="font-semibold">{externallyStoredProof(item) ? "Yes" : "No"}</p></div>
+                          </div>
+                          <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof file name</p><p className="break-all font-semibold">{item.proofFileName || "-"}</p></div>
+                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof folder location</p><p className="break-all font-semibold">{item.proofFolderLocation || "-"}</p></div>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap gap-2 lg:justify-end">
+                          <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Edit proof</button>
+                          {needsEigenbeleg(item) && <button type="button" onClick={() => setExpandedEigenbelegId(eigenbelegOpen ? null : item.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">{eigenbelegOpen ? "Hide Eigenbeleg" : "Eigenbeleg"}</button>}
+                        </div>
+                      </div>
+
+                      {eigenbelegOpen && (
+                        <div className="mt-4 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Eigenbeleg preview</p>
+                            <div className="flex flex-wrap gap-2">
+                              <button type="button" onClick={() => copyEigenbeleg(item)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Copy</button>
+                              <button type="button" onClick={() => window.print()} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Print</button>
+                            </div>
+                          </div>
+                          <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl bg-white p-3 text-xs text-stone-700">{eigenbelegText(item)}</pre>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
               </div>
             </div>
           )}
