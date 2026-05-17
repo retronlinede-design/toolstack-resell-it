@@ -71,6 +71,13 @@ const emptyItem = {
   noReceiptReason: "",
   proofImageDataUrl: "",
   proofImageName: "",
+  researchQuery: "",
+  researchedLowPrice: "",
+  researchedMidPrice: "",
+  researchedHighPrice: "",
+  chosenListingPrice: "",
+  priceResearchNotes: "",
+  priceResearchUpdatedAt: "",
   notes: "",
 };
 
@@ -172,6 +179,22 @@ function itemProfitValue(item) {
 
 function hasProofRecord(item) {
   return Boolean(item.proofImageDataUrl || item.proofNotes || item.proofAmount || item.receiptType || item.proofType);
+}
+
+function priceResearchQuery(item) {
+  return (item.researchQuery || item.ebayTitle || item.name || "").trim();
+}
+
+function priceResearchLinks(item) {
+  const query = encodeURIComponent(priceResearchQuery(item));
+  if (!query) return [];
+
+  return [
+    ["eBay DE active", `https://www.ebay.de/sch/i.html?_nkw=${query}`],
+    ["eBay DE sold/completed", `https://www.ebay.de/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1`],
+    ["Google", `https://www.google.com/search?q=${query}`],
+    ["Kleinanzeigen", `https://www.kleinanzeigen.de/s-suchanfrage.html?keywords=${query}`],
+  ];
 }
 
 function loadInitialItems() {
@@ -310,6 +333,9 @@ export default function ResellerItApp() {
       classification: form.classification || DEFAULT_CLASSIFICATION,
       ebayFeeMode: form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE,
       estimatedEbayFee: form.ebayFeeMode === "Business Estimate" ? String(ebayBaseFee(form)) : form.estimatedEbayFee,
+      priceResearchUpdatedAt: form.researchQuery || form.researchedLowPrice || form.researchedMidPrice || form.researchedHighPrice || form.chosenListingPrice || form.priceResearchNotes
+        ? new Date().toISOString()
+        : form.priceResearchUpdatedAt,
     };
     const next = editingId
       ? items.map((item) => (item.id === editingId ? { ...item, ...clean } : item))
@@ -651,6 +677,29 @@ export default function ResellerItApp() {
                 </div>
               )}
             </div>
+
+            <FormSection title="Price research assistant">
+              <Input label="Research query" className="sm:col-span-2" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} placeholder={form.ebayTitle || form.name || "Search phrase"} />
+              <Input label="Researched low EUR" value={form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, researchedLowPrice: e.target.value })} />
+              <Input label="Researched mid EUR" value={form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, researchedMidPrice: e.target.value })} />
+              <Input label="Researched high EUR" value={form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, researchedHighPrice: e.target.value })} />
+              <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value, expectedSalePrice: e.target.value || form.expectedSalePrice })} />
+              <label className="block sm:col-span-2 lg:col-span-4">
+                <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Price research notes</span>
+                <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Condition differences, sold comps, missing parts, bundle notes..." />
+              </label>
+            </FormSection>
+
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+              <h3 className="text-sm font-semibold text-neutral-950">Research price</h3>
+              <p className="mt-1 text-sm text-neutral-600">Use sold/completed listings where possible; active listings are asking prices, not confirmed sale prices.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {priceResearchLinks(form).map(([label, href]) => (
+                  <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>
+                ))}
+                {priceResearchLinks(form).length === 0 && <p className="text-sm text-neutral-500">Enter an item name, eBay title, or research query to generate search links.</p>}
+              </div>
+            </div>
           </div>
 
           <label className="mt-4 block">
@@ -961,6 +1010,28 @@ export default function ResellerItApp() {
                   <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Shipping charged</p><p className="mt-1 font-semibold">{money(shippingChargedValue(item))}</p></div>
                   <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Ship cost + fees</p><p className="mt-1 font-semibold">{money(actualShippingValue(item) + platformFees(item))}</p></div>
                   <div className="col-span-2 rounded-2xl bg-neutral-950 p-3 text-white lg:col-span-1"><p className="text-xs text-neutral-300">Final profit</p><p className="mt-1 font-semibold">{money(itemProfit)}</p></div>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Price research</p>
+                      <p className="mt-1 text-sm text-neutral-600">Use sold/completed listings where possible; active listings are asking prices, not confirmed sale prices.</p>
+                      <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Low</p><p className="font-semibold">{money(item.researchedLowPrice)}</p></div>
+                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Mid</p><p className="font-semibold">{money(item.researchedMidPrice)}</p></div>
+                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">High</p><p className="font-semibold">{money(item.researchedHighPrice)}</p></div>
+                        <div className="rounded-xl bg-neutral-950 p-3 text-white"><p className="text-xs text-neutral-300">Chosen</p><p className="font-semibold">{money(item.chosenListingPrice || item.expectedSalePrice)}</p></div>
+                      </div>
+                      {item.priceResearchNotes && <p className="mt-3 text-sm text-neutral-600">{item.priceResearchNotes}</p>}
+                      {item.priceResearchUpdatedAt && <p className="mt-2 text-xs text-neutral-500">Updated: {new Date(item.priceResearchUpdatedAt).toLocaleString("de-DE")}</p>}
+                    </div>
+                    <div className="flex flex-wrap gap-2 lg:max-w-sm lg:justify-end">
+                      {priceResearchLinks(item).map(([label, href]) => (
+                        <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>
+                      ))}
+                    </div>
+                  </div>
                 </div>
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
