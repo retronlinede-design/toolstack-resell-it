@@ -70,13 +70,13 @@ const workflowSections = [
   ["notes", "Notes & Extras", StickyNote, "Defects, included items, and metadata"],
 ];
 const advancedFormSections = [
-  ["basic", "Basic Info", Info, "Name, category, classification, status"],
-  ["sourcing", "Sourcing", Package, "Source, location, purchase, payment"],
-  ["pricing", "Pricing", Search, "Research, prices, fee settings"],
-  ["sale", "Sale & Shipping", Truck, "Final sale and shipping numbers"],
-  ["proof", "Proof / Receipts", ReceiptText, "Proof status and file references"],
-  ["listing", "Listing Studio", ClipboardList, "Listing copy, HTML, and research links"],
-  ["notes", "Notes", StickyNote, "General notes and extra context"],
+  ["basic", "Basic Info", Info, "Name, category, classification, status", "border-[#b7412e] bg-[#b7412e] text-[#fff7e8] ring-[#b7412e]/20", "hover:border-[#b7412e]/50 hover:bg-[#b7412e]/12", "text-[#b7412e]"],
+  ["sourcing", "Sourcing", Package, "Source, location, purchase, payment", "border-[#b7412e] bg-[#b7412e] text-[#fff7e8] ring-[#b7412e]/20", "hover:border-[#b7412e]/50 hover:bg-[#b7412e]/12", "text-[#b7412e]"],
+  ["pricing", "Pricing", Search, "Research, prices, fee settings", "border-[#f0be45] bg-[#f0be45] text-[#24110e] ring-[#f0be45]/25", "hover:border-[#f0be45]/60 hover:bg-[#f0be45]/18", "text-[#b88918]"],
+  ["sale", "Sale & Shipping", Truck, "Final sale and shipping numbers", "border-[#e06b2c] bg-[#e06b2c] text-[#24110e] ring-[#e06b2c]/20", "hover:border-[#e06b2c]/55 hover:bg-[#e06b2c]/15", "text-[#e06b2c]"],
+  ["proof", "Proof / Receipts", ReceiptText, "Proof status and file references", "border-[#b7412e] bg-[#b7412e] text-[#fff7e8] ring-[#b7412e]/20", "hover:border-[#b7412e]/50 hover:bg-[#b7412e]/12", "text-[#b7412e]"],
+  ["listing", "Listing Studio", ClipboardList, "Listing copy, HTML, and research links", "border-[#e06b2c] bg-[#e06b2c] text-[#24110e] ring-[#e06b2c]/20", "hover:border-[#e06b2c]/55 hover:bg-[#e06b2c]/15", "text-[#e06b2c]"],
+  ["notes", "Notes", StickyNote, "General notes and extra context", "border-[#1f9d99] bg-[#1f9d99] text-[#062f2d] ring-[#1f9d99]/20", "hover:border-[#1f9d99]/55 hover:bg-[#1f9d99]/15", "text-[#1f9d99]"],
 ];
 
 const modules = [
@@ -1318,13 +1318,16 @@ export default function ResellerItApp() {
                 </div>
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-                {advancedFormSections.map(([key, label, Icon, description]) => (
-                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition ${activeAdvancedSection === key ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 ring-2 ring-[#e06b2c]/15" : "border-stone-200 bg-[#fffdf8] hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15"}`}>
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#351c17] text-[#f0be45]"><Icon size={18} /></div>
-                    <p className="text-sm font-semibold text-stone-950">{label}</p>
-                    <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                {advancedFormSections.map(([key, label, Icon, description, activeClass, hoverClass, iconClass]) => {
+                  const selected = activeAdvancedSection === key;
+                  return (
+                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition ${selected ? `${activeClass} ring-2` : `border-stone-200 bg-[#fffdf8] text-stone-950 ${hoverClass}`}`}>
+                    <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-2xl ${selected ? "bg-white/85 text-[#351c17]" : `bg-[#351c17] ${iconClass}`}`}><Icon size={18} /></div>
+                    <p className={`text-sm font-semibold ${selected ? "" : "text-stone-950"}`}>{label}</p>
+                    <p className={`mt-1 text-xs leading-5 ${selected ? "opacity-85" : "text-stone-500"}`}>{description}</p>
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
