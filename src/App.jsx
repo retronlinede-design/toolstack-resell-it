@@ -74,6 +74,9 @@ const emptyItem = {
   noReceiptReason: "",
   proofImageDataUrl: "",
   proofImageName: "",
+  proofFileName: "",
+  proofFolderLocation: "",
+  proofStoredExternally: "No",
   researchQuery: "",
   researchedLowPrice: "",
   researchedMidPrice: "",
@@ -198,7 +201,16 @@ function itemProfitValue(item) {
 }
 
 function hasProofRecord(item) {
-  return Boolean(item.proofImageDataUrl || item.proofNotes || item.proofAmount || item.receiptType || item.proofType);
+  return Boolean(
+    item.proofStoredExternally === "Yes" ||
+    item.proofFileName ||
+    item.proofFolderLocation ||
+    item.proofImageDataUrl ||
+    item.proofNotes ||
+    item.proofAmount ||
+    item.receiptType ||
+    item.proofType
+  );
 }
 
 function itemStatus(item) {
@@ -758,7 +770,7 @@ export default function ResellerItApp() {
     if (activeTab === "dashboard") nextItems = [];
     else if (activeTab === "inventory") nextItems = [];
     else if (activeTab === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
-    else if (activeTab === "receipts") nextItems = items.filter((item) => item.hasReceipt === "No" || item.receiptType || item.notes);
+    else if (activeTab === "receipts") nextItems = items.filter((item) => !hasProofRecord(item) || item.hasReceipt === "No" || item.proofFileName || item.proofFolderLocation || item.receiptType || item.notes);
     else if (activeTab === "tax") nextItems = items;
     else if (activeTab === "ebay-import" || activeTab === "reconciliation" || activeTab === "monthly-closing" || activeTab === "expenses") nextItems = [];
     else nextItems = items;
@@ -930,14 +942,21 @@ export default function ResellerItApp() {
               <Input label="Proof date" type="date" value={form.proofDate || form.purchaseDate} onChange={(e) => setForm({ ...form, proofDate: e.target.value })} />
               <Input label="Proof amount EUR" value={form.proofAmount || ""} onChange={(e) => setForm({ ...form, proofAmount: e.target.value })} />
               <Input label="No receipt reason" value={form.noReceiptReason || ""} onChange={(e) => setForm({ ...form, noReceiptReason: e.target.value })} placeholder="e.g. private seller did not issue receipt" />
+              <Select label="Proof stored externally" value={form.proofStoredExternally || "No"} onChange={(e) => setForm({ ...form, proofStoredExternally: e.target.value })}>
+                <option>Yes</option><option>No</option>
+              </Select>
+              <Input label="Proof file name" value={form.proofFileName || ""} onChange={(e) => setForm({ ...form, proofFileName: e.target.value })} placeholder="receipt-2026-05-17.jpg" />
+              <Input label="Proof folder location" className="sm:col-span-2" value={form.proofFolderLocation || ""} onChange={(e) => setForm({ ...form, proofFolderLocation: e.target.value })} placeholder="D:\\ResellIt\\Receipts\\2026-05" />
             </FormSection>
 
             <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
-              <h3 className="text-sm font-semibold text-neutral-950">Evidence attachment</h3>
+              <h3 className="text-sm font-semibold text-neutral-950">Proof location</h3>
+              <p className="mt-1 text-sm text-neutral-600">Store original receipts/photos in your own folder system; ResellIt records where the proof is located.</p>
               <div className="mt-3 grid gap-3 md:grid-cols-[0.8fr_1.2fr]">
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Receipt / evidence image</span>
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Legacy image attachment</span>
                   <input type="file" accept="image/*" onChange={handleProofImageUpload} className="block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+                  <p className="mt-1 text-xs text-neutral-500">Compatibility only. Prefer file/folder references above.</p>
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Proof notes</span>
@@ -1561,8 +1580,16 @@ export default function ResellerItApp() {
                         <p className="mt-2 text-sm">Type: <strong>{item.proofType || item.receiptType || "Eigenbeleg"}</strong></p>
                         <p className="mt-1 text-sm">Date: <strong>{item.proofDate || item.purchaseDate || "-"}</strong></p>
                         <p className="mt-1 text-sm">Amount: <strong>{money(item.proofAmount || item.purchasePrice)}</strong></p>
+                        <p className="mt-1 text-sm">External proof: <strong>{item.proofStoredExternally || (item.proofFileName || item.proofFolderLocation ? "Yes" : "No")}</strong></p>
+                        {item.proofFileName && <p className="mt-1 text-sm">File: <strong>{item.proofFileName}</strong></p>}
+                        {item.proofFolderLocation && <p className="mt-1 text-sm break-all">Folder: <strong>{item.proofFolderLocation}</strong></p>}
                         {item.noReceiptReason && <p className="mt-2 text-sm text-neutral-600">No receipt reason: {item.noReceiptReason}</p>}
-                        {item.proofImageDataUrl && <img src={item.proofImageDataUrl} alt={`${item.name} proof detail`} className="mt-3 max-h-56 rounded-2xl border border-neutral-200 object-contain" />}
+                        {item.proofImageDataUrl && (
+                          <div className="mt-3">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Legacy stored image</p>
+                            <img src={item.proofImageDataUrl} alt={`${item.name} proof detail`} className="mt-2 max-h-56 rounded-2xl border border-neutral-200 object-contain" />
+                          </div>
+                        )}
                       </div>
                       <div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
