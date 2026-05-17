@@ -2,8 +2,23 @@ import React, { useMemo, useState } from "react";
 import { Plus, Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3 } from "lucide-react";
 
 const STORAGE_KEY = "toolstack.resellerit.v1";
+const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const CURRENT_YEAR = new Date().getFullYear().toString();
+const ebayMappingHints = ["order date", "item title", "sale price", "fees", "shipping", "refund", "payout"];
+const DEFAULT_CLASSIFICATION = "Unsure / Review Later";
+const classificationOptions = [
+  "Private Sale / Personal Collection",
+  "Business Stock / Resale Inventory",
+  "Legacy Stock / Previous Business",
+  DEFAULT_CLASSIFICATION,
+];
+const classificationHelp = [
+  ["Private Sale / Personal Collection", "Originally owned personal item."],
+  ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
+  ["Legacy Stock / Previous Business", "Existing old stock from a previous business."],
+  ["Unsure / Review Later", "Needs later review before reporting decisions."],
+];
 
 const modules = [
   ["dashboard", "Dashboard"],
@@ -19,6 +34,7 @@ const modules = [
 const emptyItem = {
   name: "",
   category: "",
+  classification: DEFAULT_CLASSIFICATION,
   sourceType: "Flea market",
   sourceName: "",
   sourceLocation: "",
@@ -99,6 +115,10 @@ function inYear(date, year = CURRENT_YEAR) {
   return String(date || "").startsWith(year);
 }
 
+function itemClassification(item) {
+  return item.classification || DEFAULT_CLASSIFICATION;
+}
+
 function loadInitialItems() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -108,6 +128,59 @@ function loadInitialItems() {
   } catch {
     return demoItems;
   }
+}
+
+function loadEbayImportBatches() {
+  try {
+    const raw = localStorage.getItem(EBAY_IMPORTS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed.batches) ? parsed.batches : [];
+  } catch {
+    return [];
+  }
+}
+
+function parseCsvLine(line) {
+  const cells = [];
+  let cell = "";
+  let quoted = false;
+
+  for (let i = 0; i < line.length; i += 1) {
+    const char = line[i];
+    const next = line[i + 1];
+
+    if (char === '"' && quoted && next === '"') {
+      cell += '"';
+      i += 1;
+    } else if (char === '"') {
+      quoted = !quoted;
+    } else if (char === "," && !quoted) {
+      cells.push(cell.trim());
+      cell = "";
+    } else {
+      cell += char;
+    }
+  }
+
+  cells.push(cell.trim());
+  return cells;
+}
+
+function parseCsvText(text) {
+  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
+  if (!lines.length) return { columns: [], rows: [] };
+
+  const columns = parseCsvLine(lines[0]).map((column, index) => column || `Column ${index + 1}`);
+  const rows = lines.slice(1).map((line) => {
+    const cells = parseCsvLine(line);
+    return columns.reduce((row, column, index) => {
+      row[column] = cells[index] || "";
+      return row;
+    }, {});
+  });
+
+  return { columns, rows };
 }
 
 function StatCard({ icon: Icon, label, value, sub }) {
@@ -156,9 +229,14 @@ function FormSection({ title, children }) {
 
 export default function ResellerItApp() {
   const [items, setItems] = useState(loadInitialItems);
+  const [ebayImportBatches, setEbayImportBatches] = useState(loadEbayImportBatches);
+  const [importMonth, setImportMonth] = useState(CURRENT_MONTH);
+  const [csvPreview, setCsvPreview] = useState(null);
+  const [csvError, setCsvError] = useState("");
   const [form, setForm] = useState(emptyItem);
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [classificationFilter, setClassificationFilter] = useState("All classifications");
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -198,6 +276,56 @@ export default function ResellerItApp() {
     URL.revokeObjectURL(url);
   }
 
+  function persistEbayImportBatches(nextBatches) {
+    setEbayImportBatches(nextBatches);
+    localStorage.setItem(EBAY_IMPORTS_KEY, JSON.stringify({ version: 1, batches: nextBatches, updatedAt: new Date().toISOString() }));
+  }
+
+  async function handleCsvUpload(e) {
+    const file = e.target.files?.[0];
+    setCsvError("");
+
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setCsvPreview(null);
+      setCsvError("Please choose a CSV file.");
+      return;
+    }
+
+    try {
+      const text = await file.text();
+      const parsed = parseCsvText(text);
+      if (!parsed.columns.length) {
+        setCsvPreview(null);
+        setCsvError("The CSV file did not contain any rows.");
+        return;
+      }
+      setCsvPreview({ ...parsed, fileName: file.name });
+    } catch {
+      setCsvPreview(null);
+      setCsvError("Could not read this CSV file locally.");
+    }
+  }
+
+  function saveCsvBatch() {
+    if (!csvPreview) return;
+    const nextBatch = {
+      id: crypto.randomUUID(),
+      month: importMonth,
+      sourceFileName: csvPreview.fileName,
+      importedAt: new Date().toISOString(),
+      columns: csvPreview.columns,
+      rows: csvPreview.rows,
+    };
+    persistEbayImportBatches([nextBatch, ...ebayImportBatches]);
+    setCsvPreview(null);
+    setCsvError("");
+  }
+
+  function deleteCsvBatch(id) {
+    persistEbayImportBatches(ebayImportBatches.filter((batch) => batch.id !== id));
+  }
+
   const summary = useMemo(() => {
     const purchaseTotal = items.reduce((sum, item) => sum + number(item.purchasePrice), 0);
     const salesTotal = items.reduce((sum, item) => sum + number(item.salePrice), 0);
@@ -207,6 +335,13 @@ export default function ResellerItApp() {
     const eigenbeleg = items.filter((item) => item.hasReceipt === "No").length;
     return { purchaseTotal, salesTotal, feesTotal, profit, sold, eigenbeleg };
   }, [items]);
+
+  const classificationCounts = useMemo(() => (
+    classificationOptions.reduce((counts, classification) => {
+      counts[classification] = items.filter((item) => itemClassification(item) === classification).length;
+      return counts;
+    }, {})
+  ), [items]);
 
   const monthlySummary = useMemo(() => {
     const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
@@ -229,14 +364,18 @@ export default function ResellerItApp() {
   }, [items]);
 
   const filtered = useMemo(() => {
-    if (activeTab === "dashboard") return [];
-    if (activeTab === "inventory") return items;
-    if (activeTab === "sourcing") return items.filter((item) => item.status === "Sourced" || item.status === "Listed");
-    if (activeTab === "receipts") return items.filter((item) => item.hasReceipt === "No" || item.receiptType || item.notes);
-    if (activeTab === "tax") return items;
-    if (activeTab === "ebay-import" || activeTab === "reconciliation" || activeTab === "expenses") return [];
-    return items;
-  }, [activeTab, items]);
+    let nextItems = [];
+    if (activeTab === "dashboard") nextItems = [];
+    else if (activeTab === "inventory") nextItems = items;
+    else if (activeTab === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
+    else if (activeTab === "receipts") nextItems = items.filter((item) => item.hasReceipt === "No" || item.receiptType || item.notes);
+    else if (activeTab === "tax") nextItems = items;
+    else if (activeTab === "ebay-import" || activeTab === "reconciliation" || activeTab === "expenses") nextItems = [];
+    else nextItems = items;
+
+    if (classificationFilter === "All classifications") return nextItems;
+    return nextItems.filter((item) => itemClassification(item) === classificationFilter);
+  }, [activeTab, classificationFilter, items]);
 
   const eigenbelegText = (item) => `Eigenbeleg / Self-Receipt\n\nDate: ${item.purchaseDate}\nItem: ${item.name}\nSource: ${item.sourceType} - ${item.sourceName || "private seller"}\nLocation: ${item.sourceLocation}\nPurchase price: ${money(item.purchasePrice)}\nPayment method: ${item.paymentMethod}\nReason no invoice: Private second-hand / flea-market purchase; no formal receipt available.\nNotes: ${item.notes || "-"}\n\nSigned: ______________________`;
 
@@ -277,11 +416,26 @@ export default function ResellerItApp() {
             <FormSection title="Inventory item">
               <Input label="Item name" className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sony CD Player" />
               <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Electronics, clothing..." />
+              <Select label="Classification" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value })}>
+                {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+              </Select>
               <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                 <option>Sourced</option><option>Listed</option><option>Sold</option><option>Returned</option><option>Written off</option><option>Kept private</option>
               </Select>
               <Input label="eBay title" className="sm:col-span-2 lg:col-span-4" value={form.ebayTitle} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value })} />
             </FormSection>
+
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+              <h3 className="text-sm font-semibold text-neutral-950">Classification helper</h3>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                {classificationHelp.map(([label, description]) => (
+                  <div key={label} className="rounded-xl bg-neutral-50 p-3">
+                    <p className="text-xs font-semibold text-neutral-800">{label}</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">{description}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <FormSection title="Sourcing record and receipt evidence">
               <Select label="Source type" value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })}>
@@ -324,6 +478,16 @@ export default function ResellerItApp() {
           ))}
         </nav>
 
+        <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
+            <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
+              <option>All classifications</option>
+              {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+            </Select>
+            <p className="text-sm leading-6 text-neutral-600">Use classification to keep personal collection sales separate from stock bought for resale, legacy business stock, and items that need later review.</p>
+          </div>
+        </div>
+
         <section className="grid gap-4">
           {activeTab === "dashboard" && (
             <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -335,6 +499,17 @@ export default function ResellerItApp() {
                   <StatCard icon={ReceiptText} label="Purchases" value={money(monthlySummary.purchaseTotal)} />
                   <StatCard icon={Euro} label="Fees + shipping" value={money(monthlySummary.feesTotal)} />
                   <StatCard icon={Package} label="Inventory items" value={items.length} sub={`${summary.sold} sold total`} />
+                </div>
+                <div className="mt-4 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
+                  <h3 className="text-sm font-semibold text-neutral-950">Classification counts</h3>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {classificationOptions.map((classification) => (
+                      <div key={classification} className="rounded-xl bg-white p-3">
+                        <p className="text-xs font-semibold text-neutral-600">{classification}</p>
+                        <p className="mt-1 text-2xl font-semibold text-neutral-950">{classificationCounts[classification] || 0}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -350,13 +525,107 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "ebay-import" && (
-            <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-950">eBay Import Placeholder</h2>
-              <p className="mt-1 text-sm text-neutral-600">Planned local-only workflow for monthly eBay CSV/report uploads. No eBay API, backend, or cloud sync is connected yet.</p>
-              <div className="mt-4 grid gap-3 md:grid-cols-3">
-                <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Planned input</p><p className="mt-1 text-sm">Monthly eBay sales report CSV</p></div>
-                <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Planned matching</p><p className="mt-1 text-sm">Match sale rows to local inventory items</p></div>
-                <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Planned output</p><p className="mt-1 text-sm">Sales, fees, shipping, and payout checks</p></div>
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-neutral-950">eBay CSV Import</h2>
+                    <p className="mt-1 max-w-3xl text-sm text-neutral-600">Upload a monthly eBay CSV/report locally for reconciliation prep. Files are parsed in this browser and saved to localStorage only. No eBay API, backend, or cloud sync is connected.</p>
+                  </div>
+                  <div className="rounded-2xl bg-neutral-50 p-4 text-sm">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Stored batches</p>
+                    <p className="mt-1 text-2xl font-semibold text-neutral-950">{ebayImportBatches.length}</p>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
+                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
+                    <h3 className="text-sm font-semibold text-neutral-950">Import batch</h3>
+                    <div className="mt-3 grid gap-3">
+                      <Input label="Batch month" type="month" value={importMonth} onChange={(e) => setImportMonth(e.target.value)} />
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">CSV file</span>
+                        <input type="file" accept=".csv,text/csv" onChange={handleCsvUpload} className="block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+                      </label>
+                      {csvError && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{csvError}</p>}
+                      {csvPreview && (
+                        <button type="button" onClick={saveCsvBatch} className="inline-flex items-center justify-center rounded-2xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800">
+                          Save Import Batch
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+                    <h3 className="text-sm font-semibold text-neutral-950">Mapping helper</h3>
+                    <p className="mt-1 text-sm text-neutral-600">Exact eBay column mapping comes later. For now, check whether your report includes columns that could map to these reconciliation fields.</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {ebayMappingHints.map((hint) => (
+                        <span key={hint} className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">{hint}</span>
+                      ))}
+                    </div>
+                    {csvPreview && (
+                      <div className="mt-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Detected columns</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {csvPreview.columns.map((column, index) => (
+                            <span key={`${column}-${index}`} className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700">{column}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {csvPreview && (
+                <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold text-neutral-950">Preview: {csvPreview.fileName}</h2>
+                      <p className="text-sm text-neutral-600">{csvPreview.rows.length} rows detected for {importMonth}</p>
+                    </div>
+                    <p className="text-xs font-medium text-neutral-500">Preview shows up to 10 rows</p>
+                  </div>
+                  <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-neutral-200">
+                          {csvPreview.columns.map((column, index) => (
+                            <th key={`${column}-${index}`} className="whitespace-nowrap px-3 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-500">{column}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {csvPreview.rows.slice(0, 10).map((row, index) => (
+                          <tr key={index} className="border-b border-neutral-100">
+                            {csvPreview.columns.map((column, columnIndex) => (
+                              <td key={`${column}-${columnIndex}`} className="max-w-64 truncate px-3 py-2 text-neutral-700">{row[column]}</td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-neutral-950">Saved eBay report batches</h2>
+                <div className="mt-4 grid gap-3">
+                  {ebayImportBatches.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No imported eBay CSV batches yet.</p>}
+                  {ebayImportBatches.map((batch) => (
+                    <div key={batch.id} className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4 md:flex-row md:items-center md:justify-between">
+                      <div>
+                        <p className="font-semibold text-neutral-950">{batch.sourceFileName}</p>
+                        <p className="mt-1 text-sm text-neutral-600">Month: {batch.month} / Rows: {batch.rows.length} / Imported: {new Date(batch.importedAt).toLocaleString("de-DE")}</p>
+                      </div>
+                      <button type="button" onClick={() => deleteCsvBatch(batch.id)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-white">
+                        <Trash2 size={16} /> Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -401,6 +670,7 @@ export default function ResellerItApp() {
 
           {filtered.map((item) => {
             const itemProfit = number(item.salePrice) - number(item.purchasePrice) - number(item.ebayFees) - number(item.shippingCost);
+            const classification = itemClassification(item);
             return (
               <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -408,6 +678,7 @@ export default function ResellerItApp() {
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold text-neutral-950">{item.name}</h3>
                       <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{item.status}</span>
+                      <span className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-medium text-white">{classification}</span>
                       <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{item.category || "No category"}</span>
                     </div>
                     <p className="mt-1 text-sm text-neutral-600">{item.sourceType} / {item.sourceLocation || "No location"} / bought {item.purchaseDate}</p>
