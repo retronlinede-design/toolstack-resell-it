@@ -1080,8 +1080,8 @@ export default function ResellerItApp() {
             <div className="flex flex-wrap gap-2">
               {!editingId && (
                 <div className="inline-flex rounded-2xl border border-stone-200 bg-[#fffdf8] p-1">
-                  <button type="button" className="rounded-xl bg-[#351c17] px-3 py-1.5 text-xs font-semibold text-[#f0be45]">Quick Add</button>
-                  <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "bg-[#f0be45]/35 text-stone-900" : "text-stone-600 hover:bg-stone-100"}`}>{itemFormOpen ? "Advanced open" : "Advanced Form"}</button>
+                  <button type="button" className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "text-stone-600 hover:bg-[#f0be45]/25" : "bg-[#e06b2c] text-[#24110e] shadow-sm"}`}>Quick Add</button>
+                  <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "text-stone-600 hover:bg-[#f0be45]/25"}`}>{itemFormOpen ? "Advanced open" : "Advanced Form"}</button>
                 </div>
               )}
               {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cancel edit</button>}
@@ -1123,7 +1123,7 @@ export default function ResellerItApp() {
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 {workflowSections.map(([key, label, Icon, description]) => (
-                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-3xl border p-4 text-left shadow-sm transition ${activeWorkflowSection === key ? "border-[#f0be45]/60 bg-[#f0be45]/20 ring-2 ring-[#f0be45]/20" : "border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50"}`}>
+                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-3xl border p-4 text-left shadow-sm transition ${activeWorkflowSection === key ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 ring-2 ring-[#e06b2c]/15" : "border-stone-200 bg-white hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15"}`}>
                     <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-amber-50 group-hover:bg-[#351c17]">
                       <Icon size={18} />
                     </div>
@@ -1243,7 +1243,7 @@ export default function ResellerItApp() {
                       <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
                       <Input label="Shipment / tracking" className="sm:col-span-2" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} />
                     </div>
-                    <div className="flex flex-wrap gap-2">{quickStatusOptions.map((status) => <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.status === status ? "bg-[#f0be45]/35 text-stone-900" : "border border-neutral-300 text-neutral-700 hover:bg-neutral-50"}`}>{status}</button>)}</div>
+                    <div className="flex flex-wrap gap-2">{quickStatusOptions.map((status) => <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.status === status ? "bg-[#e06b2c] text-[#24110e]" : "border border-neutral-300 text-neutral-700 hover:bg-[#f0be45]/20"}`}>{status}</button>)}</div>
                   </div>
                 )}
 
@@ -1267,7 +1267,7 @@ export default function ResellerItApp() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Item templates</p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   {itemTemplates.map(([label, template]) => (
-                    <button key={label} type="button" onClick={() => applyItemTemplate(template)} className="rounded-xl border border-stone-200 bg-[#fffdf8] px-3 py-2 text-sm font-semibold text-stone-700 transition hover:border-orange-200 hover:bg-orange-50">
+                    <button key={label} type="button" onClick={() => applyItemTemplate(template)} className="rounded-xl border border-stone-200 bg-[#fffdf8] px-3 py-2 text-sm font-semibold text-stone-700 transition hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15">
                       {label}
                     </button>
                   ))}
@@ -1299,7 +1299,7 @@ export default function ResellerItApp() {
                 <Plus size={16} /> {editingId ? "Save Changes" : "Add Item"}
               </button>
               {!editingId && (
-                <button type="button" onClick={() => saveCurrentItem({ keepAdding: true })} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-orange-200 bg-white px-3 py-2 text-xs font-semibold text-stone-800 transition hover:bg-orange-50 sm:w-auto">
+                <button type="button" onClick={() => saveCurrentItem({ keepAdding: true })} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-800 transition hover:border-[#f0be45]/50 hover:bg-[#f0be45]/20 sm:w-auto">
                   <Plus size={16} /> Save + Add another
                 </button>
               )}
@@ -1324,7 +1324,7 @@ export default function ResellerItApp() {
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
                 {advancedFormSections.map(([key, label, Icon, description]) => (
-                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition ${activeAdvancedSection === key ? "border-[#f0be45]/60 bg-[#f0be45]/20 ring-2 ring-[#f0be45]/20" : "border-stone-200 bg-[#fffdf8] hover:border-stone-300 hover:bg-stone-50"}`}>
+                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition ${activeAdvancedSection === key ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 ring-2 ring-[#e06b2c]/15" : "border-stone-200 bg-[#fffdf8] hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15"}`}>
                     <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#351c17] text-[#f0be45]"><Icon size={18} /></div>
                     <p className="text-sm font-semibold text-stone-950">{label}</p>
                     <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
@@ -1568,7 +1568,7 @@ export default function ResellerItApp() {
           </div>
           <div className="grid grid-cols-2 gap-1.5 md:grid-cols-5 xl:flex xl:flex-wrap">
           {modules.map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition sm:text-sm ${activeTab === key ? "bg-[#f0be45] text-[#24110e] shadow-[0_8px_18px_rgba(240,190,69,0.2)]" : "border border-[#5a3028] bg-[#45251f] text-[#f3e6d6] hover:bg-[#523029]"}`}>{label}</button>
+            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition sm:text-sm ${activeTab === key ? "bg-[#e06b2c] text-[#24110e] shadow-[0_8px_18px_rgba(224,107,44,0.2)]" : "border border-[#5a3028] bg-[#45251f] text-[#f3e6d6] hover:bg-[#5a3028]"}`}>{label}</button>
           ))}
           </div>
         </nav>
@@ -1823,7 +1823,7 @@ export default function ResellerItApp() {
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-wrap gap-2">
                   {["All", "Missing proof", "Needs Eigenbeleg", "Externally stored", "Receipt / invoice", "Private items", "Business stock", "Legacy stock"].map((filter) => (
-                    <button key={filter} type="button" onClick={() => setProofFilter(filter)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${proofFilter === filter ? "bg-[#f0be45]/45 text-stone-950" : "border border-stone-200 bg-white text-stone-700 hover:bg-stone-50"}`}>{filter}</button>
+                    <button key={filter} type="button" onClick={() => setProofFilter(filter)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${proofFilter === filter ? "bg-[#e06b2c] text-[#24110e]" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20"}`}>{filter}</button>
                   ))}
                 </div>
               </div>
