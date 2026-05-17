@@ -4,6 +4,7 @@ import resellItLogo from "./assets/resellitlogo2.png";
 
 const STORAGE_KEY = "toolstack.resellerit.v1";
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
+const CURRENT_DATE = new Date().toISOString().slice(0, 10);
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const CURRENT_YEAR = new Date().getFullYear().toString();
 const ebayMappingHints = ["order date", "item title", "sale price", "fees", "shipping", "refund", "payout"];
@@ -528,9 +529,10 @@ function parseCsvText(text) {
   return { columns, rows };
 }
 
-function StatCard({ icon: Icon, label, value, sub }) {
+function StatCard({ icon: Icon, label, value, sub, accentClass = "" }) {
   return (
     <div className="premium-card rounded-2xl border border-stone-200 bg-[#fffdf8] p-3 shadow-[0_10px_26px_rgba(41,37,36,0.045)]">
+      {accentClass && <div className={`mb-2 h-1 w-10 rounded-full ${accentClass}`} />}
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{label}</p>
@@ -911,6 +913,39 @@ export default function ResellerItApp() {
       }, {}),
     };
   }, [items]);
+
+  const sectionSummaries = useMemo(() => {
+    const monthlyExpenses = expenses.filter((expense) => inMonth(expense.date));
+    const monthlySales = items.filter((item) => inMonth(item.saleDate));
+    const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
+    const revenue = monthlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
+    const fees = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
+    const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - monthlyPurchases.filter((item) => !inMonth(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
+    const packedOrShippedToday = items.filter((item) => (
+      itemStatus(item) === "Packed" || (itemStatus(item) === "Shipped" && item.shippedDate === CURRENT_DATE)
+    ));
+    return {
+      stock: {
+        inventoryValue: items.filter((item) => !isSoldStatus(item)).reduce((sum, item) => sum + number(item.purchasePrice), 0),
+        readyToList: items.filter((item) => itemStatus(item) === "Ready to List").length,
+        missingProof: items.filter((item) => !hasProofRecord(item)).length,
+        recentSourcing: items.filter((item) => inMonth(item.purchaseDate)).length,
+      },
+      sales: {
+        awaitingShipment: items.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))).length,
+        packedOrShippedToday: packedOrShippedToday.length,
+        returnsIssues: items.filter((item) => itemStatus(item) === "Returned" || itemStatus(item) === "Written Off").length,
+        recentCompleted: items.filter((item) => itemStatus(item) === "Completed").slice(0, 6).length,
+      },
+      finance: {
+        revenue,
+        expenses: expenseTotal,
+        estimatedProfit: profit - expenseTotal,
+        pendingPayout: Math.max(0, revenue - fees),
+      },
+    };
+  }, [expenses, items]);
 
   const inventoryManagerItems = useMemo(() => {
     const query = inventorySearch.trim().toLowerCase();
@@ -1710,6 +1745,33 @@ export default function ResellerItApp() {
           </div>
         )}
 
+        {activeTab === "stock" && (
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard icon={Euro} label="Total inventory value" value={money(sectionSummaries.stock.inventoryValue)} sub="unsold purchase cost" accentClass="bg-[#b7412e]" />
+            <StatCard icon={Package} label="Items ready to list" value={sectionSummaries.stock.readyToList} accentClass="bg-[#b7412e]" />
+            <StatCard icon={ReceiptText} label="Missing proof" value={sectionSummaries.stock.missingProof} accentClass="bg-[#b7412e]" />
+            <StatCard icon={ShoppingCart} label="Recent sourcing" value={sectionSummaries.stock.recentSourcing} sub={CURRENT_MONTH} accentClass="bg-[#b7412e]" />
+          </section>
+        )}
+
+        {activeTab === "sales" && (
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard icon={Truck} label="Awaiting shipment" value={sectionSummaries.sales.awaitingShipment} accentClass="bg-[#e06b2c]" />
+            <StatCard icon={Package} label="Packed / shipped today" value={sectionSummaries.sales.packedOrShippedToday} accentClass="bg-[#e06b2c]" />
+            <StatCard icon={FileText} label="Returns / issues" value={sectionSummaries.sales.returnsIssues} accentClass="bg-[#e06b2c]" />
+            <StatCard icon={ShoppingCart} label="Recent completed sales" value={sectionSummaries.sales.recentCompleted} accentClass="bg-[#e06b2c]" />
+          </section>
+        )}
+
+        {activeTab === "finance" && (
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <StatCard icon={ShoppingCart} label="This month revenue" value={money(sectionSummaries.finance.revenue)} accentClass="bg-[#f0be45]" />
+            <StatCard icon={ReceiptText} label="Expenses" value={money(sectionSummaries.finance.expenses)} sub={CURRENT_MONTH} accentClass="bg-[#f0be45]" />
+            <StatCard icon={Euro} label="Estimated profit" value={money(sectionSummaries.finance.estimatedProfit)} accentClass="bg-[#f0be45]" />
+            <StatCard icon={FileText} label="Pending payout estimate" value={money(sectionSummaries.finance.pendingPayout)} sub="revenue minus fees/shipping" accentClass="bg-[#f0be45]" />
+          </section>
+        )}
+
         {(activeTab === "stock" || activeTab === "sales" || (activeTab === "finance" && financeSection === "tax")) && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
@@ -2409,6 +2471,24 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "tools" && (
+            <div className="grid gap-4">
+            <div className="premium-panel overflow-hidden rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <div className="mb-4 h-1 w-12 rounded-full bg-[#1f9d99]" />
+              <div className="grid gap-3 md:grid-cols-3">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Backup reminder</p>
+                  <p className="mt-1 text-sm leading-6 text-neutral-700">Export a local backup after important inventory, sales, or expense updates.</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">App info</p>
+                  <p className="mt-1 text-sm leading-6 text-neutral-700">ResellIt is localStorage-only in this browser. No backend or cloud sync is connected.</p>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Future tools</p>
+                  <p className="mt-1 text-sm leading-6 text-neutral-700">Templates, settings, and help utilities can be expanded here without changing the core workflow.</p>
+                </div>
+              </div>
+            </div>
             <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <h2 className="text-lg font-semibold text-neutral-950">Tools</h2>
@@ -2430,6 +2510,7 @@ export default function ResellerItApp() {
                   <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-sm font-semibold text-neutral-800">Help</p><p className="mt-1 text-xs text-neutral-500">Workflow notes and reminders.</p></div>
                 </div>
               </div>
+            </div>
             </div>
           )}
 
