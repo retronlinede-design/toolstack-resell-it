@@ -18,6 +18,7 @@ const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
 const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
 const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Shipped", "Completed", "Returned", "Written Off"];
 const legacyStatusLabels = { "Written off": "Written Off", "Kept private": "Completed" };
+const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
 const classificationHelp = [
   ["Private Sale / Personal Collection", "Originally owned personal item."],
   ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
@@ -87,6 +88,17 @@ const emptyItem = {
   defectsNotes: "",
   shippingNotes: "",
   notes: "",
+};
+
+const emptyExpense = {
+  date: new Date().toISOString().slice(0, 10),
+  category: "Packaging",
+  description: "",
+  amount: "",
+  paymentMethod: "Cash",
+  receiptAvailable: "No",
+  receiptNotes: "",
+  linkedItemId: "",
 };
 
 const demoItems = [
@@ -261,6 +273,17 @@ function loadInitialItems() {
   }
 }
 
+function loadInitialExpenses() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed.expenses) ? parsed.expenses : [];
+  } catch {
+    return [];
+  }
+}
+
 function loadEbayImportBatches() {
   try {
     const raw = localStorage.getItem(EBAY_IMPORTS_KEY);
@@ -360,6 +383,11 @@ function FormSection({ title, children }) {
 
 export default function ResellerItApp() {
   const [items, setItems] = useState(loadInitialItems);
+  const [expenses, setExpenses] = useState(loadInitialExpenses);
+  const [expenseForm, setExpenseForm] = useState(emptyExpense);
+  const [editingExpenseId, setEditingExpenseId] = useState(null);
+  const [expenseMonthFilter, setExpenseMonthFilter] = useState(CURRENT_MONTH);
+  const [expenseCategoryFilter, setExpenseCategoryFilter] = useState("All categories");
   const [ebayImportBatches, setEbayImportBatches] = useState(loadEbayImportBatches);
   const [importMonth, setImportMonth] = useState(CURRENT_MONTH);
   const [csvPreview, setCsvPreview] = useState(null);
@@ -383,7 +411,17 @@ export default function ResellerItApp() {
 
   function persist(nextItems) {
     setItems(nextItems);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: nextItems, updatedAt: new Date().toISOString() }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: nextItems, expenses, updatedAt: new Date().toISOString() }));
+  }
+
+  function persistAll(nextItems, nextExpenses) {
+    setItems(nextItems);
+    setExpenses(nextExpenses);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: nextItems, expenses: nextExpenses, updatedAt: new Date().toISOString() }));
+  }
+
+  function persistExpenses(nextExpenses) {
+    persistAll(items, nextExpenses);
   }
 
   function saveItem(e) {
@@ -419,6 +457,27 @@ export default function ResellerItApp() {
     persist(items.filter((item) => item.id !== id));
   }
 
+  function saveExpense(e) {
+    e.preventDefault();
+    if (!expenseForm.description.trim() || !expenseForm.amount) return;
+    const clean = { ...expenseForm, description: expenseForm.description.trim() };
+    const nextExpenses = editingExpenseId
+      ? expenses.map((expense) => (expense.id === editingExpenseId ? { ...expense, ...clean } : expense))
+      : [{ id: crypto.randomUUID(), ...clean }, ...expenses];
+    persistExpenses(nextExpenses);
+    setExpenseForm(emptyExpense);
+    setEditingExpenseId(null);
+  }
+
+  function editExpense(expense) {
+    setExpenseForm({ ...emptyExpense, ...expense });
+    setEditingExpenseId(expense.id);
+  }
+
+  function deleteExpense(id) {
+    persistExpenses(expenses.filter((expense) => expense.id !== id));
+  }
+
   function updateItemStatus(id, status) {
     persist(items.map((item) => (item.id === id ? { ...item, status } : item)));
   }
@@ -439,7 +498,7 @@ export default function ResellerItApp() {
   }
 
   function exportJson() {
-    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 1, items, exportedAt: new Date().toISOString() }, null, 2);
+    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 1, items, expenses, exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -593,16 +652,19 @@ export default function ResellerItApp() {
   const yearlySummary = useMemo(() => {
     const yearlyPurchases = items.filter((item) => inYear(item.purchaseDate));
     const yearlySales = items.filter((item) => inYear(item.saleDate));
+    const yearlyExpenses = expenses.filter((expense) => inYear(expense.date));
     const purchaseTotal = yearlyPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
     const salesTotal = yearlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const feesTotal = yearlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
-    const profit = yearlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - yearlyPurchases.filter((item) => !inYear(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0);
-    return { purchaseTotal, salesTotal, feesTotal, profit };
-  }, [items]);
+    const expenseTotal = yearlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
+    const profit = yearlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - yearlyPurchases.filter((item) => !inYear(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0) - expenseTotal;
+    return { purchaseTotal, salesTotal, feesTotal, expenseTotal, profit };
+  }, [expenses, items]);
 
   const monthlyClosing = useMemo(() => {
     const purchasedItems = items.filter((item) => inMonth(item.purchaseDate, closingMonth));
     const soldItems = items.filter((item) => inMonth(item.saleDate, closingMonth));
+    const monthlyExpenses = expenses.filter((expense) => inMonth(expense.date, closingMonth));
     const activityItems = items.filter((item) => inMonth(item.purchaseDate, closingMonth) || inMonth(item.saleDate, closingMonth));
     const classificationBreakdown = classificationOptions.reduce((counts, classification) => {
       counts[classification] = activityItems.filter((item) => itemClassification(item) === classification).length;
@@ -613,7 +675,8 @@ export default function ResellerItApp() {
     const shippingCharged = soldItems.reduce((sum, item) => sum + shippingChargedValue(item), 0);
     const actualShippingCosts = soldItems.reduce((sum, item) => sum + actualShippingValue(item), 0);
     const platformFeeTotal = soldItems.reduce((sum, item) => sum + platformFees(item), 0);
-    const profitEstimate = salesTotal + shippingCharged - purchaseTotal - actualShippingCosts - platformFeeTotal;
+    const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
+    const profitEstimate = salesTotal + shippingCharged - purchaseTotal - actualShippingCosts - platformFeeTotal - expenseTotal;
     const missingProofItems = activityItems.filter((item) => !hasProofRecord(item));
     const reviewItems = activityItems.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION);
 
@@ -624,6 +687,7 @@ export default function ResellerItApp() {
       shippingCharged,
       actualShippingCosts,
       platformFeeTotal,
+      expenseTotal,
       profitEstimate,
       classificationBreakdown,
       missingProofItems,
@@ -631,8 +695,21 @@ export default function ResellerItApp() {
       purchasedCount: purchasedItems.length,
       soldCount: soldItems.length,
       activityCount: activityItems.length,
+      expenseCount: monthlyExpenses.length,
     };
-  }, [closingMonth, items]);
+  }, [closingMonth, expenses, items]);
+
+  const filteredExpenses = useMemo(() => {
+    return expenses.filter((expense) => {
+      if (expenseMonthFilter && !inMonth(expense.date, expenseMonthFilter)) return false;
+      if (expenseCategoryFilter !== "All categories" && expense.category !== expenseCategoryFilter) return false;
+      return true;
+    });
+  }, [expenseCategoryFilter, expenseMonthFilter, expenses]);
+
+  const filteredExpenseTotal = useMemo(() => (
+    filteredExpenses.reduce((sum, expense) => sum + number(expense.amount), 0)
+  ), [filteredExpenses]);
 
   const filtered = useMemo(() => {
     let nextItems = [];
@@ -1189,7 +1266,8 @@ export default function ResellerItApp() {
                   <StatCard icon={Euro} label="Shipping charged" value={money(monthlyClosing.shippingCharged)} />
                   <StatCard icon={Package} label="Actual shipping costs" value={money(monthlyClosing.actualShippingCosts)} />
                   <StatCard icon={FileText} label="Platform fees" value={money(monthlyClosing.platformFeeTotal)} />
-                  <StatCard icon={Euro} label="Profit estimate" value={money(monthlyClosing.profitEstimate)} sub="sales + shipping charged - purchases - shipping costs - platform fees" />
+                  <StatCard icon={ReceiptText} label="Expenses" value={money(monthlyClosing.expenseTotal)} sub={`${monthlyClosing.expenseCount} expense records`} />
+                  <StatCard icon={Euro} label="Profit estimate" value={money(monthlyClosing.profitEstimate)} sub="sales + shipping charged - purchases - shipping costs - platform fees - expenses" />
                   <StatCard icon={ReceiptText} label="Missing proof" value={monthlyClosing.missingProofItems.length} />
                   <StatCard icon={FileText} label="Review later" value={monthlyClosing.reviewItems.length} sub="Unsure / Review Later" />
                 </div>
@@ -1238,13 +1316,84 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "expenses" && (
-            <div className="rounded-3xl border border-dashed border-neutral-300 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-950">Expenses Module</h2>
-              <p className="mt-1 text-sm text-neutral-600">Planned localStorage module for reseller business expenses such as packaging, labels, tools, mileage notes, storage, and platform-related costs. No new expense data model has been added in this pass.</p>
-              <div className="mt-4 grid gap-3 md:grid-cols-4">
-                {["Packaging", "Shipping labels", "Tools & supplies", "Mileage notes"].map((label) => (
-                  <div key={label} className="rounded-2xl bg-neutral-50 p-4 text-sm font-semibold text-neutral-700">{label}</div>
-                ))}
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-neutral-950">Expenses Manager</h2>
+                    <p className="mt-1 text-sm text-neutral-600">Track general reselling expenses such as packaging, labels, fuel, storage, office supplies, and flea-market fees.</p>
+                  </div>
+                  <StatCard icon={Euro} label="Filtered monthly total" value={money(filteredExpenseTotal)} sub={`${filteredExpenses.length} records`} />
+                </div>
+              </div>
+
+              <form onSubmit={saveExpense} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-neutral-950">{editingExpenseId ? "Edit expense" : "Add expense"}</h3>
+                    <p className="mt-1 text-sm text-neutral-500">Stored locally with the rest of your ResellIt records.</p>
+                  </div>
+                  {editingExpenseId && <button type="button" onClick={() => { setEditingExpenseId(null); setExpenseForm(emptyExpense); }} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Cancel edit</button>}
+                </div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <Input label="Date" type="date" value={expenseForm.date} onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })} />
+                  <Select label="Category" value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}>
+                    {expenseCategories.map((category) => <option key={category}>{category}</option>)}
+                  </Select>
+                  <Input label="Description" value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} placeholder="Tape, boxes, fuel..." />
+                  <Input label="Amount EUR" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} />
+                  <Select label="Payment method" value={expenseForm.paymentMethod} onChange={(e) => setExpenseForm({ ...expenseForm, paymentMethod: e.target.value })}>
+                    <option>Cash</option><option>Card</option><option>PayPal</option><option>Bank transfer</option><option>Other</option>
+                  </Select>
+                  <Select label="Receipt available" value={expenseForm.receiptAvailable} onChange={(e) => setExpenseForm({ ...expenseForm, receiptAvailable: e.target.value })}>
+                    <option>Yes</option><option>No</option>
+                  </Select>
+                  <Select label="Linked item optional" value={expenseForm.linkedItemId} onChange={(e) => setExpenseForm({ ...expenseForm, linkedItemId: e.target.value })}>
+                    <option value="">No linked item</option>
+                    {items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+                  </Select>
+                  <Input label="Receipt notes" value={expenseForm.receiptNotes} onChange={(e) => setExpenseForm({ ...expenseForm, receiptNotes: e.target.value })} placeholder="Receipt location, note, missing reason..." />
+                </div>
+                <button type="submit" className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-800 sm:w-auto">
+                  {editingExpenseId ? "Save Expense" : "Add Expense"}
+                </button>
+              </form>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div className="grid gap-3 md:grid-cols-3">
+                  <Input label="Filter month" type="month" value={expenseMonthFilter} onChange={(e) => setExpenseMonthFilter(e.target.value)} />
+                  <Select label="Filter category" value={expenseCategoryFilter} onChange={(e) => setExpenseCategoryFilter(e.target.value)}>
+                    <option>All categories</option>
+                    {expenseCategories.map((category) => <option key={category}>{category}</option>)}
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {filteredExpenses.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No expenses match the current filters.</p>}
+                {filteredExpenses.map((expense) => {
+                  const linkedItem = items.find((item) => item.id === expense.linkedItemId);
+                  return (
+                    <article key={expense.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-neutral-950">{expense.description}</h3>
+                            <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">{expense.category}</span>
+                            <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">{expense.receiptAvailable === "Yes" ? "Receipt" : "No receipt"}</span>
+                          </div>
+                          <p className="mt-1 text-sm text-neutral-600">{expense.date} / {expense.paymentMethod}{linkedItem ? ` / linked to ${linkedItem.name}` : ""}</p>
+                          {expense.receiptNotes && <p className="mt-1 text-sm text-neutral-500">{expense.receiptNotes}</p>}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="rounded-2xl bg-neutral-950 px-4 py-2 text-sm font-semibold text-white">{money(expense.amount)}</p>
+                          <button type="button" onClick={() => editExpense(expense)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
+                          <button type="button" onClick={() => deleteExpense(expense.id)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Delete</button>
+                        </div>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1257,6 +1406,7 @@ export default function ResellerItApp() {
                 <StatCard icon={ReceiptText} label={`Purchases ${CURRENT_YEAR}`} value={money(yearlySummary.purchaseTotal)} />
                 <StatCard icon={ShoppingCart} label={`Gross sales ${CURRENT_YEAR}`} value={money(yearlySummary.salesTotal)} />
                 <StatCard icon={Euro} label="Fees + shipping" value={money(yearlySummary.feesTotal)} />
+                <StatCard icon={ReceiptText} label="Business expenses" value={money(yearlySummary.expenseTotal)} />
                 <StatCard icon={Euro} label="Estimated EÜR profit" value={money(yearlySummary.profit)} />
               </div>
             </div>
