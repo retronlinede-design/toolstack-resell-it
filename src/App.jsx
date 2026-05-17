@@ -69,6 +69,15 @@ const workflowSections = [
   ["sale", "Shipping & Sale", Truck, "Final sale, shipping, and completion"],
   ["notes", "Notes & Extras", StickyNote, "Defects, included items, and metadata"],
 ];
+const advancedFormSections = [
+  ["basic", "Basic Info", Info, "Name, category, classification, status"],
+  ["sourcing", "Sourcing", Package, "Source, location, purchase, payment"],
+  ["pricing", "Pricing", Search, "Research, prices, fee settings"],
+  ["sale", "Sale & Shipping", Truck, "Final sale and shipping numbers"],
+  ["proof", "Proof / Receipts", ReceiptText, "Proof status and file references"],
+  ["listing", "Listing Studio", ClipboardList, "Listing copy, HTML, and research links"],
+  ["notes", "Notes", StickyNote, "General notes and extra context"],
+];
 
 const modules = [
   ["dashboard", "Dashboard"],
@@ -556,6 +565,7 @@ export default function ResellerItApp() {
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
   const [expandedProofId, setExpandedProofId] = useState(null);
   const [advancedFeesOpen, setAdvancedFeesOpen] = useState(false);
+  const [activeAdvancedSection, setActiveAdvancedSection] = useState("");
   const [closingMonth, setClosingMonth] = useState(CURRENT_MONTH);
   const [inventorySearch, setInventorySearch] = useState("");
   const [inventoryClassification, setInventoryClassification] = useState("All classifications");
@@ -1283,6 +1293,32 @@ export default function ResellerItApp() {
           </div>}
 
           {!editingId && itemFormOpen && <div className="space-y-3">
+            <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Advanced Item Form</p>
+                  <h3 className="mt-1 text-lg font-semibold text-stone-950">{activeAdvancedSection ? advancedFormSections.find(([key]) => key === activeAdvancedSection)?.[1] : "Choose a section"}</h3>
+                  <p className="mt-1 text-sm text-stone-600">Use one focused section at a time. Quick Add remains available above for fast entry.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {activeAdvancedSection && <button type="button" onClick={() => setActiveAdvancedSection("")} className="rounded-xl border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Back to sections</button>}
+                  {activeAdvancedSection && <button type="button" onClick={() => setActiveAdvancedSection("")} className="rounded-xl border border-stone-300 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close section</button>}
+                  <button type="submit" className="rounded-xl bg-[#e06b2c] px-4 py-2 text-sm font-semibold text-[#24110e] shadow-[0_8px_18px_rgba(224,107,44,0.18)] hover:bg-[#f0be45]">Save item</button>
+                  <button type="button" onClick={() => { setItemFormOpen(false); setActiveAdvancedSection(""); }} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cancel</button>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                {advancedFormSections.map(([key, label, Icon, description]) => (
+                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition ${activeAdvancedSection === key ? "border-orange-200 bg-orange-50 ring-2 ring-orange-100" : "border-stone-200 bg-[#fffdf8] hover:border-stone-300 hover:bg-stone-50"}`}>
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#351c17] text-[#f0be45]"><Icon size={18} /></div>
+                    <p className="text-sm font-semibold text-stone-950">{label}</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {activeAdvancedSection === "basic" && <>
             <FormSection title="Inventory item">
               <Input label="Item name" className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sony CD Player" />
               <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Electronics, clothing..." />
@@ -1307,8 +1343,9 @@ export default function ResellerItApp() {
                 ))}
               </div>
             </div>
+            </>}
 
-            <FormSection title="Sourcing record and receipt evidence">
+            {activeAdvancedSection === "sourcing" && <FormSection title="Sourcing record and receipt evidence">
               <Select label="Source type" value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })}>
                 <option>Flea market</option><option>Second-hand shop</option><option>Private seller</option><option>Online marketplace</option><option>Other</option>
               </Select>
@@ -1322,17 +1359,17 @@ export default function ResellerItApp() {
               <Select label="Payment method" value={form.paymentMethod} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}>
                 <option>Cash</option><option>Card</option><option>PayPal</option><option>Bank transfer</option><option>Other</option>
               </Select>
-            </FormSection>
+            </FormSection>}
 
-            <FormSection title="eBay sale and fees">
+            {activeAdvancedSection === "sale" && <FormSection title="eBay sale and fees">
               <Input label="Expected sale price EUR" value={form.expectedSalePrice} onChange={(e) => setForm({ ...form, expectedSalePrice: e.target.value })} />
               <Input label="Sale date" type="date" value={form.saleDate} onChange={(e) => setForm({ ...form, saleDate: e.target.value })} />
               <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
               <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
               <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
-            </FormSection>
+            </FormSection>}
 
-            <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+            {activeAdvancedSection === "pricing" && <div className="rounded-2xl border border-neutral-200 bg-white p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-neutral-950">Advanced fee settings</h3>
@@ -1363,8 +1400,9 @@ export default function ResellerItApp() {
               )}
               {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <p className="mt-3 rounded-xl bg-neutral-50 p-3 text-sm text-neutral-600">Business fee calculations are estimates until reconciled with official eBay reports.</p>}
               <p className="mt-3 rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Current final profit: {money(itemProfitValue(form))}</p>
-            </div>
+            </div>}
 
+            {activeAdvancedSection === "proof" && <>
             <FormSection title="Receipt / evidence record">
               <Select label="Proof type" value={form.proofType || "Eigenbeleg"} onChange={(e) => setForm({ ...form, proofType: e.target.value })}>
                 {proofTypes.map((type) => <option key={type}>{type}</option>)}
@@ -1400,7 +1438,9 @@ export default function ResellerItApp() {
                 </div>
               )}
             </div>
+            </>}
 
+            {activeAdvancedSection === "pricing" && <>
             <FormSection title="Price research assistant">
               <Input label="Research query" className="sm:col-span-2" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} placeholder={form.ebayTitle || form.name || "Search phrase"} />
               <Input label="Researched low EUR" value={form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, researchedLowPrice: e.target.value })} />
@@ -1423,8 +1463,9 @@ export default function ResellerItApp() {
                 {priceResearchLinks(form).length === 0 && <p className="text-sm text-neutral-500">Enter an item name, eBay title, or research query to generate search links.</p>}
               </div>
             </div>
+            </>}
 
-            <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+            {activeAdvancedSection === "listing" && <div className="rounded-2xl border border-neutral-200 bg-white p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h3 className="text-sm font-semibold text-neutral-950">Listing Studio</h3>
@@ -1493,12 +1534,12 @@ export default function ResellerItApp() {
                   </label>
                 </div>
               </div>
-            </div>
+            </div>}
 
-          <label className="mt-4 block">
+          {activeAdvancedSection === "notes" && <label className="mt-4 block">
             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Notes</span>
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Condition, missing receipt reason, storage location, defects, tax notes..." />
-          </label>
+          </label>}
 
           </div>}
         </form>
