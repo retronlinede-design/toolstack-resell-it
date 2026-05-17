@@ -16,6 +16,8 @@ const classificationOptions = [
 ];
 const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
 const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
+const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Shipped", "Completed", "Returned", "Written Off"];
+const legacyStatusLabels = { "Written off": "Written Off", "Kept private": "Completed" };
 const classificationHelp = [
   ["Private Sale / Personal Collection", "Originally owned personal item."],
   ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
@@ -78,6 +80,12 @@ const emptyItem = {
   chosenListingPrice: "",
   priceResearchNotes: "",
   priceResearchUpdatedAt: "",
+  listingTitle: "",
+  conditionText: "",
+  descriptionText: "",
+  includedItems: "",
+  defectsNotes: "",
+  shippingNotes: "",
   notes: "",
 };
 
@@ -181,6 +189,26 @@ function hasProofRecord(item) {
   return Boolean(item.proofImageDataUrl || item.proofNotes || item.proofAmount || item.receiptType || item.proofType);
 }
 
+function itemStatus(item) {
+  return legacyStatusLabels[item.status] || item.status || "Draft";
+}
+
+function expectedListingValue(item) {
+  return number(item.chosenListingPrice || item.expectedSalePrice);
+}
+
+function hasPriceResearch(item) {
+  return Boolean(item.researchQuery || item.researchedLowPrice || item.researchedMidPrice || item.researchedHighPrice || item.chosenListingPrice || item.priceResearchNotes);
+}
+
+function hasListingDraft(item) {
+  return Boolean(item.listingTitle || item.conditionText || item.descriptionText);
+}
+
+function isSoldStatus(item) {
+  return ["Sold", "Shipped", "Completed"].includes(itemStatus(item)) || Boolean(item.finalSalePrice || item.salePrice || item.saleDate);
+}
+
 function priceResearchQuery(item) {
   return (item.researchQuery || item.ebayTitle || item.name || "").trim();
 }
@@ -195,6 +223,31 @@ function priceResearchLinks(item) {
     ["Google", `https://www.google.com/search?q=${query}`],
     ["Kleinanzeigen", `https://www.kleinanzeigen.de/s-suchanfrage.html?keywords=${query}`],
   ];
+}
+
+function listingPrice(item) {
+  return item.chosenListingPrice || item.expectedSalePrice || "";
+}
+
+function generateListingDraft(item) {
+  const title = item.listingTitle || item.ebayTitle || [item.name, item.category].filter(Boolean).join(" - ");
+  const condition = item.conditionText || item.notes || "Please review photos and description for condition details.";
+  const price = listingPrice(item);
+  const descriptionParts = [
+    item.name && `Item: ${item.name}`,
+    item.category && `Category: ${item.category}`,
+    price && `Listing price: ${money(price)}`,
+    condition && `Condition: ${condition}`,
+    item.includedItems && `Included: ${item.includedItems}`,
+    item.defectsNotes && `Defects / notes: ${item.defectsNotes}`,
+    item.shippingNotes && `Shipping: ${item.shippingNotes}`,
+  ].filter(Boolean);
+
+  return {
+    title,
+    condition,
+    description: item.descriptionText || descriptionParts.join("\n"),
+  };
 }
 
 function loadInitialItems() {
@@ -318,6 +371,12 @@ export default function ResellerItApp() {
   const [expandedProofId, setExpandedProofId] = useState(null);
   const [advancedFeesOpen, setAdvancedFeesOpen] = useState(false);
   const [closingMonth, setClosingMonth] = useState(CURRENT_MONTH);
+  const [inventorySearch, setInventorySearch] = useState("");
+  const [inventoryClassification, setInventoryClassification] = useState("All classifications");
+  const [inventoryStatus, setInventoryStatus] = useState("All statuses");
+  const [inventoryCategory, setInventoryCategory] = useState("All categories");
+  const [inventoryIssueFilter, setInventoryIssueFilter] = useState("All items");
+  const [inventorySort, setInventorySort] = useState("Newest purchase date");
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -354,6 +413,25 @@ export default function ResellerItApp() {
 
   function deleteItem(id) {
     persist(items.filter((item) => item.id !== id));
+  }
+
+  function updateItemStatus(id, status) {
+    persist(items.map((item) => (item.id === id ? { ...item, status } : item)));
+  }
+
+  function duplicateItem(item) {
+    const copy = {
+      ...emptyItem,
+      ...item,
+      id: crypto.randomUUID(),
+      name: `${item.name} copy`,
+      status: "Draft",
+      saleDate: "",
+      salePrice: "",
+      finalSalePrice: "",
+      importedAt: undefined,
+    };
+    persist([copy, ...items]);
   }
 
   function exportJson() {
@@ -456,6 +534,48 @@ export default function ResellerItApp() {
     }, {})
   ), [items]);
 
+  const categoryOptions = useMemo(() => (
+    Array.from(new Set(items.map((item) => item.category).filter(Boolean))).sort((a, b) => a.localeCompare(b))
+  ), [items]);
+
+  const inventoryHealth = useMemo(() => {
+    const unsoldItems = items.filter((item) => !isSoldStatus(item));
+    return {
+      totalItems: items.length,
+      unsoldInventoryValue: unsoldItems.reduce((sum, item) => sum + number(item.purchasePrice), 0),
+      missingProofCount: items.filter((item) => !hasProofRecord(item)).length,
+      missingPriceResearchCount: items.filter((item) => !hasPriceResearch(item)).length,
+      missingListingDraftCount: items.filter((item) => !hasListingDraft(item)).length,
+      reviewLaterCount: items.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION).length,
+    };
+  }, [items]);
+
+  const inventoryManagerItems = useMemo(() => {
+    const query = inventorySearch.trim().toLowerCase();
+    const filteredItems = items.filter((item) => {
+      const searchText = [item.name, item.category, item.ebayTitle, item.sourceName, item.sourceLocation, item.listingTitle].join(" ").toLowerCase();
+      if (query && !searchText.includes(query)) return false;
+      if (inventoryClassification !== "All classifications" && itemClassification(item) !== inventoryClassification) return false;
+      if (inventoryStatus !== "All statuses" && itemStatus(item) !== inventoryStatus) return false;
+      if (inventoryCategory !== "All categories" && item.category !== inventoryCategory) return false;
+      if (inventoryIssueFilter === "Missing proof" && hasProofRecord(item)) return false;
+      if (inventoryIssueFilter === "Missing price research" && hasPriceResearch(item)) return false;
+      if (inventoryIssueFilter === "Missing listing draft" && hasListingDraft(item)) return false;
+      if (inventoryIssueFilter === "Sold only" && !isSoldStatus(item)) return false;
+      if (inventoryIssueFilter === "Unsold only" && isSoldStatus(item)) return false;
+      return true;
+    });
+
+    return [...filteredItems].sort((a, b) => {
+      if (inventorySort === "Oldest purchase date") return String(a.purchaseDate || "").localeCompare(String(b.purchaseDate || ""));
+      if (inventorySort === "Highest expected/listing value") return expectedListingValue(b) - expectedListingValue(a);
+      if (inventorySort === "Highest final sale price") return finalSaleValue(b) - finalSaleValue(a);
+      if (inventorySort === "Highest estimated profit") return itemProfitValue(b) - itemProfitValue(a);
+      if (inventorySort === "Missing proof first") return Number(hasProofRecord(a)) - Number(hasProofRecord(b));
+      return String(b.purchaseDate || "").localeCompare(String(a.purchaseDate || ""));
+    });
+  }, [inventoryCategory, inventoryClassification, inventoryIssueFilter, inventorySearch, inventorySort, inventoryStatus, items]);
+
   const monthlySummary = useMemo(() => {
     const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
     const monthlySales = items.filter((item) => inMonth(item.saleDate));
@@ -513,7 +633,7 @@ export default function ResellerItApp() {
   const filtered = useMemo(() => {
     let nextItems = [];
     if (activeTab === "dashboard") nextItems = [];
-    else if (activeTab === "inventory") nextItems = items;
+    else if (activeTab === "inventory") nextItems = [];
     else if (activeTab === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
     else if (activeTab === "receipts") nextItems = items.filter((item) => item.hasReceipt === "No" || item.receiptType || item.notes);
     else if (activeTab === "tax") nextItems = items;
@@ -531,6 +651,24 @@ export default function ResellerItApp() {
       await navigator.clipboard.writeText(eigenbelegText(item));
     } catch {
       window.prompt("Copy Eigenbeleg text", eigenbelegText(item));
+    }
+  }
+
+  function generateCurrentListingDraft() {
+    const draft = generateListingDraft(form);
+    setForm({
+      ...form,
+      listingTitle: draft.title,
+      conditionText: draft.condition,
+      descriptionText: draft.description,
+    });
+  }
+
+  async function copyText(label, text) {
+    try {
+      await navigator.clipboard.writeText(text || "");
+    } catch {
+      window.prompt(`Copy ${label}`, text || "");
     }
   }
 
@@ -575,7 +713,8 @@ export default function ResellerItApp() {
                 {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
               </Select>
               <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                <option>Sourced</option><option>Listed</option><option>Sold</option><option>Returned</option><option>Written off</option><option>Kept private</option>
+                {statusOptions.map((status) => <option key={status}>{status}</option>)}
+                {form.status && !statusOptions.includes(form.status) && <option>{form.status}</option>}
               </Select>
               <Input label="eBay title" className="sm:col-span-2 lg:col-span-4" value={form.ebayTitle} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value })} />
             </FormSection>
@@ -700,6 +839,42 @@ export default function ResellerItApp() {
                 {priceResearchLinks(form).length === 0 && <p className="text-sm text-neutral-500">Enter an item name, eBay title, or research query to generate search links.</p>}
               </div>
             </div>
+
+            <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-950">Quick Listing Helper</h3>
+                  <p className="mt-1 text-sm text-neutral-600">Generate an editable eBay listing draft from this inventory item. Local only; no AI or eBay API calls.</p>
+                </div>
+                <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800">Generate listing draft</button>
+              </div>
+
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Input label="Included items" value={form.includedItems || ""} onChange={(e) => setForm({ ...form, includedItems: e.target.value })} placeholder="Item, charger, manual..." />
+                <Input label="Defects notes" value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} placeholder="Scratches, missing parts..." />
+                <Input label="Shipping notes" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} placeholder="Tracked DHL, pickup possible..." />
+              </div>
+
+              <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <label className="block lg:col-span-2">
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Listing title</span>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <input value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                    <button type="button" onClick={() => copyText("title", form.listingTitle)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
+                  </div>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition</span>
+                  <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                  <button type="button" onClick={() => copyText("condition", form.conditionText)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Description</span>
+                  <textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                  <button type="button" onClick={() => copyText("description", form.descriptionText)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy description</button>
+                </label>
+              </div>
+            </div>
           </div>
 
           <label className="mt-4 block">
@@ -729,6 +904,100 @@ export default function ResellerItApp() {
         </div>
 
         <section className="grid gap-4">
+          {activeTab === "inventory" && (
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-neutral-950">Inventory Manager</h2>
+                    <p className="mt-1 text-sm text-neutral-600">Search, filter, sort, and move items through the resale workflow before monthly closing.</p>
+                  </div>
+                  <p className="text-sm font-semibold text-neutral-500">{inventoryManagerItems.length} shown</p>
+                </div>
+
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                  <StatCard icon={Package} label="Total items" value={inventoryHealth.totalItems} />
+                  <StatCard icon={Euro} label="Unsold inventory value" value={money(inventoryHealth.unsoldInventoryValue)} />
+                  <StatCard icon={ReceiptText} label="Missing proof" value={inventoryHealth.missingProofCount} />
+                  <StatCard icon={ShoppingCart} label="Missing price research" value={inventoryHealth.missingPriceResearchCount} />
+                  <StatCard icon={FileText} label="Missing listing draft" value={inventoryHealth.missingListingDraftCount} />
+                  <StatCard icon={FileText} label="Review later" value={inventoryHealth.reviewLaterCount} />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <Input label="Search inventory" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, eBay title, source..." />
+                  <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}>
+                    <option>All classifications</option>
+                    {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+                  </Select>
+                  <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}>
+                    <option>All statuses</option>
+                    {statusOptions.map((status) => <option key={status}>{status}</option>)}
+                  </Select>
+                  <Select label="Category" value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
+                    <option>All categories</option>
+                    {categoryOptions.map((category) => <option key={category}>{category}</option>)}
+                  </Select>
+                  <Select label="Inventory filter" value={inventoryIssueFilter} onChange={(e) => setInventoryIssueFilter(e.target.value)}>
+                    <option>All items</option>
+                    <option>Missing proof</option>
+                    <option>Missing price research</option>
+                    <option>Missing listing draft</option>
+                    <option>Sold only</option>
+                    <option>Unsold only</option>
+                  </Select>
+                  <Select label="Sort" value={inventorySort} onChange={(e) => setInventorySort(e.target.value)}>
+                    <option>Newest purchase date</option>
+                    <option>Oldest purchase date</option>
+                    <option>Highest expected/listing value</option>
+                    <option>Highest final sale price</option>
+                    <option>Highest estimated profit</option>
+                    <option>Missing proof first</option>
+                  </Select>
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {inventoryManagerItems.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No inventory items match the current filters.</p>}
+                {inventoryManagerItems.map((item) => (
+                  <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                    <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-center">
+                      <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:items-center">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-neutral-950">{item.name}</h3>
+                            <span className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-medium text-white">{itemClassification(item)}</span>
+                            <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{itemStatus(item)}</span>
+                          </div>
+                          <p className="mt-1 text-sm text-neutral-600">{item.category || "No category"} / bought {item.purchaseDate || "no date"}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Expected</p><p className="font-semibold">{money(expectedListingValue(item))}</p></div>
+                          <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Final sale</p><p className="font-semibold">{money(finalSaleValue(item))}</p></div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Profit</p><p className="font-semibold">{money(itemProfitValue(item))}</p></div>
+                          <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Health</p><p className="font-semibold">{[!hasProofRecord(item) && "Proof", !hasPriceResearch(item) && "Price", !hasListingDraft(item) && "Draft"].filter(Boolean).join(", ") || "OK"}</p></div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 xl:justify-end">
+                        <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
+                        <button type="button" onClick={() => duplicateItem(item)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Duplicate</button>
+                        <button type="button" onClick={() => updateItemStatus(item.id, "Ready to List")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Ready to List</button>
+                        <button type="button" onClick={() => updateItemStatus(item.id, "Listed")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Listed</button>
+                        <button type="button" onClick={() => updateItemStatus(item.id, "Sold")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Sold</button>
+                        <button type="button" onClick={() => updateItemStatus(item.id, "Shipped")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Shipped</button>
+                        <button type="button" onClick={() => updateItemStatus(item.id, "Completed")} className="rounded-xl bg-neutral-950 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800">Mark Completed</button>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </div>
+          )}
+
           {activeTab === "dashboard" && (
             <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -1033,6 +1302,24 @@ export default function ResellerItApp() {
                     </div>
                   </div>
                 </div>
+
+                {(item.listingTitle || item.conditionText || item.descriptionText) && (
+                  <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Listing draft</p>
+                        <p className="mt-1 font-semibold text-neutral-950">{item.listingTitle || item.ebayTitle || item.name}</p>
+                        {item.conditionText && <p className="mt-2 text-sm text-neutral-600">{item.conditionText}</p>}
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => copyText("title", item.listingTitle || item.ebayTitle || item.name)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
+                        <button type="button" onClick={() => copyText("condition", item.conditionText)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
+                        <button type="button" onClick={() => copyText("description", item.descriptionText)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy description</button>
+                      </div>
+                    </div>
+                    {item.descriptionText && <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-neutral-50 p-3 text-xs text-neutral-700">{item.descriptionText}</pre>}
+                  </div>
+                )}
 
                 <div className="mt-4 grid gap-3 md:grid-cols-2">
                   <div className="rounded-2xl bg-neutral-50 p-4">
