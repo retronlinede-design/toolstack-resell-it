@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
-import resellItLogo from "./assets/resellitlogo1.png";
+import resellItLogo from "./assets/resellitlogo2.png";
 
 const STORAGE_KEY = "toolstack.resellerit.v1";
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
@@ -1088,10 +1088,10 @@ export default function ResellerItApp() {
           <div className="space-y-4 p-4 md:p-5">
           <div className="space-y-4">
             <div>
-              <div className="bg-transparent px-1 py-2">
-                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-28 w-full object-contain mix-blend-screen sm:max-h-32 lg:max-h-36" />
+              <div className="bg-transparent px-1 pt-1">
+                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-24 w-full object-contain sm:max-h-28 lg:max-h-32" />
               </div>
-              <p className="-mt-1 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f0be45] sm:text-xs">THE COMPLETE RESELLER SYSTEM.</p>
+              <p className="-mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f0be45] sm:text-xs">THE COMPLETE RESELLER SYSTEM.</p>
             </div>
             <nav className="space-y-2">
               <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === "dashboard" ? "border-[#f0be45]/60 bg-white/8 shadow-[0_8px_22px_rgba(240,190,69,0.12)]" : "border-[#5a3028] bg-[#45251f] hover:border-[#f0be45]/35 hover:bg-white/7"}`}>
