@@ -577,6 +577,7 @@ export default function ResellerItApp() {
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
   const [backupMessage, setBackupMessage] = useState("");
+  const [backupMenuOpen, setBackupMenuOpen] = useState(false);
   const [proofFilter, setProofFilter] = useState("All");
   const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("basic");
@@ -1040,16 +1041,21 @@ export default function ResellerItApp() {
               <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">Germany-focused tax-prep workspace for Kleinunternehmer and Einzelunternehmen resellers: inventory, sourcing records, receipts, Eigenbelege, eBay sales reconciliation, and EÜR-style monthly/yearly summaries.</p>
               <p className="mt-2 max-w-3xl text-xs font-medium text-neutral-500">Tax support only, not legal or tax advice. Verify filings with a Steuerberater or the Finanzamt rules that apply to your business.</p>
             </div>
-            <div className="flex w-full flex-col gap-2 sm:w-auto">
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-2xl border border-[#6c3a31] bg-[#45251f] px-4 py-3 text-sm font-semibold text-[#fff7e8] transition hover:bg-[#523029] sm:w-auto">
-                  Import JSON
-                  <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
-                </label>
-                <button onClick={exportJson} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#e06b2c] px-4 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.22)] transition hover:bg-[#f0be45] sm:w-auto">
-                  <Download size={16} /> Export Backup
-                </button>
-              </div>
+            <div className="relative flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+              <button type="button" onClick={() => setBackupMenuOpen(!backupMenuOpen)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#6c3a31] bg-[#45251f] px-3 py-2 text-xs font-semibold text-[#fff7e8] transition hover:bg-[#523029] sm:w-auto">
+                <Download size={14} /> Backup
+              </button>
+              {backupMenuOpen && (
+                <div className="z-10 w-full rounded-2xl border border-[#6c3a31] bg-[#fffaf0] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.22)] sm:absolute sm:right-0 sm:top-11 sm:w-48">
+                  <button type="button" onClick={() => { exportJson(); setBackupMenuOpen(false); }} className="flex w-full items-center justify-start rounded-xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-100">
+                    Export Backup
+                  </button>
+                  <label className="flex w-full cursor-pointer items-center justify-start rounded-xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-100">
+                    Import Backup
+                    <input type="file" accept="application/json,.json" onChange={(e) => { importBackupJson(e); setBackupMenuOpen(false); }} className="hidden" />
+                  </label>
+                </div>
+              )}
               {backupMessage && <p className="max-w-sm text-xs font-medium text-[#d8c7b5]">{backupMessage}</p>}
             </div>
           </div>
@@ -1075,7 +1081,7 @@ export default function ResellerItApp() {
               {!editingId && (
                 <div className="inline-flex rounded-2xl border border-stone-200 bg-[#fffdf8] p-1">
                   <button type="button" className="rounded-xl bg-[#351c17] px-3 py-1.5 text-xs font-semibold text-[#f0be45]">Quick Add</button>
-                  <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "bg-orange-100 text-stone-900" : "text-stone-600 hover:bg-stone-100"}`}>{itemFormOpen ? "Advanced open" : "Advanced Form"}</button>
+                  <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "bg-[#f0be45]/35 text-stone-900" : "text-stone-600 hover:bg-stone-100"}`}>{itemFormOpen ? "Advanced open" : "Advanced Form"}</button>
                 </div>
               )}
               {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cancel edit</button>}
@@ -1117,7 +1123,7 @@ export default function ResellerItApp() {
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 {workflowSections.map(([key, label, Icon, description]) => (
-                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-3xl border p-4 text-left shadow-sm transition ${activeWorkflowSection === key ? "border-orange-200 bg-orange-50 ring-2 ring-orange-100" : "border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50"}`}>
+                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-3xl border p-4 text-left shadow-sm transition ${activeWorkflowSection === key ? "border-[#f0be45]/60 bg-[#f0be45]/20 ring-2 ring-[#f0be45]/20" : "border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50"}`}>
                     <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-amber-50 group-hover:bg-[#351c17]">
                       <Icon size={18} />
                     </div>
@@ -1237,7 +1243,7 @@ export default function ResellerItApp() {
                       <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
                       <Input label="Shipment / tracking" className="sm:col-span-2" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} />
                     </div>
-                    <div className="flex flex-wrap gap-2">{quickStatusOptions.map((status) => <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.status === status ? "bg-lime-100 text-lime-800" : "border border-neutral-300 text-neutral-700 hover:bg-neutral-50"}`}>{status}</button>)}</div>
+                    <div className="flex flex-wrap gap-2">{quickStatusOptions.map((status) => <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.status === status ? "bg-[#f0be45]/35 text-stone-900" : "border border-neutral-300 text-neutral-700 hover:bg-neutral-50"}`}>{status}</button>)}</div>
                   </div>
                 )}
 
@@ -1318,7 +1324,7 @@ export default function ResellerItApp() {
               </div>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
                 {advancedFormSections.map(([key, label, Icon, description]) => (
-                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition ${activeAdvancedSection === key ? "border-orange-200 bg-orange-50 ring-2 ring-orange-100" : "border-stone-200 bg-[#fffdf8] hover:border-stone-300 hover:bg-stone-50"}`}>
+                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition ${activeAdvancedSection === key ? "border-[#f0be45]/60 bg-[#f0be45]/20 ring-2 ring-[#f0be45]/20" : "border-stone-200 bg-[#fffdf8] hover:border-stone-300 hover:bg-stone-50"}`}>
                     <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-[#351c17] text-[#f0be45]"><Icon size={18} /></div>
                     <p className="text-sm font-semibold text-stone-950">{label}</p>
                     <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
@@ -1817,7 +1823,7 @@ export default function ResellerItApp() {
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-wrap gap-2">
                   {["All", "Missing proof", "Needs Eigenbeleg", "Externally stored", "Receipt / invoice", "Private items", "Business stock", "Legacy stock"].map((filter) => (
-                    <button key={filter} type="button" onClick={() => setProofFilter(filter)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${proofFilter === filter ? "bg-orange-300 text-stone-950" : "border border-stone-200 bg-white text-stone-700 hover:bg-stone-50"}`}>{filter}</button>
+                    <button key={filter} type="button" onClick={() => setProofFilter(filter)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${proofFilter === filter ? "bg-[#f0be45]/45 text-stone-950" : "border border-stone-200 bg-white text-stone-700 hover:bg-stone-50"}`}>{filter}</button>
                   ))}
                 </div>
               </div>
