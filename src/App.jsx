@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3 } from "lucide-react";
+import { Plus, Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
 
 const STORAGE_KEY = "toolstack.resellerit.v1";
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
@@ -60,6 +60,14 @@ const classificationHelp = [
   ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
   ["Legacy Stock / Previous Business", "Existing old stock from a previous business."],
   ["Unsure / Review Later", "Needs later review before reporting decisions."],
+];
+const workflowSections = [
+  ["basic", "Basic Info", Info, "Identity, category, source, and status"],
+  ["pricing", "Pricing & Research", Search, "Comps, listing price, fees, and profit"],
+  ["listing", "Listing Studio", ClipboardList, "eBay title, copy, HTML, and research links"],
+  ["proof", "Proof & Receipts", ReceiptText, "Receipt status, file references, Eigenbeleg"],
+  ["sale", "Shipping & Sale", Truck, "Final sale, shipping, and completion"],
+  ["notes", "Notes & Extras", StickyNote, "Defects, included items, and metadata"],
 ];
 
 const modules = [
@@ -561,6 +569,7 @@ export default function ResellerItApp() {
   const [backupMessage, setBackupMessage] = useState("");
   const [proofFilter, setProofFilter] = useState("All");
   const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
+  const [activeWorkflowSection, setActiveWorkflowSection] = useState("basic");
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -628,6 +637,7 @@ export default function ResellerItApp() {
     setEditingId(item.id);
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
+    setActiveWorkflowSection("basic");
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -1050,12 +1060,184 @@ export default function ResellerItApp() {
               <p className="mt-1 text-sm text-neutral-500">Fast daily capture first. Open the advanced item form for sourcing, fee, proof, research, and listing details.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50">{itemFormOpen ? "Hide advanced item form" : "Advanced item form"}</button>
+              {!editingId && <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 transition hover:bg-stone-50">{itemFormOpen ? "Hide advanced item form" : "Advanced item form"}</button>}
               {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cancel edit</button>}
             </div>
           </div>
 
-          <div className="space-y-4">
+          {editingId && (
+            <div className="space-y-4">
+              <div className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+                <div className="flex h-1.5">
+                  <div className="flex-1 bg-[#b7412e]" />
+                  <div className="flex-1 bg-[#e06b2c]" />
+                  <div className="flex-1 bg-[#f0be45]" />
+                  <div className="flex-1 bg-[#1f9d99]" />
+                </div>
+                <div className="p-4">
+                  <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <h3 className="text-xl font-semibold text-stone-950">{form.name || "Untitled item"}</h3>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{form.classification || DEFAULT_CLASSIFICATION}</span>
+                        <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">{itemStatus(form)}</span>
+                        <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700">{quickProofStatus(form)}</span>
+                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${hasListingDraft(form) ? "bg-lime-100 text-lime-800" : "bg-orange-100 text-orange-800"}`}>{hasListingDraft(form) ? "Listing ready" : "Listing draft needed"}</span>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:min-w-[520px]">
+                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Purchase</p><p className="font-semibold">{money(form.purchasePrice)}</p></div>
+                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{money(form.chosenListingPrice || form.expectedSalePrice)}</p></div>
+                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Final sale</p><p className="font-semibold">{money(finalSaleValue(form))}</p></div>
+                      <div className="rounded-2xl bg-lime-50 p-3 text-lime-900"><p className="text-xs text-lime-700">Profit</p><p className="font-semibold">{money(itemProfitValue(form))}</p></div>
+                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof</p><p className="font-semibold">{hasProofRecord(form) ? "Recorded" : "Missing"}</p></div>
+                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{hasListingDraft(form) ? "Ready" : "Draft"}</p></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                {workflowSections.map(([key, label, Icon, description]) => (
+                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-3xl border p-4 text-left shadow-sm transition ${activeWorkflowSection === key ? "border-orange-200 bg-orange-50 ring-2 ring-orange-100" : "border-stone-200 bg-white hover:border-stone-300 hover:bg-stone-50"}`}>
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-amber-50 group-hover:bg-[#351c17]">
+                      <Icon size={18} />
+                    </div>
+                    <p className="text-sm font-semibold text-stone-950">{label}</p>
+                    <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+                <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Focused editing panel</p>
+                    <h3 className="text-lg font-semibold text-stone-950">{workflowSections.find(([key]) => key === activeWorkflowSection)?.[1]}</h3>
+                  </div>
+                  <button type="button" onClick={() => saveCurrentItem()} className="rounded-2xl bg-[#e06b2c] px-4 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.18)] hover:bg-[#f0be45]">Save item</button>
+                </div>
+
+                {activeWorkflowSection === "basic" && (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <Input label="Item name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                    <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
+                    <Select label="Classification" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value, ebayFeeMode: e.target.value === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode })}>
+                      {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+                    </Select>
+                    <Select label="Source" value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })}>
+                      <option>Flea market</option><option>Second-hand shop</option><option>Private seller</option><option>Online marketplace</option><option>Other</option>
+                    </Select>
+                    <Input label="Source / seller" value={form.sourceName} onChange={(e) => setForm({ ...form, sourceName: e.target.value })} />
+                    <Input label="Location" value={form.sourceLocation} onChange={(e) => setForm({ ...form, sourceLocation: e.target.value })} />
+                    <Input label="Purchase date" type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} />
+                    <Input label="Purchase price EUR" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
+                    <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                      {statusOptions.map((status) => <option key={status}>{status}</option>)}
+                      {form.status && !statusOptions.includes(form.status) && <option>{form.status}</option>}
+                    </Select>
+                  </div>
+                )}
+
+                {activeWorkflowSection === "pricing" && (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <Input label="Research query" className="sm:col-span-2" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
+                      <Input label="Expected sale price EUR" value={form.expectedSalePrice} onChange={(e) => setForm({ ...form, expectedSalePrice: e.target.value })} />
+                      <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value, expectedSalePrice: e.target.value || form.expectedSalePrice })} />
+                      <Input label="Researched low EUR" value={form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, researchedLowPrice: e.target.value })} />
+                      <Input label="Researched mid EUR" value={form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, researchedMidPrice: e.target.value })} />
+                      <Input label="Researched high EUR" value={form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, researchedHighPrice: e.target.value })} />
+                      <Select label="eBay fee mode" value={form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE} onChange={(e) => setForm({ ...form, ebayFeeMode: e.target.value })}>{ebayFeeModes.map((mode) => <option key={mode}>{mode}</option>)}</Select>
+                      {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <Input label="Business fee percent" value={form.feePercent || ""} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} />}
+                      {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <Input label="Business fixed fee EUR" value={form.fixedFee || ""} onChange={(e) => setForm({ ...form, fixedFee: e.target.value })} />}
+                      {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Manual" && <Input label="Manual eBay fee EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value })} />}
+                      <Input label="Promoted listing fee EUR" value={form.promotedListingFee || ""} onChange={(e) => setForm({ ...form, promotedListingFee: e.target.value })} />
+                      <Input label="Other platform fees EUR" value={form.otherPlatformFees || ""} onChange={(e) => setForm({ ...form, otherPlatformFees: e.target.value })} />
+                    </div>
+                    <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Price research notes..." />
+                    <p className="rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Profit preview: {money(itemProfitValue(form))}</p>
+                  </div>
+                )}
+
+                {activeWorkflowSection === "listing" && (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate output</button>
+                      {listingResearchLinks(form).map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>)}
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+                      <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+                      <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
+                      <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
+                      <Input label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })} />
+                      <Input label="eBay title legacy field" value={form.ebayTitle || ""} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value })} />
+                      <Input label="Listing title" value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} />
+                      <label className="block"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition</span><textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                      <label className="block"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span><textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                      <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span><textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => copyText("title", form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
+                      <button type="button" onClick={() => copyText("condition", form.conditionText || generatedConditionText(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
+                      <button type="button" onClick={() => copyText("plain description", form.descriptionText)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy plain description</button>
+                      <button type="button" onClick={() => copyText("HTML description", form.htmlDescription)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy HTML description</button>
+                    </div>
+                    {(form.htmlDescription || form.descriptionText) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: form.htmlDescription || generateHtmlDescription(form, form.descriptionText) }} /></div>}
+                  </div>
+                )}
+
+                {activeWorkflowSection === "proof" && (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <Select label="Proof type" value={form.proofType || "Eigenbeleg"} onChange={(e) => setForm({ ...form, proofType: e.target.value })}>{proofTypes.map((type) => <option key={type}>{type}</option>)}</Select>
+                      <Select label="Proof status" value={quickProofStatus(form)} onChange={(e) => updateQuickProofStatus(e.target.value)}><option>Proof available</option><option>External proof recorded</option><option>Eigenbeleg needed</option><option>Missing proof</option></Select>
+                      <Input label="Proof date" type="date" value={form.proofDate || form.purchaseDate} onChange={(e) => setForm({ ...form, proofDate: e.target.value })} />
+                      <Input label="Proof amount EUR" value={form.proofAmount || ""} onChange={(e) => setForm({ ...form, proofAmount: e.target.value })} />
+                      <Select label="Proof stored externally" value={form.proofStoredExternally || "No"} onChange={(e) => setForm({ ...form, proofStoredExternally: e.target.value })}><option>Yes</option><option>No</option></Select>
+                      <Input label="Proof file name" value={form.proofFileName || ""} onChange={(e) => setForm({ ...form, proofFileName: e.target.value })} />
+                      <Input label="Proof folder location" className="sm:col-span-2" value={form.proofFolderLocation || ""} onChange={(e) => setForm({ ...form, proofFolderLocation: e.target.value })} />
+                      <Input label="No receipt reason" value={form.noReceiptReason || ""} onChange={(e) => setForm({ ...form, noReceiptReason: e.target.value })} />
+                    </div>
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Legacy image attachment</span>
+                      <input type="file" accept="image/*" onChange={handleProofImageUpload} className="block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+                      <p className="mt-1 text-xs text-neutral-500">Compatibility only. Prefer file/folder references above.</p>
+                    </label>
+                    <textarea value={form.proofNotes || ""} onChange={(e) => setForm({ ...form, proofNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Proof notes..." />
+                    {needsEigenbeleg(form) && <div className="rounded-2xl bg-neutral-50 p-3"><pre className="max-h-44 overflow-auto whitespace-pre-wrap text-xs text-neutral-700">{eigenbelegText(form)}</pre><button type="button" onClick={() => copyEigenbeleg(form)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy Eigenbeleg</button></div>}
+                  </div>
+                )}
+
+                {activeWorkflowSection === "sale" && (
+                  <div className="space-y-4">
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      <Input label="Sale date" type="date" value={form.saleDate} onChange={(e) => setForm({ ...form, saleDate: e.target.value })} />
+                      <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
+                      <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
+                      <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
+                      <Input label="Shipment / tracking" className="sm:col-span-2" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} />
+                    </div>
+                    <div className="flex flex-wrap gap-2">{quickStatusOptions.map((status) => <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.status === status ? "bg-lime-100 text-lime-800" : "border border-neutral-300 text-neutral-700 hover:bg-neutral-50"}`}>{status}</button>)}</div>
+                  </div>
+                )}
+
+                {activeWorkflowSection === "notes" && (
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    <Input label="Included items" value={form.includedItems || ""} onChange={(e) => setForm({ ...form, includedItems: e.target.value })} />
+                    <Input label="Defects / wear" value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} />
+                    <Input label="Payment method" value={form.paymentMethod || ""} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })} />
+                    <Input label="Legacy image name" value={form.proofImageName || ""} onChange={(e) => setForm({ ...form, proofImageName: e.target.value })} />
+                    <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Notes</span><textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                    <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition notes</span><textarea value={form.conditionNotes || ""} onChange={(e) => setForm({ ...form, conditionNotes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {!editingId && <div className="space-y-4">
             {!editingId && (
               <div className="rounded-2xl border border-[#eadfce] bg-white/80 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Item templates</p>
@@ -1098,9 +1280,9 @@ export default function ResellerItApp() {
                 </button>
               )}
             </div>
-          </div>
+          </div>}
 
-          {itemFormOpen && <div className="space-y-3">
+          {!editingId && itemFormOpen && <div className="space-y-3">
             <FormSection title="Inventory item">
               <Input label="Item name" className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sony CD Player" />
               <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Electronics, clothing..." />
