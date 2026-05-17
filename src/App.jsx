@@ -339,14 +339,14 @@ function parseCsvText(text) {
 
 function StatCard({ icon: Icon, label, value, sub }) {
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
+    <div className="rounded-2xl border border-orange-100/80 bg-white/90 p-3 shadow-[0_12px_30px_rgba(82,45,20,0.06)]">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
-          <p className="mt-1 text-xl font-semibold leading-none text-neutral-950">{value}</p>
-          {sub && <p className="mt-1 text-xs leading-snug text-neutral-500">{sub}</p>}
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{label}</p>
+          <p className="mt-1 text-xl font-semibold leading-none text-stone-950">{value}</p>
+          {sub && <p className="mt-1 text-xs leading-snug text-stone-500">{sub}</p>}
         </div>
-        <div className="rounded-xl bg-neutral-100 p-1.5 text-neutral-700"><Icon size={16} /></div>
+        <div className="rounded-xl bg-lime-100 p-1.5 text-lime-700"><Icon size={16} /></div>
       </div>
     </div>
   );
@@ -355,8 +355,8 @@ function StatCard({ icon: Icon, label, value, sub }) {
 function Input({ label, className = "", ...props }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{label}</span>
-      <input {...props} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+      <span className="mb-1.5 block text-xs font-semibold text-stone-600">{label}</span>
+      <input {...props} className="h-10 w-full rounded-xl border border-orange-100 bg-white px-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-orange-400 focus:ring-2 focus:ring-orange-100" />
     </label>
   );
 }
@@ -364,8 +364,8 @@ function Input({ label, className = "", ...props }) {
 function Select({ label, className = "", children, ...props }) {
   return (
     <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{label}</span>
-      <select {...props} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200">
+      <span className="mb-1.5 block text-xs font-semibold text-stone-600">{label}</span>
+      <select {...props} className="h-10 w-full rounded-xl border border-orange-100 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100">
         {children}
       </select>
     </label>
@@ -374,8 +374,8 @@ function Select({ label, className = "", children, ...props }) {
 
 function FormSection({ title, children }) {
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
-      <h3 className="mb-3 text-sm font-semibold text-neutral-950">{title}</h3>
+    <section className="rounded-2xl border border-orange-100 bg-orange-50/40 p-4">
+      <h3 className="mb-3 text-sm font-semibold text-stone-950">{title}</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
     </section>
   );
@@ -754,17 +754,17 @@ export default function ResellerItApp() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral-50 px-3 py-4 text-neutral-900 sm:px-5 md:px-8 md:py-8">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_left,#fff4d6,transparent_32%),linear-gradient(135deg,#fffaf0,#f7f4ed_45%,#f8fbef)] px-3 py-4 text-stone-900 sm:px-5 md:px-8 md:py-8">
       <div className="mx-auto max-w-7xl space-y-4 md:space-y-6">
-        <header className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm md:p-6">
+        <header className="rounded-3xl border border-orange-100 bg-white/90 p-5 shadow-[0_18px_45px_rgba(82,45,20,0.08)] backdrop-blur md:p-6">
           <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">ToolStack</p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-neutral-950 md:text-4xl">ResellIt</h1>
+              <p className="text-xs font-semibold uppercase tracking-wide text-orange-700">ToolStack</p>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight text-stone-950 md:text-4xl">ResellIt</h1>
               <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">Germany-focused tax-prep workspace for Kleinunternehmer and Einzelunternehmen resellers: inventory, sourcing records, receipts, Eigenbelege, eBay sales reconciliation, and EÜR-style monthly/yearly summaries.</p>
               <p className="mt-2 max-w-3xl text-xs font-medium text-neutral-500">Tax support only, not legal or tax advice. Verify filings with a Steuerberater or the Finanzamt rules that apply to your business.</p>
             </div>
-            <button onClick={exportJson} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white shadow-sm hover:bg-neutral-800 sm:w-auto">
+            <button onClick={exportJson} className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-stone-900 px-4 py-3 text-sm font-semibold text-amber-50 shadow-[0_10px_24px_rgba(82,45,20,0.18)] transition hover:bg-stone-800 sm:w-auto">
               <Download size={16} /> Export Backup
             </button>
           </div>
@@ -777,15 +777,15 @@ export default function ResellerItApp() {
           <StatCard icon={FileText} label="Estimated profit" value={money(monthlySummary.profit)} sub="sales minus purchases, fees, shipping" />
         </section>
 
-        <form onSubmit={saveItem} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
+        <form onSubmit={saveItem} className="rounded-3xl border border-orange-100 bg-white/90 p-4 shadow-[0_12px_32px_rgba(82,45,20,0.06)] md:p-5">
           <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-neutral-950">{editingId ? "Edit Item" : "Add Item"}</h2>
               <p className="mt-1 text-sm text-neutral-500">Capture inventory, sourcing evidence, receipt status, eBay listing, and sale details for later reconciliation.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{itemFormOpen ? "Hide form" : "Show form"}</button>
-              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Cancel edit</button>}
+              <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className="rounded-xl border border-orange-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-stone-800 transition hover:bg-amber-100">{itemFormOpen ? "Hide form" : "Show form"}</button>
+              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cancel edit</button>}
             </div>
           </div>
 
@@ -869,7 +869,7 @@ export default function ResellerItApp() {
                 </div>
               )}
               {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <p className="mt-3 rounded-xl bg-neutral-50 p-3 text-sm text-neutral-600">Business fee calculations are estimates until reconciled with official eBay reports.</p>}
-              <p className="mt-3 rounded-xl bg-neutral-950 p-3 text-sm font-semibold text-white">Current final profit: {money(itemProfitValue(form))}</p>
+              <p className="mt-3 rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Current final profit: {money(itemProfitValue(form))}</p>
             </div>
 
             <FormSection title="Receipt / evidence record">
@@ -930,7 +930,7 @@ export default function ResellerItApp() {
                   <h3 className="text-sm font-semibold text-neutral-950">Quick Listing Helper</h3>
                   <p className="mt-1 text-sm text-neutral-600">Generate an editable eBay listing draft from this inventory item. Local only; no AI or eBay API calls.</p>
                 </div>
-                <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800">Generate listing draft</button>
+                <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-stone-950 shadow-[0_8px_18px_rgba(245,158,11,0.22)] hover:bg-amber-400">Generate listing draft</button>
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -965,7 +965,7 @@ export default function ResellerItApp() {
             <textarea value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Condition, missing receipt reason, storage location, defects, tax notes..." />
           </label>
 
-          <button type="submit" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-800 sm:w-auto">
+          <button type="submit" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 px-5 py-3 text-sm font-semibold text-stone-950 shadow-[0_10px_24px_rgba(245,158,11,0.24)] transition hover:bg-amber-400 sm:w-auto">
             <Plus size={16} /> {editingId ? "Save Changes" : "Add Item"}
           </button>
           </div>}
@@ -973,11 +973,11 @@ export default function ResellerItApp() {
 
         <nav className="grid grid-cols-2 gap-1.5 md:grid-cols-5 xl:flex xl:flex-wrap">
           {modules.map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-xl px-3 py-2 text-xs font-semibold sm:text-sm ${activeTab === key ? "bg-neutral-950 text-white" : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`}>{label}</button>
+            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-xl px-3 py-2 text-xs font-semibold transition sm:text-sm ${activeTab === key ? "bg-amber-400 text-stone-950 shadow-[0_8px_18px_rgba(245,158,11,0.22)]" : "border border-orange-100 bg-white/85 text-stone-700 hover:bg-amber-50"}`}>{label}</button>
           ))}
         </nav>
 
-        <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+        <div className="rounded-3xl border border-orange-100 bg-white/90 p-4 shadow-[0_12px_32px_rgba(82,45,20,0.06)]">
           <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
               <option>All classifications</option>
@@ -1061,7 +1061,7 @@ export default function ResellerItApp() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-neutral-950">{item.name}</h3>
-                            <span className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-medium text-white">{itemClassification(item)}</span>
+                            <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{itemClassification(item)}</span>
                             <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{itemStatus(item)}</span>
                           </div>
                           <p className="mt-1 text-sm text-neutral-600">{item.category || "No category"} / bought {item.purchaseDate || "no date"}</p>
@@ -1082,7 +1082,7 @@ export default function ResellerItApp() {
                         <button type="button" onClick={() => updateItemStatus(item.id, "Listed")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Listed</button>
                         <button type="button" onClick={() => updateItemStatus(item.id, "Sold")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Sold</button>
                         <button type="button" onClick={() => updateItemStatus(item.id, "Shipped")} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Mark Shipped</button>
-                        <button type="button" onClick={() => updateItemStatus(item.id, "Completed")} className="rounded-xl bg-neutral-950 px-3 py-2 text-sm font-semibold text-white hover:bg-neutral-800">Mark Completed</button>
+                        <button type="button" onClick={() => updateItemStatus(item.id, "Completed")} className="rounded-xl bg-lime-500 px-3 py-2 text-sm font-semibold text-stone-950 hover:bg-lime-400">Mark Completed</button>
                       </div>
                     </div>
                   </article>
@@ -1147,11 +1147,11 @@ export default function ResellerItApp() {
                       <Input label="Batch month" type="month" value={importMonth} onChange={(e) => setImportMonth(e.target.value)} />
                       <label className="block">
                         <span className="mb-1.5 block text-xs font-semibold text-neutral-600">CSV file</span>
-                        <input type="file" accept=".csv,text/csv" onChange={handleCsvUpload} className="block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
+                        <input type="file" accept=".csv,text/csv" onChange={handleCsvUpload} className="block w-full rounded-xl border border-orange-100 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-stone-900 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-amber-50" />
                       </label>
                       {csvError && <p className="rounded-xl bg-red-50 p-3 text-sm font-medium text-red-700">{csvError}</p>}
                       {csvPreview && (
-                        <button type="button" onClick={saveCsvBatch} className="inline-flex items-center justify-center rounded-2xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800">
+                        <button type="button" onClick={saveCsvBatch} className="inline-flex items-center justify-center rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-amber-400">
                           Save Import Batch
                         </button>
                       )}
@@ -1222,7 +1222,7 @@ export default function ResellerItApp() {
                         <p className="font-semibold text-neutral-950">{batch.sourceFileName}</p>
                         <p className="mt-1 text-sm text-neutral-600">Month: {batch.month} / Rows: {batch.rows.length} / Imported: {new Date(batch.importedAt).toLocaleString("de-DE")}</p>
                       </div>
-                      <button type="button" onClick={() => deleteCsvBatch(batch.id)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-white">
+                      <button type="button" onClick={() => deleteCsvBatch(batch.id)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
                         <Trash2 size={16} /> Delete
                       </button>
                     </div>
@@ -1255,7 +1255,7 @@ export default function ResellerItApp() {
                   </div>
                   <div className="grid gap-2 sm:grid-cols-[180px_auto_auto]">
                     <Input label="Closing month" type="month" value={closingMonth} onChange={(e) => setClosingMonth(e.target.value)} />
-                    <button type="button" onClick={exportMonthlyClosingJson} className="inline-flex items-center justify-center rounded-2xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800 print:hidden">Export JSON</button>
+                    <button type="button" onClick={exportMonthlyClosingJson} className="inline-flex items-center justify-center rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-amber-400 print:hidden">Export JSON</button>
                     <button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 print:hidden">Print Summary</button>
                   </div>
                 </div>
@@ -1354,7 +1354,7 @@ export default function ResellerItApp() {
                   </Select>
                   <Input label="Receipt notes" value={expenseForm.receiptNotes} onChange={(e) => setExpenseForm({ ...expenseForm, receiptNotes: e.target.value })} placeholder="Receipt location, note, missing reason..." />
                 </div>
-                <button type="submit" className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-800 sm:w-auto">
+                <button type="submit" className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-amber-500 px-5 py-3 text-sm font-semibold text-stone-950 hover:bg-amber-400 sm:w-auto">
                   {editingExpenseId ? "Save Expense" : "Add Expense"}
                 </button>
               </form>
@@ -1386,9 +1386,9 @@ export default function ResellerItApp() {
                           {expense.receiptNotes && <p className="mt-1 text-sm text-neutral-500">{expense.receiptNotes}</p>}
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="rounded-2xl bg-neutral-950 px-4 py-2 text-sm font-semibold text-white">{money(expense.amount)}</p>
+                          <p className="rounded-2xl bg-stone-900 px-4 py-2 text-sm font-semibold text-amber-50">{money(expense.amount)}</p>
                           <button type="button" onClick={() => editExpense(expense)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
-                          <button type="button" onClick={() => deleteExpense(expense.id)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Delete</button>
+                          <button type="button" onClick={() => deleteExpense(expense.id)} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Delete</button>
                         </div>
                       </div>
                     </article>
@@ -1428,7 +1428,7 @@ export default function ResellerItApp() {
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold text-neutral-950">{item.name}</h3>
                       <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{itemStatus(item)}</span>
-                      <span className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-medium text-white">{classification}</span>
+                      <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{classification}</span>
                       <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{item.category || "No category"}</span>
                     </div>
                     <p className="mt-1 text-sm text-neutral-600">{item.sourceType} / {item.sourceLocation || "No location"} / bought {item.purchaseDate}</p>
@@ -1436,7 +1436,7 @@ export default function ResellerItApp() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     <button onClick={() => editItem(item)} className="inline-flex items-center gap-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"><Edit3 size={16} /> Edit</button>
-                    <button onClick={() => deleteItem(item.id)} className="rounded-xl border border-neutral-300 p-2 text-neutral-700 hover:bg-neutral-50"><Trash2 size={16} /></button>
+                    <button onClick={() => deleteItem(item.id)} className="rounded-xl border border-red-200 bg-red-50 p-2 text-red-700 hover:bg-red-100"><Trash2 size={16} /></button>
                   </div>
                 </div>
 
@@ -1445,7 +1445,7 @@ export default function ResellerItApp() {
                   <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Listing</p><p className="mt-1 font-semibold">{money(item.chosenListingPrice || item.expectedSalePrice)}</p></div>
                   {isSoldStatus(item) && <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Final sale</p><p className="mt-1 font-semibold">{money(finalSaleValue(item))}</p></div>}
                   <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Proof</p><p className="mt-1 font-semibold">{proofStatus}</p></div>
-                  <div className="col-span-2 rounded-2xl bg-neutral-950 p-3 text-white md:col-span-1"><p className="text-xs text-neutral-300">Profit</p><p className="mt-1 font-semibold">{money(itemProfit)}</p></div>
+                  <div className="col-span-2 rounded-2xl bg-lime-100 p-3 text-lime-900 md:col-span-1"><p className="text-xs text-lime-700">Profit</p><p className="mt-1 font-semibold">{money(itemProfit)}</p></div>
                 </div>
 
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -1464,7 +1464,7 @@ export default function ResellerItApp() {
                         <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Low</p><p className="font-semibold">{money(item.researchedLowPrice)}</p></div>
                         <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Mid</p><p className="font-semibold">{money(item.researchedMidPrice)}</p></div>
                         <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">High</p><p className="font-semibold">{money(item.researchedHighPrice)}</p></div>
-                        <div className="rounded-xl bg-neutral-950 p-3 text-white"><p className="text-xs text-neutral-300">Chosen</p><p className="font-semibold">{money(item.chosenListingPrice || item.expectedSalePrice)}</p></div>
+                        <div className="rounded-xl bg-amber-100 p-3 text-stone-900"><p className="text-xs text-orange-700">Chosen</p><p className="font-semibold">{money(item.chosenListingPrice || item.expectedSalePrice)}</p></div>
                       </div>
                       {item.priceResearchNotes && <p className="mt-3 text-sm text-neutral-600">{item.priceResearchNotes}</p>}
                       {item.priceResearchUpdatedAt && <p className="mt-2 text-xs text-neutral-500">Updated: {new Date(item.priceResearchUpdatedAt).toLocaleString("de-DE")}</p>}
