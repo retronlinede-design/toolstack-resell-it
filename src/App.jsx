@@ -65,6 +65,7 @@ const classificationHelp = [
 const modules = [
   ["dashboard", "Dashboard"],
   ["inventory", "Inventory"],
+  ["listing-studio", "Listing Studio"],
   ["sourcing", "Sourcing Records"],
   ["receipts", "Receipts / Eigenbelege"],
   ["ebay-import", "eBay Import"],
@@ -121,8 +122,15 @@ const emptyItem = {
   priceResearchNotes: "",
   priceResearchUpdatedAt: "",
   listingTitle: "",
+  brand: "",
+  model: "",
+  sizeSpecs: "",
+  colour: "",
+  conditionGrade: "",
   conditionText: "",
+  conditionNotes: "",
   descriptionText: "",
+  htmlDescription: "",
   includedItems: "",
   defectsNotes: "",
   shippingNotes: "",
@@ -268,7 +276,7 @@ function hasPriceResearch(item) {
 }
 
 function hasListingDraft(item) {
-  return Boolean(item.listingTitle || item.conditionText || item.descriptionText);
+  return Boolean(item.listingTitle || item.conditionText || item.descriptionText || item.htmlDescription);
 }
 
 function isSoldStatus(item) {
@@ -303,28 +311,104 @@ function priceResearchLinks(item) {
   ];
 }
 
+function listingResearchLinks(item) {
+  const query = encodeURIComponent(priceResearchQuery(item));
+  return [
+    ["Search eBay sold listings", query ? `https://www.ebay.de/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1` : "https://www.ebay.de/"],
+    ["Search eBay active listings", query ? `https://www.ebay.de/sch/i.html?_nkw=${query}` : "https://www.ebay.de/"],
+    ["Search Google", query ? `https://www.google.com/search?q=${query}` : "https://www.google.com/"],
+    ["Search Kleinanzeigen", query ? `https://www.kleinanzeigen.de/s-suchanfrage.html?keywords=${query}` : "https://www.kleinanzeigen.de/"],
+    ["Open ChatGPT", "https://chatgpt.com/"],
+  ];
+}
+
 function listingPrice(item) {
   return item.chosenListingPrice || item.expectedSalePrice || "";
 }
 
+function escapeHtml(value) {
+  return String(value || "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function bulletLines(value) {
+  return String(value || "")
+    .split(/\r?\n|,/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function generatedListingTitle(item) {
+  return item.listingTitle || item.ebayTitle || [item.brand, item.model, item.name, item.sizeSpecs, item.colour].filter(Boolean).join(" - ") || item.name;
+}
+
+function generatedConditionText(item) {
+  return item.conditionText || [item.conditionGrade, item.conditionNotes || item.notes, item.defectsNotes && `Defects / wear: ${item.defectsNotes}`].filter(Boolean).join("\n") || "Please review the description for condition details.";
+}
+
+function generateHtmlDescription(item, plainDescription) {
+  const details = [
+    ["Brand", item.brand],
+    ["Model", item.model],
+    ["Size / specs", item.sizeSpecs],
+    ["Colour", item.colour],
+    ["Condition", item.conditionGrade],
+  ].filter(([, value]) => value);
+  const included = bulletLines(item.includedItems);
+  const notes = [
+    item.conditionNotes && ["Condition notes", item.conditionNotes],
+    item.defectsNotes && ["Defects / wear", item.defectsNotes],
+    item.shippingNotes && ["Shipping", item.shippingNotes],
+    item.priceResearchNotes && ["Research notes", item.priceResearchNotes],
+  ].filter(Boolean);
+
+  return [
+    '<div style="max-width:700px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#2b211d;line-height:1.5;">',
+    `  <h2 style="font-size:22px;margin:0 0 12px;">${escapeHtml(generatedListingTitle(item))}</h2>`,
+    details.length ? '  <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">' : "",
+    ...details.map(([label, value]) => `    <tr><th style="text-align:left;border:1px solid #e5ded4;padding:8px;background:#faf7ef;">${escapeHtml(label)}</th><td style="border:1px solid #e5ded4;padding:8px;">${escapeHtml(value)}</td></tr>`),
+    details.length ? "  </table>" : "",
+    `  <h3 style="font-size:16px;margin:16px 0 8px;">Condition</h3>`,
+    `  <p style="margin:0 0 12px;">${escapeHtml(generatedConditionText(item)).replaceAll("\n", "<br>")}</p>`,
+    included.length ? '  <h3 style="font-size:16px;margin:16px 0 8px;">What is included</h3>' : "",
+    included.length ? "  <ul>" : "",
+    ...included.map((line) => `    <li>${escapeHtml(line)}</li>`),
+    included.length ? "  </ul>" : "",
+    notes.map(([label, value]) => `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(label)}</h3>\n  <p style="margin:0 0 12px;">${escapeHtml(value).replaceAll("\n", "<br>")}</p>`).join("\n"),
+    plainDescription ? `  <h3 style="font-size:16px;margin:16px 0 8px;">Description</h3>\n  <p style="margin:0;">${escapeHtml(plainDescription).replaceAll("\n", "<br>")}</p>` : "",
+    "</div>",
+  ].filter(Boolean).join("\n");
+}
+
 function generateListingDraft(item) {
-  const title = item.listingTitle || item.ebayTitle || [item.name, item.category].filter(Boolean).join(" - ");
-  const condition = item.conditionText || item.notes || "Please review photos and description for condition details.";
+  const title = generatedListingTitle(item);
+  const condition = generatedConditionText(item);
   const price = listingPrice(item);
   const descriptionParts = [
     item.name && `Item: ${item.name}`,
+    item.brand && `Brand: ${item.brand}`,
+    item.model && `Model: ${item.model}`,
     item.category && `Category: ${item.category}`,
+    item.sizeSpecs && `Size / specs: ${item.sizeSpecs}`,
+    item.colour && `Colour: ${item.colour}`,
     price && `Listing price: ${money(price)}`,
     condition && `Condition: ${condition}`,
     item.includedItems && `Included: ${item.includedItems}`,
     item.defectsNotes && `Defects / notes: ${item.defectsNotes}`,
     item.shippingNotes && `Shipping: ${item.shippingNotes}`,
+    item.priceResearchNotes && `Research notes: ${item.priceResearchNotes}`,
   ].filter(Boolean);
+  const description = item.descriptionText || descriptionParts.join("\n");
 
   return {
     title,
     condition,
-    description: item.descriptionText || descriptionParts.join("\n"),
+    description,
+    htmlDescription: item.htmlDescription || generateHtmlDescription(item, description),
   };
 }
 
@@ -878,6 +962,7 @@ export default function ResellerItApp() {
     let nextItems = [];
     if (activeTab === "dashboard") nextItems = [];
     else if (activeTab === "inventory") nextItems = [];
+    else if (activeTab === "listing-studio") nextItems = [];
     else if (activeTab === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
     else if (activeTab === "receipts") nextItems = [];
     else if (activeTab === "tax") nextItems = items;
@@ -905,6 +990,7 @@ export default function ResellerItApp() {
       listingTitle: draft.title,
       conditionText: draft.condition,
       descriptionText: draft.description,
+      htmlDescription: draft.htmlDescription,
     });
   }
 
@@ -1159,36 +1245,71 @@ export default function ResellerItApp() {
             <div className="rounded-2xl border border-neutral-200 bg-white p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                  <h3 className="text-sm font-semibold text-neutral-950">Quick Listing Helper</h3>
-                  <p className="mt-1 text-sm text-neutral-600">Generate an editable eBay listing draft from this inventory item. Local only; no AI or eBay API calls.</p>
+                  <h3 className="text-sm font-semibold text-neutral-950">Listing Studio</h3>
+                  <p className="mt-1 text-sm text-neutral-600">Prepare eBay listing copy locally. No scraping, AI API, or direct eBay connection.</p>
                 </div>
-                <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 shadow-[0_8px_18px_rgba(154,88,28,0.12)] hover:bg-orange-200">Generate listing draft</button>
+                <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 shadow-[0_8px_18px_rgba(154,88,28,0.12)] hover:bg-orange-200">Generate Listing Studio output</button>
               </div>
 
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Input label="Included items" value={form.includedItems || ""} onChange={(e) => setForm({ ...form, includedItems: e.target.value })} placeholder="Item, charger, manual..." />
-                <Input label="Defects notes" value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} placeholder="Scratches, missing parts..." />
-                <Input label="Shipping notes" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} placeholder="Tracked DHL, pickup possible..." />
+              <div className="mt-3 flex flex-wrap gap-2">
+                {listingResearchLinks(form).map(([label, href]) => (
+                  <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>
+                ))}
               </div>
 
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
                 <label className="block lg:col-span-2">
-                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Listing title</span>
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">eBay title</span>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                    <button type="button" onClick={() => copyText("title", form.listingTitle)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
+                    <button type="button" onClick={() => copyText("title", form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
                   </div>
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition</span>
                   <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText("condition", form.conditionText)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
+                  <button type="button" onClick={() => copyText("condition", form.conditionText || generatedConditionText(form))} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
                 </label>
                 <label className="block">
-                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Description</span>
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span>
                   <textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText("description", form.descriptionText)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy description</button>
+                  <button type="button" onClick={() => copyText("plain description", form.descriptionText)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy plain description</button>
                 </label>
+                <label className="block lg:col-span-2">
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">What is included</span>
+                  <input value={form.includedItems || ""} onChange={(e) => setForm({ ...form, includedItems: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Item, charger, manual..." />
+                </label>
+                <label className="block lg:col-span-2">
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span>
+                  <textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-32 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                  <button type="button" onClick={() => copyText("HTML description", form.htmlDescription)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy HTML description</button>
+                </label>
+                {(form.htmlDescription || form.descriptionText) && (
+                  <div className="lg:col-span-2">
+                    <p className="mb-1.5 text-xs font-semibold text-neutral-600">HTML description preview</p>
+                    <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                      <div dangerouslySetInnerHTML={{ __html: form.htmlDescription || generateHtmlDescription(form, form.descriptionText) }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 rounded-2xl bg-neutral-50 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Editable source fields</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+                  <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+                  <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
+                  <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
+                  <Input label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })} placeholder="New, very good, used..." />
+                  <Input label="Defects / wear" value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} placeholder="Scratches, missing parts..." />
+                  <Input label="Shipping notes" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} placeholder="Tracked DHL, pickup possible..." />
+                  <Input label="Research notes" value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} />
+                  <label className="block sm:col-span-2 lg:col-span-4">
+                    <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition notes</span>
+                    <textarea value={form.conditionNotes || ""} onChange={(e) => setForm({ ...form, conditionNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Functional test, cosmetic condition, known issues..." />
+                  </label>
+                </div>
               </div>
             </div>
 
@@ -1324,6 +1445,63 @@ export default function ResellerItApp() {
                     </div>
                   </article>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === "listing-studio" && (
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-neutral-950">Listing Studio</h2>
+                    <p className="mt-1 text-sm text-neutral-600">Prepare and review eBay listing copy for every inventory item. Editing opens the existing detailed item form.</p>
+                  </div>
+                  <StatCard icon={FileText} label="Missing listing draft" value={inventoryHealth.missingListingDraftCount} sub={`${items.length} total items`} />
+                </div>
+              </div>
+
+              <div className="grid gap-3">
+                {items.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No items yet. Add an item first, then prepare its listing here.</p>}
+                {items.map((item) => {
+                  const draft = generateListingDraft(item);
+                  const hasPlainDescription = Boolean(item.descriptionText);
+                  const hasHtmlDescription = Boolean(item.htmlDescription);
+                  return (
+                    <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                      <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
+                        <div className="space-y-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-neutral-950">{item.name}</h3>
+                            <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{itemClassification(item)}</span>
+                            <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{itemStatus(item)}</span>
+                          </div>
+                          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                            <div className="rounded-xl bg-neutral-50 p-3">
+                              <p className="text-xs font-semibold text-neutral-500">Listing title</p>
+                              <p className="mt-1 text-sm font-semibold text-neutral-900">{draft.title || "Missing"}</p>
+                            </div>
+                            <div className="rounded-xl bg-neutral-50 p-3">
+                              <p className="text-xs font-semibold text-neutral-500">Condition</p>
+                              <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm text-neutral-700">{draft.condition || "Missing"}</p>
+                            </div>
+                            <div className={`rounded-xl p-3 ${hasPlainDescription ? "bg-lime-50 text-lime-900" : "bg-red-50 text-red-800"}`}>
+                              <p className="text-xs font-semibold opacity-75">Plain description</p>
+                              <p className="mt-1 text-sm font-semibold">{hasPlainDescription ? "Exists" : "Missing"}</p>
+                            </div>
+                            <div className={`rounded-xl p-3 ${hasHtmlDescription ? "bg-lime-50 text-lime-900" : "bg-red-50 text-red-800"}`}>
+                              <p className="text-xs font-semibold opacity-75">HTML description</p>
+                              <p className="mt-1 text-sm font-semibold">{hasHtmlDescription ? "Exists" : "Missing"}</p>
+                            </div>
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => editItem(item)} className="inline-flex w-full items-center justify-center rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 shadow-[0_8px_18px_rgba(154,88,28,0.12)] hover:bg-orange-200 xl:w-auto">
+                          {hasListingDraft(item) ? "Edit listing" : "Open Listing Studio"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -1758,6 +1936,7 @@ export default function ResellerItApp() {
             const listingExpanded = expandedCardPanel === `${item.id}:listing`;
             const feeExpanded = expandedCardPanel === `${item.id}:fees`;
             const proofStatus = hasProofRecord(item) ? "Proof recorded" : "Missing proof";
+            const listingDraft = generateListingDraft(item);
             return (
               <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -1788,7 +1967,7 @@ export default function ResellerItApp() {
 
                 <div className="mt-3 flex flex-wrap gap-2">
                   <button type="button" onClick={() => setExpandedCardPanel(priceExpanded ? "" : `${item.id}:price`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{priceExpanded ? "Hide price research" : "Price research"}</button>
-                  <button type="button" onClick={() => setExpandedCardPanel(listingExpanded ? "" : `${item.id}:listing`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{listingExpanded ? "Hide listing draft" : "Listing draft"}</button>
+                  <button type="button" onClick={() => setExpandedCardPanel(listingExpanded ? "" : `${item.id}:listing`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{listingExpanded ? "Hide Listing Studio" : "Listing Studio"}</button>
                   <button type="button" onClick={() => setExpandedProofId(proofExpanded ? null : item.id)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{proofExpanded ? "Hide proof" : "Proof details"}</button>
                   <button type="button" onClick={() => setExpandedCardPanel(feeExpanded ? "" : `${item.id}:fees`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{feeExpanded ? "Hide fees" : "Fee details"}</button>
                 </div>
@@ -1819,17 +1998,39 @@ export default function ResellerItApp() {
                   <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Listing draft</p>
-                        <p className="mt-1 font-semibold text-neutral-950">{item.listingTitle || item.ebayTitle || item.name}</p>
-                        {item.conditionText && <p className="mt-2 text-sm text-neutral-600">{item.conditionText}</p>}
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Listing Studio</p>
+                        <p className="mt-1 font-semibold text-neutral-950">{listingDraft.title}</p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-600">{listingDraft.condition}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => copyText("title", item.listingTitle || item.ebayTitle || item.name)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
-                        <button type="button" onClick={() => copyText("condition", item.conditionText)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
-                        <button type="button" onClick={() => copyText("description", item.descriptionText)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy description</button>
+                        <button type="button" onClick={() => copyText("title", listingDraft.title)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
+                        <button type="button" onClick={() => copyText("condition", listingDraft.condition)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
+                        <button type="button" onClick={() => copyText("plain description", listingDraft.description)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy plain description</button>
+                        <button type="button" onClick={() => copyText("HTML description", listingDraft.htmlDescription)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy HTML description</button>
                       </div>
                     </div>
-                    {item.descriptionText && <pre className="mt-3 max-h-40 overflow-auto whitespace-pre-wrap rounded-xl bg-neutral-50 p-3 text-xs text-neutral-700">{item.descriptionText}</pre>}
+                    <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                      <div className="rounded-xl bg-neutral-50 p-3">
+                        <p className="text-xs font-semibold text-neutral-500">What's included</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{item.includedItems || "Not specified"}</p>
+                      </div>
+                      <div className="rounded-xl bg-neutral-50 p-3">
+                        <p className="text-xs font-semibold text-neutral-500">Source fields</p>
+                        <p className="mt-1 text-sm text-neutral-700">{[item.brand, item.model, item.sizeSpecs, item.colour, item.conditionGrade].filter(Boolean).join(" / ") || "No source fields added yet"}</p>
+                      </div>
+                    </div>
+                    <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap rounded-xl bg-neutral-50 p-3 text-xs text-neutral-700">{listingDraft.description}</pre>
+                    <div className="mt-3">
+                      <p className="mb-1.5 text-xs font-semibold text-neutral-500">HTML description preview</p>
+                      <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+                        <div dangerouslySetInnerHTML={{ __html: listingDraft.htmlDescription }} />
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {listingResearchLinks(item).map(([label, href]) => (
+                        <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>
+                      ))}
+                    </div>
                   </div>
                 )}
 
