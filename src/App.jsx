@@ -81,16 +81,13 @@ const advancedFormSections = [
 
 const modules = [
   ["dashboard", "Dashboard"],
-  ["inventory", "Inventory"],
-  ["listing-studio", "Listing Studio"],
-  ["sourcing", "Sourcing Records"],
-  ["receipts", "Receipts / Eigenbelege"],
-  ["ebay-import", "eBay Import"],
-  ["reconciliation", "Monthly Reconciliation"],
-  ["monthly-closing", "Monthly Closing"],
-  ["expenses", "Expenses"],
-  ["tax", "Tax Summary"],
+  ["stock", "Stock Control"],
+  ["sales", "Sales & Shipping"],
+  ["finance", "Finance"],
+  ["tools", "Tools"],
 ];
+const stockSections = [["items", "Items"], ["sourcing", "Sourcing"], ["proof", "Proof"], ["listings", "Listings"]];
+const financeSections = [["expenses", "Expenses"], ["monthly", "Monthly"], ["tax", "Tax Summary"], ["ebay", "eBay Import"]];
 
 const emptyItem = {
   name: "",
@@ -562,6 +559,8 @@ export default function ResellerItApp() {
   const [form, setForm] = useState(emptyItem);
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [stockSection, setStockSection] = useState("items");
+  const [financeSection, setFinanceSection] = useState("expenses");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
   const [expandedProofId, setExpandedProofId] = useState(null);
   const [advancedFeesOpen, setAdvancedFeesOpen] = useState(false);
@@ -982,17 +981,14 @@ export default function ResellerItApp() {
   const filtered = useMemo(() => {
     let nextItems = [];
     if (activeTab === "dashboard") nextItems = [];
-    else if (activeTab === "inventory") nextItems = [];
-    else if (activeTab === "listing-studio") nextItems = [];
-    else if (activeTab === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
-    else if (activeTab === "receipts") nextItems = [];
-    else if (activeTab === "tax") nextItems = items;
-    else if (activeTab === "ebay-import" || activeTab === "reconciliation" || activeTab === "monthly-closing" || activeTab === "expenses") nextItems = [];
+    else if (activeTab === "stock" && stockSection === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
+    else if (activeTab === "sales") nextItems = items.filter((item) => ["Sold", "Shipped", "Completed", "Returned"].includes(itemStatus(item)) || isSoldStatus(item));
+    else if (activeTab === "finance" && financeSection === "tax") nextItems = items;
     else nextItems = items;
 
     if (classificationFilter === "All classifications") return nextItems;
     return nextItems.filter((item) => itemClassification(item) === classificationFilter);
-  }, [activeTab, classificationFilter, items]);
+  }, [activeTab, classificationFilter, financeSection, items, stockSection]);
 
   const eigenbelegText = (item) => `Eigenbeleg / Self-Receipt\n\nDate: ${item.proofDate || item.purchaseDate}\nItem: ${item.name}\nClassification: ${itemClassification(item)}\nSource: ${item.sourceType} - ${item.sourceName || "private seller"}\nLocation: ${item.sourceLocation}\nPurchase price / proof amount: ${money(item.proofAmount || item.purchasePrice)}\nPayment method: ${item.paymentMethod}\nReason no invoice: ${item.noReceiptReason || "Private second-hand / flea-market purchase; no formal receipt available."}\nProof notes: ${item.proofNotes || item.notes || "-"}\n\nSigned: ______________________`;
 
@@ -1573,7 +1569,27 @@ export default function ResellerItApp() {
           </div>
         </nav>
 
-        <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        {activeTab === "stock" && (
+          <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {stockSections.map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setStockSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${stockSection === key ? "bg-[#e06b2c] text-[#24110e]" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20"}`}>{label}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {activeTab === "finance" && (
+          <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {financeSections.map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setFinanceSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${financeSection === key ? "bg-[#e06b2c] text-[#24110e]" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20"}`}>{label}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {(activeTab === "stock" || activeTab === "sales" || (activeTab === "finance" && financeSection === "tax")) && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
               <option>All classifications</option>
@@ -1581,10 +1597,10 @@ export default function ResellerItApp() {
             </Select>
             <p className="text-sm leading-6 text-neutral-600">Use classification to keep personal collection sales separate from stock bought for resale, legacy business stock, and items that need later review.</p>
           </div>
-        </div>
+        </div>}
 
         <section className="grid gap-4">
-          {activeTab === "inventory" && (
+          {activeTab === "stock" && stockSection === "items" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -1687,7 +1703,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "listing-studio" && (
+          {activeTab === "stock" && stockSection === "listings" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -1761,7 +1777,7 @@ export default function ResellerItApp() {
                       <h3 className="text-sm font-semibold text-neutral-950">Today workflow</h3>
                       <p className="text-xs text-neutral-500">Quick queues for the next daily actions.</p>
                     </div>
-                    <button type="button" onClick={() => setActiveTab("inventory")} className="text-left text-xs font-semibold text-orange-700 hover:text-orange-900 sm:text-right">Open Inventory Manager</button>
+                    <button type="button" onClick={() => { setActiveTab("stock"); setStockSection("items"); }} className="text-left text-xs font-semibold text-orange-700 hover:text-orange-900 sm:text-right">Open Stock Control</button>
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     {[
@@ -1801,7 +1817,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "receipts" && (
+          {activeTab === "stock" && stockSection === "proof" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -1880,7 +1896,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "ebay-import" && (
+          {activeTab === "finance" && financeSection === "ebay" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -1986,20 +2002,20 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "reconciliation" && (
+          {activeTab === "sales" && (
             <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-950">Monthly Reconciliation</h2>
-              <p className="mt-1 text-sm text-neutral-600">Placeholder for checking eBay reports against local inventory and receipt records.</p>
+              <h2 className="text-lg font-semibold text-neutral-950">Sales & Shipping</h2>
+              <p className="mt-1 text-sm text-neutral-600">Sold-item workflow for shipping, tracking/status review, completed sales, returns, and monthly reconciliation checks.</p>
               <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard icon={ShoppingCart} label="Monthly sales" value={money(monthlySummary.salesTotal)} />
-                <StatCard icon={ReceiptText} label="Purchases booked" value={money(monthlySummary.purchaseTotal)} />
+                <StatCard icon={Truck} label="Sold not shipped" value={todayWorkflow.soldNotShipped.length} />
                 <StatCard icon={Euro} label="Fees booked" value={money(monthlySummary.feesTotal)} />
-                <StatCard icon={FileText} label="Missing receipts" value={summary.eigenbeleg} sub="Eigenbeleg candidates" />
+                <StatCard icon={FileText} label="Completed / returned" value={items.filter((item) => ["Completed", "Returned"].includes(itemStatus(item))).length} />
               </div>
             </div>
           )}
 
-          {activeTab === "monthly-closing" && (
+          {activeTab === "finance" && financeSection === "monthly" && (
             <div id="monthly-closing-summary" className="grid gap-4 print:block">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm print:border-0 print:shadow-none">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -2069,7 +2085,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "expenses" && (
+          {activeTab === "finance" && financeSection === "expenses" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -2152,7 +2168,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "tax" && (
+          {activeTab === "finance" && financeSection === "tax" && (
             <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-semibold text-neutral-950">Tax Summary for EÜR-style yearly totals</h2>
               <p className="mt-1 text-sm text-neutral-600">Year-to-date support overview for German reseller self-reporting. This is tax support, not legal or tax advice.</p>
@@ -2162,6 +2178,31 @@ export default function ResellerItApp() {
                 <StatCard icon={Euro} label="Fees + shipping" value={money(yearlySummary.feesTotal)} />
                 <StatCard icon={ReceiptText} label="Business expenses" value={money(yearlySummary.expenseTotal)} />
                 <StatCard icon={Euro} label="Estimated EÜR profit" value={money(yearlySummary.profit)} />
+              </div>
+            </div>
+          )}
+
+          {activeTab === "tools" && (
+            <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-neutral-950">Tools</h2>
+                <p className="mt-1 text-sm text-neutral-600">Local utilities for backups, future templates, settings, and help. Data stays in this browser unless you export it.</p>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button type="button" onClick={exportJson} className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-[#f0be45]/20">Export Backup</button>
+                  <label className="cursor-pointer rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-[#f0be45]/20">
+                    Import Backup
+                    <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
+                  </label>
+                </div>
+                {backupMessage && <p className="mt-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">{backupMessage}</p>}
+              </div>
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h3 className="text-sm font-semibold text-neutral-950">Future utilities</h3>
+                <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-sm font-semibold text-neutral-800">Templates</p><p className="mt-1 text-xs text-neutral-500">Reusable listing and sourcing presets.</p></div>
+                  <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-sm font-semibold text-neutral-800">Settings</p><p className="mt-1 text-xs text-neutral-500">Future local preferences.</p></div>
+                  <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-sm font-semibold text-neutral-800">Help</p><p className="mt-1 text-xs text-neutral-500">Workflow notes and reminders.</p></div>
+                </div>
               </div>
             </div>
           )}
