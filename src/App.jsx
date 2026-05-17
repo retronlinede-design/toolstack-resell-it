@@ -530,7 +530,7 @@ function parseCsvText(text) {
 
 function StatCard({ icon: Icon, label, value, sub }) {
   return (
-    <div className="rounded-2xl border border-stone-200 bg-[#fffdf8] p-3 shadow-[0_10px_26px_rgba(41,37,36,0.045)]">
+    <div className="premium-card rounded-2xl border border-stone-200 bg-[#fffdf8] p-3 shadow-[0_10px_26px_rgba(41,37,36,0.045)]">
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{label}</p>
@@ -547,7 +547,7 @@ function Input({ label, className = "", ...props }) {
   return (
     <label className={`block ${className}`}>
       <span className="mb-1.5 block text-xs font-semibold text-stone-600">{label}</span>
-      <input {...props} className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-100/70" />
+      <input {...props} className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition-all duration-150 placeholder:text-stone-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-100/70" />
     </label>
   );
 }
@@ -556,7 +556,7 @@ function Select({ label, className = "", children, ...props }) {
   return (
     <label className={`block ${className}`}>
       <span className="mb-1.5 block text-xs font-semibold text-stone-600">{label}</span>
-      <select {...props} className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition focus:border-orange-300 focus:ring-2 focus:ring-orange-100/70">
+      <select {...props} className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition-all duration-150 focus:border-orange-300 focus:ring-2 focus:ring-orange-100/70">
         {children}
       </select>
     </label>
@@ -565,7 +565,7 @@ function Select({ label, className = "", children, ...props }) {
 
 function FormSection({ title, children }) {
   return (
-    <section className="rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
+    <section className="premium-panel rounded-2xl border border-stone-200 bg-stone-50/70 p-4">
       <h3 className="mb-3 text-sm font-semibold text-stone-950">{title}</h3>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">{children}</div>
     </section>
@@ -1093,7 +1093,7 @@ export default function ResellerItApp() {
               </div>
             </div>
             <nav className="space-y-2">
-              <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition ${activeTab === "dashboard" ? "border-[#f0be45]/60 bg-white/8 shadow-[0_8px_22px_rgba(240,190,69,0.12)]" : "border-[#5a3028] bg-[#45251f] hover:border-[#f0be45]/35 hover:bg-white/7"}`}>
+              <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === "dashboard" ? "border-[#f0be45]/60 bg-white/8 shadow-[0_8px_22px_rgba(240,190,69,0.12)]" : "border-[#5a3028] bg-[#45251f] hover:border-[#f0be45]/35 hover:bg-white/7"}`}>
                 <div className="flex h-1.5">
                   <div className="flex-1 bg-[#b7412e]" />
                   <div className="flex-1 bg-[#e06b2c]" />
@@ -1107,7 +1107,7 @@ export default function ResellerItApp() {
               </button>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                 {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
-                  <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
+                  <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
                     <div className="px-3 py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
@@ -1121,9 +1121,9 @@ export default function ResellerItApp() {
             <div className="rounded-3xl border border-[#5a3028] bg-[#45251f] p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">Quick actions</p>
               <div className="grid gap-2">
-                <button type="button" onClick={() => { setActiveTab("dashboard"); setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Quick Add item</button>
-                <button type="button" onClick={() => { setActiveTab("stock"); setStockSection("items"); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Open Stock Control</button>
-                <button type="button" onClick={() => setActiveTab("sales")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Sales & shipping queue</button>
+                <button type="button" onClick={() => { setActiveTab("dashboard"); setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add item</button>
+                <button type="button" onClick={() => { setActiveTab("stock"); setStockSection("items"); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Open Stock Control</button>
+                <button type="button" onClick={() => setActiveTab("sales")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales & shipping queue</button>
               </div>
             </div>
 
@@ -1149,7 +1149,7 @@ export default function ResellerItApp() {
         </aside>
 
         <main className="min-w-0 space-y-4 rounded-[2rem] border border-[#eadfce] bg-[#f6efe2] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.22)] md:p-5">
-          <div className="overflow-hidden rounded-3xl border border-[#eadfce] bg-[#fffaf0] shadow-sm">
+          <div className="premium-panel overflow-hidden rounded-3xl border border-[#eadfce] bg-[#fffaf0] shadow-sm">
             {activeTab === "dashboard" ? (
               <div className="flex h-2">
                 <div className="flex-1 bg-[#b7412e]" />
@@ -1178,7 +1178,7 @@ export default function ResellerItApp() {
           <StatCard icon={FileText} label="Estimated profit" value={money(monthlySummary.profit)} sub="sales minus purchases, fees, shipping" />
         </section>
 
-        <form onSubmit={saveItem} className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4">
+        <form onSubmit={saveItem} className="premium-panel rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4">
           <div className="mb-4 rounded-2xl border border-[#eadfce] bg-white/80 p-3 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -1200,7 +1200,7 @@ export default function ResellerItApp() {
 
           {editingId && (
             <div className="space-y-4">
-              <div className="overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
+              <div className="premium-card overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
                 <div className="flex h-1.5">
                   <div className="flex-1 bg-[#b7412e]" />
                   <div className="flex-1 bg-[#e06b2c]" />
@@ -1232,8 +1232,8 @@ export default function ResellerItApp() {
 
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                 {workflowSections.map(([key, label, Icon, description]) => (
-                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-3xl border p-4 text-left shadow-sm transition ${activeWorkflowSection === key ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 ring-2 ring-[#e06b2c]/15" : "border-stone-200 bg-white hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15"}`}>
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-amber-50 group-hover:bg-[#351c17]">
+                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-3xl border p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(41,37,36,0.1)] ${activeWorkflowSection === key ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 ring-2 ring-[#e06b2c]/15" : "border-stone-200 bg-white hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15"}`}>
+                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-amber-50 transition-colors duration-150 group-hover:bg-[#351c17]">
                       <Icon size={18} />
                     </div>
                     <p className="text-sm font-semibold text-stone-950">{label}</p>
@@ -1242,7 +1242,7 @@ export default function ResellerItApp() {
                 ))}
               </div>
 
-              <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+              <div className="premium-panel rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Focused editing panel</p>
@@ -1429,7 +1429,7 @@ export default function ResellerItApp() {
           </div>}
 
           {!editingId && itemFormOpen && <div className="mt-6 space-y-4 border-t border-[#eadfce] pt-5">
-            <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+            <div className="premium-panel rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Advanced Item Form</p>
@@ -1447,7 +1447,7 @@ export default function ResellerItApp() {
                 {advancedFormSections.map(([key, label, Icon, description, activeClass, hoverClass, iconClass]) => {
                   const selected = activeAdvancedSection === key;
                   return (
-                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition ${selected ? `${activeClass} ring-2` : `border-stone-200 bg-[#fffdf8] text-stone-950 ${hoverClass}`}`}>
+                  <button key={key} type="button" onClick={() => setActiveAdvancedSection(key)} className={`rounded-3xl border p-4 text-left transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(41,37,36,0.09)] ${selected ? `${activeClass} ring-2` : `border-stone-200 bg-[#fffdf8] text-stone-950 ${hoverClass}`}`}>
                     <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-2xl ${selected ? "bg-white/85 text-[#351c17]" : `bg-[#351c17] ${iconClass}`}`}><Icon size={18} /></div>
                     <p className={`text-sm font-semibold ${selected ? "" : "text-stone-950"}`}>{label}</p>
                     <p className={`mt-1 text-xs leading-5 ${selected ? "opacity-85" : "text-stone-500"}`}>{description}</p>
@@ -1693,7 +1693,7 @@ export default function ResellerItApp() {
           <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
               {stockSections.map(([key, label]) => (
-                <button key={key} type="button" onClick={() => setStockSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${stockSection === key ? "bg-[#e06b2c] text-[#24110e]" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20"}`}>{label}</button>
+                <button key={key} type="button" onClick={() => setStockSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 ${stockSection === key ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20 hover:shadow-sm"}`}>{label}</button>
               ))}
             </div>
           </div>
@@ -1703,7 +1703,7 @@ export default function ResellerItApp() {
           <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
               {financeSections.map(([key, label]) => (
-                <button key={key} type="button" onClick={() => setFinanceSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${financeSection === key ? "bg-[#e06b2c] text-[#24110e]" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20"}`}>{label}</button>
+                <button key={key} type="button" onClick={() => setFinanceSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 ${financeSection === key ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20 hover:shadow-sm"}`}>{label}</button>
               ))}
             </div>
           </div>
@@ -1787,7 +1787,7 @@ export default function ResellerItApp() {
               <div className="grid gap-3">
                 {inventoryManagerItems.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No inventory items match the current filters.</p>}
                 {inventoryManagerItems.map((item) => (
-                  <article key={item.id} className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
+                  <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
                     <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
                       <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:items-center">
                         <div>
@@ -1840,7 +1840,7 @@ export default function ResellerItApp() {
                   const hasPlainDescription = Boolean(item.descriptionText);
                   const hasHtmlDescription = Boolean(item.htmlDescription);
                   return (
-                    <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                    <article key={item.id} className="premium-card rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                       <div className="grid gap-4 xl:grid-cols-[1fr_auto] xl:items-start">
                         <div className="space-y-3">
                           <div className="flex flex-wrap items-center gap-2">
@@ -1960,7 +1960,7 @@ export default function ResellerItApp() {
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-wrap gap-2">
                   {["All", "Missing proof", "Needs Eigenbeleg", "Externally stored", "Receipt / invoice", "Private items", "Business stock", "Legacy stock"].map((filter) => (
-                    <button key={filter} type="button" onClick={() => setProofFilter(filter)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition ${proofFilter === filter ? "bg-[#e06b2c] text-[#24110e]" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20"}`}>{filter}</button>
+                    <button key={filter} type="button" onClick={() => setProofFilter(filter)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 ${proofFilter === filter ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20 hover:shadow-sm"}`}>{filter}</button>
                   ))}
                 </div>
               </div>
@@ -1972,7 +1972,7 @@ export default function ResellerItApp() {
                   const proofType = item.proofType || item.receiptType || "Eigenbeleg";
                   const proofStatus = hasProofRecord(item) ? "Proof available" : "Missing proof";
                   return (
-                    <article key={item.id} className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
+                    <article key={item.id} className="premium-card rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                       <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
@@ -2157,7 +2157,7 @@ export default function ResellerItApp() {
                   <div className="mt-4 grid gap-3">
                     {salesWorkflow.awaitingShipment.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No sold items are waiting for shipment.</p>}
                     {salesWorkflow.awaitingShipment.map((item) => (
-                      <article key={item.id} className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
+                      <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
                         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                           <div>
                             <div className="flex flex-wrap items-center gap-2">
@@ -2214,7 +2214,7 @@ export default function ResellerItApp() {
                 <div className="mt-4 grid gap-3">
                   {salesWorkflow.shippedItems.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No shipped or tracked items yet.</p>}
                   {salesWorkflow.shippedItems.map((item) => (
-                    <article key={item.id} className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
+                    <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
                       <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr_auto] lg:items-center">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
@@ -2369,7 +2369,7 @@ export default function ResellerItApp() {
                 {filteredExpenses.map((expense) => {
                   const linkedItem = items.find((item) => item.id === expense.linkedItemId);
                   return (
-                    <article key={expense.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                    <article key={expense.id} className="premium-card rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
@@ -2442,7 +2442,7 @@ export default function ResellerItApp() {
             const proofStatus = hasProofRecord(item) ? "Proof recorded" : "Missing proof";
             const listingDraft = generateListingDraft(item);
             return (
-              <article key={item.id} className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
+              <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="flex gap-3">
                     <div>

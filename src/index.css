@@ -35,3 +35,58 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
 }
+
+button,
+a,
+[role="button"] {
+  transition-duration: 150ms;
+  transition-property: background-color, border-color, box-shadow, color, opacity, transform;
+  transition-timing-function: ease-out;
+}
+
+button:active,
+a:active,
+[role="button"]:active {
+  transform: translateY(1px) scale(0.99);
+}
+
+.premium-card,
+.premium-panel {
+  transition-duration: 160ms;
+  transition-property: border-color, box-shadow, opacity, transform;
+  transition-timing-function: ease-out;
+}
+
+@media (hover: hover) {
+  .premium-card:hover {
+    border-color: #d8cbbb;
+    box-shadow: 0 16px 38px rgba(41, 37, 36, 0.09);
+    transform: translateY(-2px);
+  }
+}
+
+.premium-panel {
+  animation: panel-in 160ms ease-out;
+}
+
+@keyframes panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 1ms !important;
+    scroll-behavior: auto !important;
+    transition-duration: 1ms !important;
+  }
+}
