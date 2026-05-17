@@ -30,6 +30,7 @@ const modules = [
   ["receipts", "Receipts / Eigenbelege"],
   ["ebay-import", "eBay Import"],
   ["reconciliation", "Monthly Reconciliation"],
+  ["monthly-closing", "Monthly Closing"],
   ["expenses", "Expenses"],
   ["tax", "Tax Summary"],
 ];
@@ -169,6 +170,10 @@ function itemProfitValue(item) {
   return finalSaleValue(item) + shippingChargedValue(item) - number(item.purchasePrice) - actualShippingValue(item) - platformFees(item);
 }
 
+function hasProofRecord(item) {
+  return Boolean(item.proofImageDataUrl || item.proofNotes || item.proofAmount || item.receiptType || item.proofType);
+}
+
 function loadInitialItems() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -288,6 +293,8 @@ export default function ResellerItApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
   const [expandedProofId, setExpandedProofId] = useState(null);
+  const [advancedFeesOpen, setAdvancedFeesOpen] = useState(false);
+  const [closingMonth, setClosingMonth] = useState(CURRENT_MONTH);
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -315,6 +322,7 @@ export default function ResellerItApp() {
   function editItem(item) {
     setForm({ ...emptyItem, ...item });
     setEditingId(item.id);
+    setAdvancedFeesOpen(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -329,6 +337,17 @@ export default function ResellerItApp() {
     const a = document.createElement("a");
     a.href = url;
     a.download = `reseller-it-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function exportMonthlyClosingJson() {
+    const data = JSON.stringify({ type: "RESELLIT_MONTHLY_CLOSING", version: 1, month: closingMonth, summary: monthlyClosing, exportedAt: new Date().toISOString() }, null, 2);
+    const blob = new Blob([data], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `resellit-monthly-closing-${closingMonth}.json`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -431,6 +450,40 @@ export default function ResellerItApp() {
     return { purchaseTotal, salesTotal, feesTotal, profit };
   }, [items]);
 
+  const monthlyClosing = useMemo(() => {
+    const purchasedItems = items.filter((item) => inMonth(item.purchaseDate, closingMonth));
+    const soldItems = items.filter((item) => inMonth(item.saleDate, closingMonth));
+    const activityItems = items.filter((item) => inMonth(item.purchaseDate, closingMonth) || inMonth(item.saleDate, closingMonth));
+    const classificationBreakdown = classificationOptions.reduce((counts, classification) => {
+      counts[classification] = activityItems.filter((item) => itemClassification(item) === classification).length;
+      return counts;
+    }, {});
+    const salesTotal = soldItems.reduce((sum, item) => sum + finalSaleValue(item), 0);
+    const purchaseTotal = purchasedItems.reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    const shippingCharged = soldItems.reduce((sum, item) => sum + shippingChargedValue(item), 0);
+    const actualShippingCosts = soldItems.reduce((sum, item) => sum + actualShippingValue(item), 0);
+    const platformFeeTotal = soldItems.reduce((sum, item) => sum + platformFees(item), 0);
+    const profitEstimate = salesTotal + shippingCharged - purchaseTotal - actualShippingCosts - platformFeeTotal;
+    const missingProofItems = activityItems.filter((item) => !hasProofRecord(item));
+    const reviewItems = activityItems.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION);
+
+    return {
+      month: closingMonth,
+      salesTotal,
+      purchaseTotal,
+      shippingCharged,
+      actualShippingCosts,
+      platformFeeTotal,
+      profitEstimate,
+      classificationBreakdown,
+      missingProofItems,
+      reviewItems,
+      purchasedCount: purchasedItems.length,
+      soldCount: soldItems.length,
+      activityCount: activityItems.length,
+    };
+  }, [closingMonth, items]);
+
   const filtered = useMemo(() => {
     let nextItems = [];
     if (activeTab === "dashboard") nextItems = [];
@@ -438,7 +491,7 @@ export default function ResellerItApp() {
     else if (activeTab === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
     else if (activeTab === "receipts") nextItems = items.filter((item) => item.hasReceipt === "No" || item.receiptType || item.notes);
     else if (activeTab === "tax") nextItems = items;
-    else if (activeTab === "ebay-import" || activeTab === "reconciliation" || activeTab === "expenses") nextItems = [];
+    else if (activeTab === "ebay-import" || activeTab === "reconciliation" || activeTab === "monthly-closing" || activeTab === "expenses") nextItems = [];
     else nextItems = items;
 
     if (classificationFilter === "All classifications") return nextItems;
@@ -492,7 +545,7 @@ export default function ResellerItApp() {
             <FormSection title="Inventory item">
               <Input label="Item name" className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sony CD Player" />
               <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Electronics, clothing..." />
-              <Select label="Classification" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value })}>
+              <Select label="Classification" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value, ebayFeeMode: e.target.value === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode })}>
                 {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
               </Select>
               <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
@@ -535,23 +588,38 @@ export default function ResellerItApp() {
               <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
               <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
               <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
-              <Select label="eBay fee mode" value={form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE} onChange={(e) => setForm({ ...form, ebayFeeMode: e.target.value })}>
-                {ebayFeeModes.map((mode) => <option key={mode}>{mode}</option>)}
-              </Select>
-              <Input label="Business fee percent" value={form.feePercent || ""} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} />
-              <Input label="Business fixed fee EUR" value={form.fixedFee || ""} onChange={(e) => setForm({ ...form, fixedFee: e.target.value })} />
-              <Input label="Estimated eBay fee EUR" value={form.ebayFeeMode === "Business Estimate" ? String(ebayBaseFee(form)) : (form.estimatedEbayFee || "")} onChange={(e) => setForm({ ...form, estimatedEbayFee: e.target.value })} readOnly={form.ebayFeeMode === "Business Estimate"} />
-              <Input label="Manual eBay fee EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value })} />
-              <Input label="Promoted listing fee EUR" value={form.promotedListingFee || ""} onChange={(e) => setForm({ ...form, promotedListingFee: e.target.value })} />
-              <Input label="Other platform fees EUR" value={form.otherPlatformFees || ""} onChange={(e) => setForm({ ...form, otherPlatformFees: e.target.value })} />
             </FormSection>
 
             <div className="rounded-2xl border border-neutral-200 bg-white p-4">
-              <h3 className="text-sm font-semibold text-neutral-950">Fee calculation helper</h3>
-              <div className="mt-3 grid gap-3 text-sm text-neutral-600 md:grid-cols-2">
-                <p className="rounded-xl bg-neutral-50 p-3">Private Germany mode defaults the estimated eBay fee to 0. Optional services such as promoted listings or other platform fees can still be recorded.</p>
-                <p className="rounded-xl bg-neutral-50 p-3">Business Estimate mode is an estimate only; reconcile with the official eBay report before relying on final numbers.</p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold text-neutral-950">Advanced fee settings</h3>
+                  <p className="mt-1 text-sm text-neutral-600">Most private Germany eBay sales start with zero standard selling fee. Add optional promotion or other platform fees only if they apply.</p>
+                </div>
+                <button type="button" onClick={() => setAdvancedFeesOpen(!advancedFeesOpen)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
+                  {advancedFeesOpen ? "Hide" : "Show"}
+                </button>
               </div>
+              {advancedFeesOpen && (
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Select label="eBay fee mode" value={form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE} onChange={(e) => setForm({ ...form, ebayFeeMode: e.target.value })}>
+                    {ebayFeeModes.map((mode) => <option key={mode}>{mode}</option>)}
+                  </Select>
+                  {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && (
+                    <>
+                      <Input label="Business fee percent" value={form.feePercent || ""} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} />
+                      <Input label="Business fixed fee EUR" value={form.fixedFee || ""} onChange={(e) => setForm({ ...form, fixedFee: e.target.value })} />
+                      <Input label="Estimated eBay fee EUR" value={String(ebayBaseFee(form))} onChange={(e) => setForm({ ...form, estimatedEbayFee: e.target.value })} readOnly />
+                    </>
+                  )}
+                  {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Manual" && (
+                    <Input label="Manual eBay fee EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value })} />
+                  )}
+                  <Input label="Promoted listing fee EUR" value={form.promotedListingFee || ""} onChange={(e) => setForm({ ...form, promotedListingFee: e.target.value })} />
+                  <Input label="Other platform fees EUR" value={form.otherPlatformFees || ""} onChange={(e) => setForm({ ...form, otherPlatformFees: e.target.value })} />
+                </div>
+              )}
+              {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <p className="mt-3 rounded-xl bg-neutral-50 p-3 text-sm text-neutral-600">Business fee calculations are estimates until reconciled with official eBay reports.</p>}
               <p className="mt-3 rounded-xl bg-neutral-950 p-3 text-sm font-semibold text-white">Current final profit: {money(itemProfitValue(form))}</p>
             </div>
 
@@ -762,6 +830,75 @@ export default function ResellerItApp() {
                 <StatCard icon={ReceiptText} label="Purchases booked" value={money(monthlySummary.purchaseTotal)} />
                 <StatCard icon={Euro} label="Fees booked" value={money(monthlySummary.feesTotal)} />
                 <StatCard icon={FileText} label="Missing receipts" value={summary.eigenbeleg} sub="Eigenbeleg candidates" />
+              </div>
+            </div>
+          )}
+
+          {activeTab === "monthly-closing" && (
+            <div id="monthly-closing-summary" className="grid gap-4 print:block">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm print:border-0 print:shadow-none">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-neutral-950">Monthly Closing</h2>
+                    <p className="mt-1 max-w-3xl text-sm text-neutral-600">Month-end tax-prep summary for private and business reseller activity. Export the local JSON or print this summary for your records.</p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-[180px_auto_auto]">
+                    <Input label="Closing month" type="month" value={closingMonth} onChange={(e) => setClosingMonth(e.target.value)} />
+                    <button type="button" onClick={exportMonthlyClosingJson} className="inline-flex items-center justify-center rounded-2xl bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800 print:hidden">Export JSON</button>
+                    <button type="button" onClick={() => window.print()} className="inline-flex items-center justify-center rounded-2xl border border-neutral-300 bg-white px-4 py-3 text-sm font-semibold text-neutral-700 hover:bg-neutral-50 print:hidden">Print Summary</button>
+                  </div>
+                </div>
+
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <StatCard icon={ShoppingCart} label="Sales total" value={money(monthlyClosing.salesTotal)} sub={`${monthlyClosing.soldCount} sold items`} />
+                  <StatCard icon={ReceiptText} label="Purchase total" value={money(monthlyClosing.purchaseTotal)} sub={`${monthlyClosing.purchasedCount} purchased items`} />
+                  <StatCard icon={Euro} label="Shipping charged" value={money(monthlyClosing.shippingCharged)} />
+                  <StatCard icon={Package} label="Actual shipping costs" value={money(monthlyClosing.actualShippingCosts)} />
+                  <StatCard icon={FileText} label="Platform fees" value={money(monthlyClosing.platformFeeTotal)} />
+                  <StatCard icon={Euro} label="Profit estimate" value={money(monthlyClosing.profitEstimate)} sub="sales + shipping charged - purchases - shipping costs - platform fees" />
+                  <StatCard icon={ReceiptText} label="Missing proof" value={monthlyClosing.missingProofItems.length} />
+                  <StatCard icon={FileText} label="Review later" value={monthlyClosing.reviewItems.length} sub="Unsure / Review Later" />
+                </div>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm print:break-inside-avoid">
+                  <h3 className="text-sm font-semibold text-neutral-950">Counts by classification</h3>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    {classificationOptions.map((classification) => (
+                      <div key={classification} className="rounded-2xl bg-neutral-50 p-4">
+                        <p className="text-xs font-semibold text-neutral-600">{classification}</p>
+                        <p className="mt-1 text-2xl font-semibold text-neutral-950">{monthlyClosing.classificationBreakdown[classification] || 0}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm print:break-inside-avoid">
+                  <h3 className="text-sm font-semibold text-neutral-950">Closing checks</h3>
+                  <div className="mt-3 grid gap-3">
+                    <div className="rounded-2xl bg-neutral-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Items missing proof</p>
+                      {monthlyClosing.missingProofItems.length === 0 ? (
+                        <p className="mt-1 text-sm text-neutral-600">No missing proof records found for this month.</p>
+                      ) : (
+                        <ul className="mt-2 space-y-1 text-sm text-neutral-700">
+                          {monthlyClosing.missingProofItems.map((item) => <li key={item.id}>{item.name} / {itemClassification(item)}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                    <div className="rounded-2xl bg-neutral-50 p-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Unsure / Review Later</p>
+                      {monthlyClosing.reviewItems.length === 0 ? (
+                        <p className="mt-1 text-sm text-neutral-600">No review-later items found for this month.</p>
+                      ) : (
+                        <ul className="mt-2 space-y-1 text-sm text-neutral-700">
+                          {monthlyClosing.reviewItems.map((item) => <li key={item.id}>{item.name} / {item.status}</li>)}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           )}
