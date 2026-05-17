@@ -661,6 +661,7 @@ export default function ResellerItApp() {
   function editItem(item) {
     setForm({ ...emptyItem, ...item });
     setEditingId(item.id);
+    setActiveTab("dashboard");
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
     setActiveWorkflowSection("basic");
@@ -1048,12 +1049,9 @@ export default function ResellerItApp() {
           <div className="space-y-4 p-4 md:p-5">
           <div className="space-y-4">
             <div>
-              <div className="mb-4 rounded-3xl bg-black/35 p-3">
+              <div className="rounded-3xl bg-black/35 p-3">
                 <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-28 w-full object-contain sm:max-h-32 lg:max-h-36" />
               </div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-[#f0be45]">ToolStack</p>
-              <p className="mt-2 text-sm leading-6 text-[#e8d9c5]">Germany-focused tax-prep workspace for Kleinunternehmer and Einzelunternehmen resellers: inventory, sourcing records, receipts, Eigenbelege, eBay sales reconciliation, and EÜR-style monthly/yearly summaries.</p>
-              <p className="mt-2 text-xs font-medium text-[#c8b8a6]">Tax support only, not legal or tax advice. Verify filings with a Steuerberater or the Finanzamt rules that apply to your business.</p>
             </div>
             <nav className="space-y-2">
               <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition ${activeTab === "dashboard" ? "border-[#f0be45]/70 bg-[#45251f] shadow-[0_8px_22px_rgba(240,190,69,0.16)]" : "border-[#5a3028] bg-[#45251f] hover:bg-[#523029]"}`}>
@@ -1084,7 +1082,7 @@ export default function ResellerItApp() {
             <div className="rounded-3xl border border-[#5a3028] bg-[#45251f] p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">Quick actions</p>
               <div className="grid gap-2">
-                <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Quick Add item</button>
+                <button type="button" onClick={() => { setActiveTab("dashboard"); setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Quick Add item</button>
                 <button type="button" onClick={() => { setActiveTab("stock"); setStockSection("items"); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Open Stock Control</button>
                 <button type="button" onClick={() => setActiveTab("sales")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Sales & shipping queue</button>
               </div>
@@ -1128,6 +1126,8 @@ export default function ResellerItApp() {
             </div>
           </div>
 
+        {activeTab === "dashboard" && (
+        <>
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard icon={ShoppingCart} label={`Monthly sales ${CURRENT_MONTH}`} value={money(monthlySummary.salesTotal)} />
           <StatCard icon={ReceiptText} label="Monthly purchases" value={money(monthlySummary.purchaseTotal)} />
@@ -1635,6 +1635,8 @@ export default function ResellerItApp() {
 
           </div>}
         </form>
+        </>
+        )}
 
         {activeTab === "stock" && (
           <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
