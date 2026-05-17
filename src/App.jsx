@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
+import resellItLogo from "./assets/resellitlogo1.png";
 
 const STORAGE_KEY = "toolstack.resellerit.v1";
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
@@ -1035,29 +1036,66 @@ export default function ResellerItApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[#2a1713] px-3 py-4 text-stone-900 sm:px-5 md:px-8 md:py-8">
-      <div className="mx-auto max-w-7xl space-y-4 md:space-y-6">
-        <header className="overflow-hidden rounded-3xl border border-[#5a3028] bg-[#351c17] shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+    <div className="min-h-screen bg-[#24120f] p-3 text-stone-900 sm:p-4 md:p-5">
+      <div className="mx-auto grid max-w-[1680px] gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+        <aside className="overflow-hidden rounded-[2rem] border border-[#5a3028] bg-[#351c17] shadow-[0_20px_60px_rgba(0,0,0,0.28)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:overflow-auto">
           <div className="flex h-3">
             <div className="flex-1 bg-[#b7412e]" />
             <div className="flex-1 bg-[#e06b2c]" />
             <div className="flex-1 bg-[#f0be45]" />
             <div className="flex-1 bg-[#1f9d99]" />
           </div>
-          <div className="p-5 md:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-4 p-4 md:p-5">
+          <div className="space-y-4">
             <div>
+              <div className="mb-4 rounded-3xl bg-black/35 p-3">
+                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-28 w-full object-contain sm:max-h-32 lg:max-h-36" />
+              </div>
               <p className="text-xs font-semibold uppercase tracking-wide text-[#f0be45]">ToolStack</p>
-              <h1 className="mt-1 text-3xl font-bold tracking-tight text-[#fff7e8] md:text-4xl">ResellIt</h1>
-              <p className="mt-2 max-w-3xl text-sm leading-6 text-neutral-600">Germany-focused tax-prep workspace for Kleinunternehmer and Einzelunternehmen resellers: inventory, sourcing records, receipts, Eigenbelege, eBay sales reconciliation, and EÜR-style monthly/yearly summaries.</p>
-              <p className="mt-2 max-w-3xl text-xs font-medium text-neutral-500">Tax support only, not legal or tax advice. Verify filings with a Steuerberater or the Finanzamt rules that apply to your business.</p>
+              <p className="mt-2 text-sm leading-6 text-[#e8d9c5]">Germany-focused tax-prep workspace for Kleinunternehmer and Einzelunternehmen resellers: inventory, sourcing records, receipts, Eigenbelege, eBay sales reconciliation, and EÜR-style monthly/yearly summaries.</p>
+              <p className="mt-2 text-xs font-medium text-[#c8b8a6]">Tax support only, not legal or tax advice. Verify filings with a Steuerberater or the Finanzamt rules that apply to your business.</p>
             </div>
-            <div className="relative flex w-full flex-col items-start gap-2 sm:w-auto sm:items-end">
+            <nav className="space-y-2">
+              <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition ${activeTab === "dashboard" ? "border-[#f0be45]/70 bg-[#45251f] shadow-[0_8px_22px_rgba(240,190,69,0.16)]" : "border-[#5a3028] bg-[#45251f] hover:bg-[#523029]"}`}>
+                <div className="flex h-1.5">
+                  <div className="flex-1 bg-[#b7412e]" />
+                  <div className="flex-1 bg-[#e06b2c]" />
+                  <div className="flex-1 bg-[#f0be45]" />
+                  <div className="flex-1 bg-[#1f9d99]" />
+                </div>
+                <div className="px-4 py-3">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-[#f0be45]">Home</p>
+                  <p className="mt-0.5 text-base font-semibold text-[#fff7e8]">Dashboard</p>
+                </div>
+              </button>
+              <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
+                {modules.map(([key, label, stripeClass, accentClass, activeTextClass]) => (
+                  <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition ${activeTab === key ? `border-transparent ${stripeClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.18)]` : "border-[#5a3028] bg-[#45251f] text-[#f3e6d6] hover:bg-[#523029]"}`}>
+                    <div className={`h-1.5 ${stripeClass}`} />
+                    <div className="px-3 py-2.5">
+                      <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
+                      <p className="mt-0.5 text-sm font-semibold">{label}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </nav>
+
+            <div className="rounded-3xl border border-[#5a3028] bg-[#45251f] p-3">
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">Quick actions</p>
+              <div className="grid gap-2">
+                <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Quick Add item</button>
+                <button type="button" onClick={() => { setActiveTab("stock"); setStockSection("items"); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Open Stock Control</button>
+                <button type="button" onClick={() => setActiveTab("sales")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:bg-[#523029]">Sales & shipping queue</button>
+              </div>
+            </div>
+
+            <div className="relative flex w-full flex-col items-start gap-2">
               <button type="button" onClick={() => setBackupMenuOpen(!backupMenuOpen)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#6c3a31] bg-[#45251f] px-3 py-2 text-xs font-semibold text-[#fff7e8] transition hover:bg-[#523029] sm:w-auto">
                 <Download size={14} /> Backup
               </button>
               {backupMenuOpen && (
-                <div className="z-10 w-full rounded-2xl border border-[#6c3a31] bg-[#fffaf0] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.22)] sm:absolute sm:right-0 sm:top-11 sm:w-48">
+                <div className="z-10 w-full rounded-2xl border border-[#6c3a31] bg-[#fffaf0] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.22)] lg:absolute lg:left-0 lg:top-11">
                   <button type="button" onClick={() => { exportJson(); setBackupMenuOpen(false); }} className="flex w-full items-center justify-start rounded-xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-100">
                     Export Backup
                   </button>
@@ -1071,7 +1109,24 @@ export default function ResellerItApp() {
             </div>
           </div>
           </div>
-        </header>
+        </aside>
+
+        <main className="min-w-0 space-y-4 rounded-[2rem] border border-[#eadfce] bg-[#f6efe2] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.22)] md:p-5">
+          <div className="overflow-hidden rounded-3xl border border-[#eadfce] bg-[#fffaf0] shadow-sm">
+            <div className="flex h-2">
+              <div className="flex-1 bg-[#b7412e]" />
+              <div className="flex-1 bg-[#e06b2c]" />
+              <div className="flex-1 bg-[#f0be45]" />
+              <div className="flex-1 bg-[#1f9d99]" />
+            </div>
+            <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">ResellIt Workspace</p>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">{modules.find(([key]) => key === activeTab)?.[1] || "Dashboard"}</h1>
+              </div>
+              <p className="max-w-xl text-sm text-stone-600">Clean local workspace for stock, sales, finance, and tax-prep records.</p>
+            </div>
+          </div>
 
         <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard icon={ShoppingCart} label={`Monthly sales ${CURRENT_MONTH}`} value={money(monthlySummary.salesTotal)} />
@@ -1580,33 +1635,6 @@ export default function ResellerItApp() {
 
           </div>}
         </form>
-
-        <nav className="grid gap-2 rounded-3xl border border-[#5a3028] bg-[#351c17]/95 p-2 shadow-[0_12px_34px_rgba(0,0,0,0.2)] lg:grid-cols-[220px_1fr]">
-          <button type="button" onClick={() => setActiveTab("dashboard")} className={`overflow-hidden rounded-2xl border text-left transition ${activeTab === "dashboard" ? "border-[#f0be45]/70 bg-[#45251f] shadow-[0_8px_22px_rgba(240,190,69,0.16)]" : "border-[#5a3028] bg-[#45251f] hover:bg-[#523029]"}`}>
-            <div className="flex h-1.5">
-              <div className="flex-1 bg-[#b7412e]" />
-              <div className="flex-1 bg-[#e06b2c]" />
-              <div className="flex-1 bg-[#f0be45]" />
-              <div className="flex-1 bg-[#1f9d99]" />
-            </div>
-            <div className="px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-[#f0be45]">Home</p>
-              <p className="mt-0.5 text-base font-semibold text-[#fff7e8]">Dashboard</p>
-            </div>
-          </button>
-
-          <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4">
-          {modules.map(([key, label, stripeClass, accentClass, activeTextClass]) => (
-            <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition ${activeTab === key ? `border-transparent ${stripeClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.18)]` : "border-[#5a3028] bg-[#45251f] text-[#f3e6d6] hover:bg-[#523029]"}`}>
-              <div className={`h-1.5 ${stripeClass}`} />
-              <div className="px-3 py-2.5">
-                <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
-                <p className="mt-0.5 text-sm font-semibold">{label}</p>
-              </div>
-            </button>
-          ))}
-          </div>
-        </nav>
 
         {activeTab === "stock" && (
           <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
@@ -2394,6 +2422,7 @@ export default function ResellerItApp() {
             );
           })}
         </section>
+        </main>
       </div>
     </div>
   );
