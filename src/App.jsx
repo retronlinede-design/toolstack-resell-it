@@ -1088,8 +1088,8 @@ export default function ResellerItApp() {
           <div className="space-y-4 p-4 md:p-5">
           <div className="space-y-4">
             <div>
-              <div className="rounded-3xl bg-black/35 p-3">
-                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-28 w-full object-contain sm:max-h-32 lg:max-h-36" />
+              <div className="bg-transparent px-1 py-2">
+                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-28 w-full object-contain mix-blend-screen sm:max-h-32 lg:max-h-36" />
               </div>
             </div>
             <nav className="space-y-2">
