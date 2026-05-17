@@ -17,8 +17,9 @@ const classificationOptions = [
 ];
 const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
 const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
-const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Shipped", "Completed", "Returned", "Written Off"];
-const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Shipped", "Completed"];
+const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Written Off"];
+const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Ready to Pack", "Packed", "Shipped", "Completed"];
+const shippingWorkflowStatuses = ["Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned"];
 const legacyStatusLabels = { "Written off": "Written Off", "Kept private": "Completed" };
 const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
 const itemTemplates = [
@@ -109,6 +110,10 @@ const emptyItem = {
   finalSalePrice: "",
   shippingChargedToBuyer: "",
   actualShippingCost: "",
+  carrier: "DHL",
+  trackingNumber: "",
+  shippedDate: "",
+  trackingNotes: "",
   ebayFees: "",
   ebayFeeMode: DEFAULT_EBAY_FEE_MODE,
   feePercent: "",
@@ -285,6 +290,8 @@ function statusBadgeClass(item) {
   const status = itemStatus(item);
   if (status === "Completed") return "bg-lime-100 text-lime-800 border-lime-200";
   if (status === "Sold") return "bg-[#e06b2c]/15 text-[#8a3915] border-[#e06b2c]/25";
+  if (status === "Ready to Pack") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
+  if (status === "Packed") return "bg-[#e06b2c]/20 text-[#8a3915] border-[#e06b2c]/30";
   if (status === "Shipped") return "bg-[#1f9d99]/15 text-[#0f5f5b] border-[#1f9d99]/25";
   if (status === "Ready to List" || status === "Listed") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
   if (status === "Returned" || status === "Written Off") return "bg-red-50 text-red-700 border-red-200";
@@ -310,7 +317,11 @@ function hasListingDraft(item) {
 }
 
 function isSoldStatus(item) {
-  return ["Sold", "Shipped", "Completed"].includes(itemStatus(item)) || Boolean(item.finalSalePrice || item.salePrice || item.saleDate);
+  return ["Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned"].includes(itemStatus(item)) || Boolean(item.finalSalePrice || item.salePrice || item.saleDate);
+}
+
+function dhlTrackingUrl(trackingNumber) {
+  return `https://www.dhl.de/de/privatkunden/dhl-sendungsverfolgung.html?piececode=${encodeURIComponent(trackingNumber || "")}`;
 }
 
 function needsEigenbeleg(item) {
@@ -697,6 +708,16 @@ export default function ResellerItApp() {
     persist(items.map((item) => (item.id === id ? { ...item, status } : item)));
   }
 
+  function updateItemShipmentStatus(id, status) {
+    const today = new Date().toISOString().slice(0, 10);
+    persist(items.map((item) => {
+      if (item.id !== id) return item;
+      const updates = { status, carrier: item.carrier || "DHL" };
+      if (status === "Shipped" && !item.shippedDate) updates.shippedDate = today;
+      return { ...item, ...updates };
+    }));
+  }
+
   function duplicateItem(item) {
     const copy = {
       ...emptyItem,
@@ -872,9 +893,24 @@ export default function ResellerItApp() {
   const todayWorkflow = useMemo(() => ({
     toResearch: items.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
     readyToList: items.filter((item) => itemStatus(item) === "Ready to List"),
-    soldNotShipped: items.filter((item) => itemStatus(item) === "Sold"),
+    soldNotShipped: items.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))),
     missingProof: items.filter((item) => !hasProofRecord(item)),
   }), [items]);
+
+  const salesWorkflow = useMemo(() => {
+    const salesItems = items.filter(isSoldStatus);
+    return {
+      items: salesItems,
+      awaitingShipment: salesItems.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))),
+      shippedItems: salesItems.filter((item) => itemStatus(item) === "Shipped" || item.trackingNumber || item.shippedDate),
+      completedSales: salesItems.filter((item) => itemStatus(item) === "Completed").slice(0, 6),
+      problemItems: salesItems.filter((item) => itemStatus(item) === "Returned" || item.status === "Written Off"),
+      counts: shippingWorkflowStatuses.reduce((counts, status) => {
+        counts[status] = salesItems.filter((item) => itemStatus(item) === status).length;
+        return counts;
+      }, {}),
+    };
+  }, [items]);
 
   const inventoryManagerItems = useMemo(() => {
     const query = inventorySearch.trim().toLowerCase();
@@ -1307,7 +1343,11 @@ export default function ResellerItApp() {
                       <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
                       <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
                       <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
-                      <Input label="Shipment / tracking" className="sm:col-span-2" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} />
+                      <Input label="Carrier" value={form.carrier || "DHL"} onChange={(e) => setForm({ ...form, carrier: e.target.value })} />
+                      <Input label="Tracking number" value={form.trackingNumber || ""} onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })} />
+                      <Input label="Shipped date" type="date" value={form.shippedDate || ""} onChange={(e) => setForm({ ...form, shippedDate: e.target.value })} />
+                      <Input label="Tracking notes" className="sm:col-span-2" value={form.trackingNotes || ""} onChange={(e) => setForm({ ...form, trackingNotes: e.target.value })} />
+                      <Input label="Shipment / shipping notes" className="sm:col-span-2" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} />
                     </div>
                     <div className="flex flex-wrap gap-2">{quickStatusOptions.map((status) => <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.status === status ? "bg-[#e06b2c] text-[#24110e]" : "border border-neutral-300 text-neutral-700 hover:bg-[#f0be45]/20"}`}>{status}</button>)}</div>
                   </div>
@@ -1459,6 +1499,10 @@ export default function ResellerItApp() {
               <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
               <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
               <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
+              <Input label="Carrier" value={form.carrier || "DHL"} onChange={(e) => setForm({ ...form, carrier: e.target.value })} />
+              <Input label="Tracking number" value={form.trackingNumber || ""} onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })} />
+              <Input label="Shipped date" type="date" value={form.shippedDate || ""} onChange={(e) => setForm({ ...form, shippedDate: e.target.value })} />
+              <Input label="Tracking notes" className="sm:col-span-2" value={form.trackingNotes || ""} onChange={(e) => setForm({ ...form, trackingNotes: e.target.value })} />
             </FormSection>}
 
             {activeAdvancedSection === "pricing" && <div className="rounded-2xl border border-neutral-200 bg-white p-4">
@@ -2073,14 +2117,118 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "sales" && (
-            <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-950">Sales & Shipping</h2>
-              <p className="mt-1 text-sm text-neutral-600">Sold-item workflow for shipping, tracking/status review, completed sales, returns, and monthly reconciliation checks.</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <StatCard icon={ShoppingCart} label="Monthly sales" value={money(monthlySummary.salesTotal)} />
-                <StatCard icon={Truck} label="Sold not shipped" value={todayWorkflow.soldNotShipped.length} />
-                <StatCard icon={Euro} label="Fees booked" value={money(monthlySummary.feesTotal)} />
-                <StatCard icon={FileText} label="Completed / returned" value={items.filter((item) => ["Completed", "Returned"].includes(itemStatus(item))).length} />
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-neutral-950">Sales & Shipping</h2>
+                <p className="mt-1 text-sm text-neutral-600">Sold-item workflow for packing, DHL tracking, completion, returns, and monthly reconciliation checks.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <StatCard icon={ShoppingCart} label="Monthly sales" value={money(monthlySummary.salesTotal)} />
+                  <StatCard icon={Truck} label="Items awaiting shipment" value={salesWorkflow.awaitingShipment.length} />
+                  <StatCard icon={Euro} label="Fees booked" value={money(monthlySummary.feesTotal)} />
+                  <StatCard icon={FileText} label="Recent completed sales" value={salesWorkflow.completedSales.length} />
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                {shippingWorkflowStatuses.map((status) => (
+                  <div key={status} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass({ status })}`}>{status}</span>
+                    <p className="mt-3 text-2xl font-semibold text-neutral-950">{salesWorkflow.counts[status] || 0}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+                <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div>
+                      <h3 className="text-sm font-semibold text-neutral-950">Items awaiting shipment</h3>
+                      <p className="mt-1 text-sm text-neutral-600">Move sold items through packing and shipping. Shipped defaults to DHL if no carrier is set.</p>
+                    </div>
+                    <p className="rounded-2xl bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-800">{salesWorkflow.awaitingShipment.length} open</p>
+                  </div>
+                  <div className="mt-4 grid gap-3">
+                    {salesWorkflow.awaitingShipment.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No sold items are waiting for shipment.</p>}
+                    {salesWorkflow.awaitingShipment.map((item) => (
+                      <article key={item.id} className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
+                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h4 className="font-semibold text-neutral-950">{item.name}</h4>
+                              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
+                              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-neutral-700">{money(finalSaleValue(item))}</span>
+                            </div>
+                            <p className="mt-1 text-sm text-neutral-600">{item.category || "No category"} / sold {item.saleDate || "date not set"}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Packed")} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-[#f0be45]/20">Mark Packed</button>
+                            <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Shipped")} className="rounded-xl bg-[#e06b2c] px-3 py-2 text-xs font-semibold text-[#24110e] hover:bg-[#f0be45]">Mark Shipped</button>
+                            <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Completed")} className="rounded-xl border border-lime-200 bg-lime-50 px-3 py-2 text-xs font-semibold text-lime-800 hover:bg-lime-100">Mark Completed</button>
+                            <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Returned")} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100">Mark Returned</button>
+                            <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-white">Edit</button>
+                          </div>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="grid gap-4">
+                  <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                    <h3 className="text-sm font-semibold text-neutral-950">Recent completed sales</h3>
+                    <div className="mt-3 grid gap-2">
+                      {salesWorkflow.completedSales.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No completed sales yet.</p>}
+                      {salesWorkflow.completedSales.map((item) => (
+                        <div key={item.id} className="rounded-2xl bg-neutral-50 p-3">
+                          <p className="font-semibold text-neutral-950">{item.name}</p>
+                          <p className="mt-1 text-sm text-neutral-600">{money(finalSaleValue(item))} / {item.saleDate || item.shippedDate || "no date"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="rounded-3xl border border-red-100 bg-white p-5 shadow-sm">
+                    <h3 className="text-sm font-semibold text-neutral-950">Return/problem items</h3>
+                    <div className="mt-3 grid gap-2">
+                      {salesWorkflow.problemItems.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No returned or written-off sold items.</p>}
+                      {salesWorkflow.problemItems.map((item) => (
+                        <div key={item.id} className="rounded-2xl bg-red-50 p-3">
+                          <p className="font-semibold text-red-900">{item.name}</p>
+                          <p className="mt-1 text-sm text-red-700">{itemStatus(item)} / {item.trackingNotes || item.notes || "No problem note recorded"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h3 className="text-sm font-semibold text-neutral-950">Tracking</h3>
+                <p className="mt-1 text-sm text-neutral-600">DHL is the default carrier. Tracking links open DHL Sendungsverfolgung in a new tab.</p>
+                <div className="mt-4 grid gap-3">
+                  {salesWorkflow.shippedItems.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No shipped or tracked items yet.</p>}
+                  {salesWorkflow.shippedItems.map((item) => (
+                    <article key={item.id} className="rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
+                      <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr_auto] lg:items-center">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-semibold text-neutral-950">{item.name}</h4>
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
+                          </div>
+                          {item.trackingNotes && <p className="mt-1 text-sm text-neutral-600">{item.trackingNotes}</p>}
+                        </div>
+                        <div className="grid gap-2 text-sm sm:grid-cols-3">
+                          <p><span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Carrier</span>{item.carrier || "DHL"}</p>
+                          <p><span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Tracking</span>{item.trackingNumber || "-"}</p>
+                          <p><span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Shipped</span>{item.shippedDate || "-"}</p>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          <button type="button" onClick={() => copyText("tracking number", item.trackingNumber || "")} disabled={!item.trackingNumber} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50">Copy tracking number</button>
+                          <a href={dhlTrackingUrl(item.trackingNumber)} target="_blank" rel="noreferrer" className={`rounded-xl px-3 py-2 text-xs font-semibold ${item.trackingNumber ? "bg-[#e06b2c] text-[#24110e] hover:bg-[#f0be45]" : "pointer-events-none bg-neutral-200 text-neutral-500"}`}>Open DHL tracking</a>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
             </div>
           )}
