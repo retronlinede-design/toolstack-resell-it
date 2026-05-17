@@ -316,14 +316,14 @@ function parseCsvText(text) {
 
 function StatCard({ icon: Icon, label, value, sub }) {
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
+    <div className="rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
-          <p className="mt-2 text-2xl font-semibold leading-none text-neutral-950">{value}</p>
-          {sub && <p className="mt-2 text-xs leading-snug text-neutral-500">{sub}</p>}
+          <p className="mt-1 text-xl font-semibold leading-none text-neutral-950">{value}</p>
+          {sub && <p className="mt-1 text-xs leading-snug text-neutral-500">{sub}</p>}
         </div>
-        <div className="rounded-xl bg-neutral-100 p-2 text-neutral-700"><Icon size={18} /></div>
+        <div className="rounded-xl bg-neutral-100 p-1.5 text-neutral-700"><Icon size={16} /></div>
       </div>
     </div>
   );
@@ -377,6 +377,9 @@ export default function ResellerItApp() {
   const [inventoryCategory, setInventoryCategory] = useState("All categories");
   const [inventoryIssueFilter, setInventoryIssueFilter] = useState("All items");
   const [inventorySort, setInventorySort] = useState("Newest purchase date");
+  const [itemFormOpen, setItemFormOpen] = useState(false);
+  const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
+  const [expandedCardPanel, setExpandedCardPanel] = useState("");
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -408,6 +411,7 @@ export default function ResellerItApp() {
     setForm({ ...emptyItem, ...item });
     setEditingId(item.id);
     setAdvancedFeesOpen(false);
+    setItemFormOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -702,10 +706,13 @@ export default function ResellerItApp() {
               <h2 className="text-lg font-semibold text-neutral-950">{editingId ? "Edit Item" : "Add Item"}</h2>
               <p className="mt-1 text-sm text-neutral-500">Capture inventory, sourcing evidence, receipt status, eBay listing, and sale details for later reconciliation.</p>
             </div>
-            {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); }} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Cancel edit</button>}
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{itemFormOpen ? "Hide form" : "Show form"}</button>
+              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Cancel edit</button>}
+            </div>
           </div>
 
-          <div className="space-y-3">
+          {itemFormOpen && <div className="space-y-3">
             <FormSection title="Inventory item">
               <Input label="Item name" className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sony CD Player" />
               <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="Electronics, clothing..." />
@@ -875,7 +882,6 @@ export default function ResellerItApp() {
                 </label>
               </div>
             </div>
-          </div>
 
           <label className="mt-4 block">
             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Notes</span>
@@ -885,11 +891,12 @@ export default function ResellerItApp() {
           <button type="submit" className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-neutral-950 px-5 py-3 text-sm font-semibold text-white hover:bg-neutral-800 sm:w-auto">
             <Plus size={16} /> {editingId ? "Save Changes" : "Add Item"}
           </button>
+          </div>}
         </form>
 
-        <nav className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:flex xl:flex-wrap">
+        <nav className="grid grid-cols-2 gap-1.5 md:grid-cols-5 xl:flex xl:flex-wrap">
           {modules.map(([key, label]) => (
-            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-2xl px-4 py-2.5 text-sm font-semibold ${activeTab === key ? "bg-neutral-950 text-white" : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`}>{label}</button>
+            <button key={key} onClick={() => setActiveTab(key)} className={`rounded-xl px-3 py-2 text-xs font-semibold sm:text-sm ${activeTab === key ? "bg-neutral-950 text-white" : "border border-neutral-200 bg-white text-neutral-700 hover:bg-neutral-50"}`}>{label}</button>
           ))}
         </nav>
 
@@ -936,18 +943,6 @@ export default function ResellerItApp() {
                     <option>All statuses</option>
                     {statusOptions.map((status) => <option key={status}>{status}</option>)}
                   </Select>
-                  <Select label="Category" value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
-                    <option>All categories</option>
-                    {categoryOptions.map((category) => <option key={category}>{category}</option>)}
-                  </Select>
-                  <Select label="Inventory filter" value={inventoryIssueFilter} onChange={(e) => setInventoryIssueFilter(e.target.value)}>
-                    <option>All items</option>
-                    <option>Missing proof</option>
-                    <option>Missing price research</option>
-                    <option>Missing listing draft</option>
-                    <option>Sold only</option>
-                    <option>Unsold only</option>
-                  </Select>
                   <Select label="Sort" value={inventorySort} onChange={(e) => setInventorySort(e.target.value)}>
                     <option>Newest purchase date</option>
                     <option>Oldest purchase date</option>
@@ -957,6 +952,27 @@ export default function ResellerItApp() {
                     <option>Missing proof first</option>
                   </Select>
                 </div>
+                <div className="mt-3">
+                  <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
+                    {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
+                  </button>
+                </div>
+                {advancedInventoryFiltersOpen && (
+                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <Select label="Category" value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
+                      <option>All categories</option>
+                      {categoryOptions.map((category) => <option key={category}>{category}</option>)}
+                    </Select>
+                    <Select label="Inventory filter" value={inventoryIssueFilter} onChange={(e) => setInventoryIssueFilter(e.target.value)}>
+                      <option>All items</option>
+                      <option>Missing proof</option>
+                      <option>Missing price research</option>
+                      <option>Missing listing draft</option>
+                      <option>Sold only</option>
+                      <option>Unsold only</option>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-3">
@@ -1250,38 +1266,46 @@ export default function ResellerItApp() {
             const itemProfit = itemProfitValue(item);
             const classification = itemClassification(item);
             const proofExpanded = expandedProofId === item.id;
+            const priceExpanded = expandedCardPanel === `${item.id}:price`;
+            const listingExpanded = expandedCardPanel === `${item.id}:listing`;
+            const feeExpanded = expandedCardPanel === `${item.id}:fees`;
+            const proofStatus = hasProofRecord(item) ? "Proof recorded" : "Missing proof";
             return (
-              <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm md:p-5">
-                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+              <article key={item.id} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                   <div className="flex gap-3">
-                    {item.proofImageDataUrl && <img src={item.proofImageDataUrl} alt={`${item.name} proof`} className="h-16 w-16 shrink-0 rounded-2xl border border-neutral-200 object-cover" />}
                     <div>
                     <div className="flex flex-wrap items-center gap-2">
                       <h3 className="text-lg font-semibold text-neutral-950">{item.name}</h3>
-                      <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{item.status}</span>
+                      <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{itemStatus(item)}</span>
                       <span className="rounded-full bg-neutral-950 px-3 py-1 text-xs font-medium text-white">{classification}</span>
                       <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-700">{item.category || "No category"}</span>
                     </div>
                     <p className="mt-1 text-sm text-neutral-600">{item.sourceType} / {item.sourceLocation || "No location"} / bought {item.purchaseDate}</p>
-                    {item.ebayTitle && <p className="mt-1 text-sm text-neutral-700">eBay: {item.ebayTitle}</p>}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => editItem(item)} className="rounded-xl border border-neutral-300 p-2 text-neutral-700 hover:bg-neutral-50"><Edit3 size={16} /></button>
+                  <div className="flex flex-wrap gap-2">
+                    <button onClick={() => editItem(item)} className="inline-flex items-center gap-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50"><Edit3 size={16} /> Edit</button>
                     <button onClick={() => deleteItem(item.id)} className="rounded-xl border border-neutral-300 p-2 text-neutral-700 hover:bg-neutral-50"><Trash2 size={16} /></button>
                   </div>
                 </div>
 
-                <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
+                <div className="mt-4 grid grid-cols-2 gap-2 md:grid-cols-5">
                   <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Purchase</p><p className="mt-1 font-semibold">{money(item.purchasePrice)}</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Expected/listing</p><p className="mt-1 font-semibold">{money(item.expectedSalePrice)}</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Final sale</p><p className="mt-1 font-semibold">{money(finalSaleValue(item))}</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Shipping charged</p><p className="mt-1 font-semibold">{money(shippingChargedValue(item))}</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Ship cost + fees</p><p className="mt-1 font-semibold">{money(actualShippingValue(item) + platformFees(item))}</p></div>
-                  <div className="col-span-2 rounded-2xl bg-neutral-950 p-3 text-white lg:col-span-1"><p className="text-xs text-neutral-300">Final profit</p><p className="mt-1 font-semibold">{money(itemProfit)}</p></div>
+                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Listing</p><p className="mt-1 font-semibold">{money(item.chosenListingPrice || item.expectedSalePrice)}</p></div>
+                  {isSoldStatus(item) && <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Final sale</p><p className="mt-1 font-semibold">{money(finalSaleValue(item))}</p></div>}
+                  <div className="rounded-2xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Proof</p><p className="mt-1 font-semibold">{proofStatus}</p></div>
+                  <div className="col-span-2 rounded-2xl bg-neutral-950 p-3 text-white md:col-span-1"><p className="text-xs text-neutral-300">Profit</p><p className="mt-1 font-semibold">{money(itemProfit)}</p></div>
                 </div>
 
-                <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4">
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setExpandedCardPanel(priceExpanded ? "" : `${item.id}:price`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{priceExpanded ? "Hide price research" : "Price research"}</button>
+                  <button type="button" onClick={() => setExpandedCardPanel(listingExpanded ? "" : `${item.id}:listing`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{listingExpanded ? "Hide listing draft" : "Listing draft"}</button>
+                  <button type="button" onClick={() => setExpandedProofId(proofExpanded ? null : item.id)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{proofExpanded ? "Hide proof" : "Proof details"}</button>
+                  <button type="button" onClick={() => setExpandedCardPanel(feeExpanded ? "" : `${item.id}:fees`)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{feeExpanded ? "Hide fees" : "Fee details"}</button>
+                </div>
+
+                {priceExpanded && <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-4">
                   <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Price research</p>
@@ -1301,10 +1325,10 @@ export default function ResellerItApp() {
                       ))}
                     </div>
                   </div>
-                </div>
+                </div>}
 
-                {(item.listingTitle || item.conditionText || item.descriptionText) && (
-                  <div className="mt-4 rounded-2xl border border-neutral-200 bg-white p-4">
+                {listingExpanded && (
+                  <div className="mt-3 rounded-2xl border border-neutral-200 bg-white p-4">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div>
                         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Listing draft</p>
@@ -1321,22 +1345,12 @@ export default function ResellerItApp() {
                   </div>
                 )}
 
-                <div className="mt-4 grid gap-3 md:grid-cols-2">
-                  <div className="rounded-2xl bg-neutral-50 p-4">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Receipt record</p>
-                    <p className="mt-1 text-sm">Receipt: <strong>{item.hasReceipt}</strong> / Type: <strong>{item.proofType || item.receiptType || "Eigenbeleg"}</strong> / Payment: <strong>{item.paymentMethod}</strong></p>
-                    <p className="mt-2 text-sm text-neutral-600">{item.notes || "No notes."}</p>
-                    <button type="button" onClick={() => setExpandedProofId(proofExpanded ? null : item.id)} className="mt-3 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-white">
-                      {proofExpanded ? "Hide proof details" : "View proof details"}
-                    </button>
-                  </div>
-                  <div className="rounded-2xl bg-neutral-50 p-4">
+                {feeExpanded && <div className="mt-3 rounded-2xl bg-neutral-50 p-4">
                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Fee model</p>
                     <p className="mt-1 text-sm">Mode: <strong>{item.ebayFeeMode || (item.ebayFees ? "Legacy fee field" : DEFAULT_EBAY_FEE_MODE)}</strong></p>
                     <p className="mt-2 text-sm text-neutral-600">eBay/platform fees: <strong>{money(platformFees(item))}</strong></p>
                     {(item.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <p className="mt-2 text-xs font-medium text-neutral-500">Estimate only; reconcile with eBay report.</p>}
-                  </div>
-                </div>
+                  </div>}
 
                 {proofExpanded && (
                   <div className="mt-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4">
