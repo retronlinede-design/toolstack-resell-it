@@ -82,10 +82,10 @@ const advancedFormSections = [
 ];
 
 const modules = [
-  ["stock", "Stock Control", "bg-[#b7412e]", "text-[#b7412e]", "text-[#fff7e8]"],
-  ["sales", "Sales & Shipping", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#24110e]"],
-  ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#24110e]"],
-  ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#062f2d]"],
+  ["stock", "Stock Control", "bg-[#b7412e]", "text-[#b7412e]", "text-[#fff7e8]", "border-[#b7412e]/45 bg-[#b7412e]/18", "hover:border-[#b7412e]/40 hover:bg-[#b7412e]/12"],
+  ["sales", "Sales & Shipping", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#fff7e8]", "border-[#e06b2c]/45 bg-[#e06b2c]/18", "hover:border-[#e06b2c]/40 hover:bg-[#e06b2c]/12"],
+  ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#fff7e8]", "border-[#f0be45]/45 bg-[#f0be45]/16", "hover:border-[#f0be45]/45 hover:bg-[#f0be45]/12"],
+  ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12"],
 ];
 const stockSections = [["items", "Items"], ["sourcing", "Sourcing"], ["proof", "Proof"], ["listings", "Listings"]];
 const financeSections = [["expenses", "Expenses"], ["monthly", "Monthly"], ["tax", "Tax Summary"], ["ebay", "eBay Import"]];
@@ -1072,6 +1072,9 @@ export default function ResellerItApp() {
     }
   }
 
+  const activeModule = modules.find(([key]) => key === activeTab);
+  const activeTitle = activeModule?.[1] || "Dashboard";
+
   return (
     <div className="min-h-screen bg-[#24120f] p-3 text-stone-900 sm:p-4 md:p-5">
       <div className="mx-auto grid max-w-[1680px] gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
@@ -1090,7 +1093,7 @@ export default function ResellerItApp() {
               </div>
             </div>
             <nav className="space-y-2">
-              <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition ${activeTab === "dashboard" ? "border-[#f0be45]/70 bg-[#45251f] shadow-[0_8px_22px_rgba(240,190,69,0.16)]" : "border-[#5a3028] bg-[#45251f] hover:bg-[#523029]"}`}>
+              <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition ${activeTab === "dashboard" ? "border-[#f0be45]/60 bg-white/8 shadow-[0_8px_22px_rgba(240,190,69,0.12)]" : "border-[#5a3028] bg-[#45251f] hover:border-[#f0be45]/35 hover:bg-white/7"}`}>
                 <div className="flex h-1.5">
                   <div className="flex-1 bg-[#b7412e]" />
                   <div className="flex-1 bg-[#e06b2c]" />
@@ -1103,8 +1106,8 @@ export default function ResellerItApp() {
                 </div>
               </button>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
-                {modules.map(([key, label, stripeClass, accentClass, activeTextClass]) => (
-                  <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition ${activeTab === key ? `border-transparent ${stripeClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.18)]` : "border-[#5a3028] bg-[#45251f] text-[#f3e6d6] hover:bg-[#523029]"}`}>
+                {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
+                  <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
                     <div className="px-3 py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
@@ -1147,16 +1150,20 @@ export default function ResellerItApp() {
 
         <main className="min-w-0 space-y-4 rounded-[2rem] border border-[#eadfce] bg-[#f6efe2] p-3 shadow-[0_24px_70px_rgba(0,0,0,0.22)] md:p-5">
           <div className="overflow-hidden rounded-3xl border border-[#eadfce] bg-[#fffaf0] shadow-sm">
-            <div className="flex h-2">
-              <div className="flex-1 bg-[#b7412e]" />
-              <div className="flex-1 bg-[#e06b2c]" />
-              <div className="flex-1 bg-[#f0be45]" />
-              <div className="flex-1 bg-[#1f9d99]" />
-            </div>
+            {activeTab === "dashboard" ? (
+              <div className="flex h-2">
+                <div className="flex-1 bg-[#b7412e]" />
+                <div className="flex-1 bg-[#e06b2c]" />
+                <div className="flex-1 bg-[#f0be45]" />
+                <div className="flex-1 bg-[#1f9d99]" />
+              </div>
+            ) : (
+              <div className={`h-2 ${activeModule?.[2] || "bg-[#f0be45]"}`} />
+            )}
             <div className="flex flex-col gap-2 p-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">ResellIt Workspace</p>
-                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">{modules.find(([key]) => key === activeTab)?.[1] || "Dashboard"}</h1>
+                <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">{activeTitle}</h1>
               </div>
               <p className="max-w-xl text-sm text-stone-600">Clean local workspace for stock, sales, finance, and tax-prep records.</p>
             </div>
