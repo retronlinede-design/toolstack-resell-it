@@ -97,6 +97,12 @@ const stockSectionDetails = {
   readyToList: ["Ready to List", "Prepared items ready for eBay listing."],
   listingStudio: ["Listing Studio", "Create and manage listing titles, descriptions, and HTML templates."],
 };
+const financeSectionDetails = {
+  thisMonth: ["This Month", "Current month reseller activity and estimated performance."],
+  taxRecords: ["Tax Records", "Items and expenses requiring tax documentation or review."],
+  reconciliation: ["Reconciliation", "Match sales, fees, payouts, and imported platform records."],
+  yearEnd: ["Year-End / EÜR", "Year-end preparation for ELSTER or accountant reporting."],
+};
 
 const emptyItem = {
   name: "",
@@ -596,6 +602,22 @@ function SectionHeader({ title, subtitle, count }) {
   );
 }
 
+function FinanceHeader({ title, subtitle, meta }) {
+  return (
+    <div className="rounded-3xl border border-[#f0be45]/25 bg-[#fffdf8] p-4 shadow-[0_14px_34px_rgba(41,37,36,0.055)]">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-3xl">
+          <div className="mb-3 h-1 w-14 rounded-full bg-[#f0be45]" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#9b7411]">Finance</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-stone-950">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-stone-600">{subtitle}</p>
+        </div>
+        {meta && <p className="rounded-2xl border border-[#f0be45]/30 bg-[#f0be45]/15 px-3 py-2 text-sm font-semibold text-[#72530b]">{meta}</p>}
+      </div>
+    </div>
+  );
+}
+
 function Input({ label, className = "", ...props }) {
   return (
     <label className={`block ${className}`}>
@@ -1090,6 +1112,17 @@ export default function ResellerItApp() {
     const profit = yearlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - yearlyPurchases.filter((item) => !inYear(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0) - expenseTotal;
     return { purchaseTotal, salesTotal, feesTotal, expenseTotal, profit };
   }, [expenses, items]);
+
+  const yearlyBusinessSummary = useMemo(() => {
+    const businessItems = items.filter((item) => itemClassification(item) === "Business Stock / Resale Inventory");
+    const yearlyBusinessPurchases = businessItems.filter((item) => inYear(item.purchaseDate));
+    const yearlyBusinessSales = businessItems.filter((item) => inYear(item.saleDate));
+    const purchaseTotal = yearlyBusinessPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    const salesTotal = yearlyBusinessSales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
+    const feesTotal = yearlyBusinessSales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
+    const profit = yearlyBusinessSales.reduce((sum, item) => sum + itemProfitValue(item), 0) - yearlyBusinessPurchases.filter((item) => !inYear(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    return { purchaseTotal, salesTotal, feesTotal, profit, soldCount: yearlyBusinessSales.length };
+  }, [items]);
 
   const monthlyClosing = useMemo(() => {
     const purchasedItems = items.filter((item) => inMonth(item.purchaseDate, closingMonth));
@@ -2274,12 +2307,19 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "finance" && financeSection === "reconciliation" && (
-            <div className="grid gap-4">
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <div className="grid gap-5">
+              <FinanceHeader title={financeSectionDetails.reconciliation[0]} subtitle={financeSectionDetails.reconciliation[1]} meta={`${ebayImportBatches.length} imported batches`} />
+
+              <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
+                <div className="mb-4 grid gap-3 sm:grid-cols-3">
+                  <StatCard icon={Download} label="Unresolved imported records" value={ebayImportBatches.reduce((sum, batch) => sum + batch.rows.length, 0)} sub="CSV rows saved for matching" accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Euro} label="Fee reconciliation" value={money(monthlyClosing.platformFeeTotal)} sub="Compare against platform reports" accentClass="bg-[#f0be45]" />
+                  <StatCard icon={FileText} label="Payout matching" value={money(sectionSummaries.finance.pendingPayout)} sub="Placeholder estimate" accentClass="bg-[#f0be45]" />
+                </div>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">eBay CSV Import</h2>
-                    <p className="mt-1 max-w-3xl text-sm text-neutral-600">Upload a monthly eBay CSV/report locally for reconciliation prep. Files are parsed in this browser and saved to localStorage only. No eBay API, backend, or cloud sync is connected.</p>
+                    <h2 className="text-lg font-semibold text-neutral-950">eBay import tools</h2>
+                    <p className="mt-1 max-w-3xl text-sm text-neutral-600">Upload monthly eBay CSV reports locally so sales, fees, payouts, and imported platform records can be checked together.</p>
                   </div>
                   <div className="rounded-2xl bg-neutral-50 p-4 text-sm">
                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Stored batches</p>
@@ -2380,14 +2420,20 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "finance" && financeSection === "taxRecords" && (
-            <div className="grid gap-4">
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <div className="grid gap-5">
+              <FinanceHeader title={financeSectionDetails.taxRecords[0]} subtitle={financeSectionDetails.taxRecords[1]} meta={`${workflowQueues.needsTaxReview.length + taxRecordQueues.expensesWithoutReceiptNote.length} open checks`} />
+
+              <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">Tax Records</h2>
-                    <p className="mt-1 text-sm text-neutral-600">Review source proof, Eigenbeleg needs, expense notes, and Unsure / Review Later items before reconciliation.</p>
+                    <h2 className="text-lg font-semibold text-neutral-950">Tax readiness</h2>
+                    <p className="mt-1 text-sm text-neutral-600">See what is ready, what needs a receipt record, and what needs a classification decision.</p>
                   </div>
-                  <p className="text-sm font-semibold text-neutral-500">{workflowQueues.needsTaxReview.length + taxRecordQueues.expensesWithoutReceiptNote.length} open checks</p>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  <StatCard icon={ReceiptText} label="Tax Ready" value={Math.max(0, items.length - workflowQueues.needsTaxReview.length)} sub="No open item tax checks" accentClass="bg-[#f0be45]" />
+                  <StatCard icon={FileText} label="Needs Record" value={taxRecordQueues.missingProof.length + taxRecordQueues.eigenbelegNeeded.length + taxRecordQueues.expensesWithoutReceiptNote.length} sub="Proof, Eigenbeleg, or expense note" accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Info} label="Review Needed" value={taxRecordQueues.reviewLater.length} sub="Unsure / Review Later" accentClass="bg-[#f0be45]" />
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <QueueCard icon={ReceiptText} label="Missing proof" value={taxRecordQueues.missingProof.length} sub="Items without receipt or proof location" onClick={() => openStockQueue("needsAttention", "Missing proof")} />
@@ -2541,12 +2587,28 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "finance" && financeSection === "thisMonth" && (
-            <div id="monthly-closing-summary" className="grid gap-4 print:block">
+            <div id="monthly-closing-summary" className="grid gap-5 print:block">
+              <FinanceHeader title={financeSectionDetails.thisMonth[0]} subtitle={financeSectionDetails.thisMonth[1]} meta={CURRENT_MONTH} />
+
+              <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex flex-col gap-1 border-b border-[#f0be45]/20 pb-3">
+                  <h3 className="text-lg font-semibold text-neutral-950">Monthly performance</h3>
+                  <p className="text-sm text-neutral-600">Fast view of what came in, what went out, and what may still need matching.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <StatCard icon={ShoppingCart} label="Revenue" value={money(sectionSummaries.finance.revenue)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={ReceiptText} label="Expenses" value={money(sectionSummaries.finance.expenses)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Euro} label="Estimated profit" value={money(sectionSummaries.finance.estimatedProfit)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Package} label="Sold items" value={monthlyClosing.soldCount} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={FileText} label="Pending payouts estimate" value={money(sectionSummaries.finance.pendingPayout)} accentClass="bg-[#f0be45]" />
+                </div>
+              </div>
+
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm print:border-0 print:shadow-none">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">Monthly Closing</h2>
-                    <p className="mt-1 max-w-3xl text-sm text-neutral-600">Month-end tax-prep summary for private and business reseller activity. Export the local JSON or print this summary for your records.</p>
+                    <h2 className="text-lg font-semibold text-neutral-950">Month-end organizer</h2>
+                    <p className="mt-1 max-w-3xl text-sm text-neutral-600">Export or print the monthly pack when sales, fees, shipping, expenses, and receipt records have been checked.</p>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-[180px_auto_auto]">
                     <Input label="Closing month" type="month" value={closingMonth} onChange={(e) => setClosingMonth(e.target.value)} />
@@ -2560,7 +2622,7 @@ export default function ResellerItApp() {
                   <StatCard icon={ReceiptText} label="Purchase total" value={money(monthlyClosing.purchaseTotal)} sub={`${monthlyClosing.purchasedCount} purchased items`} />
                   <StatCard icon={Euro} label="Shipping charged" value={money(monthlyClosing.shippingCharged)} />
                   <StatCard icon={Package} label="Actual shipping costs" value={money(monthlyClosing.actualShippingCosts)} />
-                  <StatCard icon={FileText} label="Platform fees" value={money(monthlyClosing.platformFeeTotal)} />
+                  <StatCard icon={FileText} label="Platform fees" value={money(monthlyClosing.platformFeeTotal)} sub="eBay/import matching" />
                   <StatCard icon={ReceiptText} label="Expenses" value={money(monthlyClosing.expenseTotal)} sub={`${monthlyClosing.expenseCount} expense records`} />
                   <StatCard icon={Euro} label="Profit estimate" value={money(monthlyClosing.profitEstimate)} sub="sales + shipping charged - purchases - shipping costs - platform fees - expenses" />
                   <StatCard icon={ReceiptText} label="Missing proof" value={monthlyClosing.missingProofItems.length} />
@@ -2612,11 +2674,11 @@ export default function ResellerItApp() {
 
           {activeTab === "finance" && financeSection === "reconciliation" && (
             <div className="grid gap-4">
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+              <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">Expenses Manager</h2>
-                    <p className="mt-1 text-sm text-neutral-600">Track general reselling expenses such as packaging, labels, fuel, storage, office supplies, and flea-market fees.</p>
+                    <h2 className="text-lg font-semibold text-neutral-950">Bookkeeping prep</h2>
+                    <p className="mt-1 text-sm text-neutral-600">Add expenses and receipt notes so imported payouts, fees, and month-end totals are easier to match.</p>
                   </div>
                   <StatCard icon={Euro} label="Filtered monthly total" value={money(filteredExpenseTotal)} sub={`${filteredExpenses.length} records`} />
                 </div>
@@ -2694,15 +2756,35 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "finance" && financeSection === "yearEnd" && (
-            <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-neutral-950">Tax Summary for EÜR-style yearly totals</h2>
-              <p className="mt-1 text-sm text-neutral-600">Year-to-date support overview for German reseller self-reporting. This is tax support, not legal or tax advice.</p>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <StatCard icon={ReceiptText} label={`Purchases ${CURRENT_YEAR}`} value={money(yearlySummary.purchaseTotal)} />
-                <StatCard icon={ShoppingCart} label={`Gross sales ${CURRENT_YEAR}`} value={money(yearlySummary.salesTotal)} />
-                <StatCard icon={Euro} label="Fees + shipping" value={money(yearlySummary.feesTotal)} />
-                <StatCard icon={ReceiptText} label="Business expenses" value={money(yearlySummary.expenseTotal)} />
-                <StatCard icon={Euro} label="Estimated EÜR profit" value={money(yearlySummary.profit)} />
+            <div className="grid gap-5">
+              <FinanceHeader title={financeSectionDetails.yearEnd[0]} subtitle={financeSectionDetails.yearEnd[1]} meta={CURRENT_YEAR} />
+
+              <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex flex-col gap-1 border-b border-[#f0be45]/20 pb-3">
+                  <h2 className="text-lg font-semibold text-neutral-950">Annual tax prep totals</h2>
+                  <p className="text-sm text-neutral-600">Year-to-date support overview for German reseller self-reporting. This is tax support, not legal or tax advice.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <StatCard icon={ReceiptText} label={`Purchases ${CURRENT_YEAR}`} value={money(yearlySummary.purchaseTotal)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={ShoppingCart} label={`Gross sales ${CURRENT_YEAR}`} value={money(yearlySummary.salesTotal)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Euro} label="Fees + shipping" value={money(yearlySummary.feesTotal)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={ReceiptText} label="Expenses" value={money(yearlySummary.expenseTotal)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Euro} label="Estimated EÜR profit" value={money(yearlySummary.profit)} accentClass="bg-[#f0be45]" />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex flex-col gap-1 border-b border-neutral-100 pb-3">
+                  <h3 className="text-lg font-semibold text-neutral-950">Business-only view</h3>
+                  <p className="text-sm text-neutral-600">Uses items classified as Business Stock / Resale Inventory where possible.</p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <StatCard icon={ShoppingCart} label="Business sales" value={money(yearlyBusinessSummary.salesTotal)} sub={`${yearlyBusinessSummary.soldCount} sold items`} />
+                  <StatCard icon={ReceiptText} label="Business purchases" value={money(yearlyBusinessSummary.purchaseTotal)} />
+                  <StatCard icon={Euro} label="Business fees + shipping" value={money(yearlyBusinessSummary.feesTotal)} />
+                  <StatCard icon={ReceiptText} label="All expense records" value={money(yearlySummary.expenseTotal)} sub="Expense records are not classification-split" />
+                  <StatCard icon={Euro} label="Business item profit" value={money(yearlyBusinessSummary.profit)} />
+                </div>
               </div>
             </div>
           )}
