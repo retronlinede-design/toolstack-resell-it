@@ -88,8 +88,9 @@ const modules = [
   ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#fff7e8]", "border-[#f0be45]/45 bg-[#f0be45]/16", "hover:border-[#f0be45]/45 hover:bg-[#f0be45]/12"],
   ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12"],
 ];
-const stockSections = [["items", "Items"], ["sourcing", "Sourcing"], ["proof", "Proof"], ["listings", "Listings"]];
-const financeSections = [["expenses", "Expenses"], ["monthly", "Monthly"], ["tax", "Tax Summary"], ["ebay", "eBay Import"]];
+const stockSections = [["needsAttention", "Needs Attention"], ["inventory", "Active Inventory"], ["readyToList", "Ready to List"], ["listingStudio", "Listing Studio"]];
+const salesSections = [["awaitingShipment", "Awaiting Shipment"], ["tracking", "Shipped / Tracking"], ["completed", "Completed Sales"], ["issues", "Returns / Issues"]];
+const financeSections = [["thisMonth", "This Month"], ["taxRecords", "Tax Records"], ["reconciliation", "Reconciliation"], ["yearEnd", "Year-End / EÜR"]];
 
 const emptyItem = {
   name: "",
@@ -277,6 +278,17 @@ function hasProofRecord(item) {
   );
 }
 
+function needsProofRecord(item) {
+  return !(
+    item.hasReceipt === "Yes" ||
+    item.proofStoredExternally === "Yes" ||
+    item.proofFileName ||
+    item.proofFolderLocation ||
+    item.proofImageDataUrl ||
+    item.proofNotes
+  );
+}
+
 function quickProofStatus(item) {
   if (externallyStoredProof(item) || item.hasReceipt === "Yes") return "Proof available";
   if ((item.proofType || item.receiptType) === "Eigenbeleg" || item.receiptType === "Eigenbeleg needed") return "Eigenbeleg needed";
@@ -300,7 +312,7 @@ function statusBadgeClass(item) {
 }
 
 function proofBadgeClass(item) {
-  if (hasProofRecord(item)) return "bg-lime-50 text-lime-800 border-lime-200";
+  if (!needsProofRecord(item)) return "bg-lime-50 text-lime-800 border-lime-200";
   if (needsEigenbeleg(item)) return "bg-[#f0be45]/20 text-[#6f4e05] border-[#f0be45]/35";
   return "bg-red-50 text-red-700 border-red-200";
 }
@@ -545,6 +557,27 @@ function StatCard({ icon: Icon, label, value, sub, accentClass = "" }) {
   );
 }
 
+function QueueCard({ icon: Icon, label, value, sub, onClick, tone = "stock" }) {
+  const tones = {
+    stock: "border-[#b7412e]/20 hover:border-[#b7412e]/45 hover:bg-[#b7412e]/8",
+    sales: "border-[#e06b2c]/20 hover:border-[#e06b2c]/45 hover:bg-[#e06b2c]/10",
+    finance: "border-[#f0be45]/25 hover:border-[#f0be45]/60 hover:bg-[#f0be45]/12",
+  };
+
+  return (
+    <button type="button" onClick={onClick} className={`premium-card rounded-2xl border bg-[#fffdf8] p-4 text-left shadow-[0_10px_26px_rgba(41,37,36,0.045)] ${tones[tone] || tones.stock}`}>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{label}</p>
+          <p className="mt-2 text-3xl font-semibold leading-none text-stone-950">{value}</p>
+          {sub && <p className="mt-2 text-sm leading-snug text-stone-600">{sub}</p>}
+        </div>
+        <div className="rounded-xl bg-stone-900 p-2 text-amber-50"><Icon size={18} /></div>
+      </div>
+    </button>
+  );
+}
+
 function Input({ label, className = "", ...props }) {
   return (
     <label className={`block ${className}`}>
@@ -588,8 +621,9 @@ export default function ResellerItApp() {
   const [form, setForm] = useState(emptyItem);
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [stockSection, setStockSection] = useState("items");
-  const [financeSection, setFinanceSection] = useState("expenses");
+  const [stockSection, setStockSection] = useState("needsAttention");
+  const [salesSection, setSalesSection] = useState("awaitingShipment");
+  const [financeSection, setFinanceSection] = useState("thisMonth");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
   const [expandedProofId, setExpandedProofId] = useState(null);
   const [advancedFeesOpen, setAdvancedFeesOpen] = useState(false);
@@ -679,6 +713,24 @@ export default function ResellerItApp() {
     setItemFormOpen(true);
     setActiveWorkflowSection("basic");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openStockQueue(section, issueFilter = "All items", status = "All statuses") {
+    setActiveTab("stock");
+    setStockSection(section);
+    setInventoryIssueFilter(issueFilter);
+    setInventoryStatus(status);
+    if (section === "readyToList") setInventoryStatus("Ready to List");
+  }
+
+  function openSalesQueue(section) {
+    setActiveTab("sales");
+    setSalesSection(section);
+  }
+
+  function openFinanceQueue(section) {
+    setActiveTab("finance");
+    setFinanceSection(section);
   }
 
   function deleteItem(id) {
@@ -885,7 +937,7 @@ export default function ResellerItApp() {
     return {
       totalItems: items.length,
       unsoldInventoryValue: unsoldItems.reduce((sum, item) => sum + number(item.purchasePrice), 0),
-      missingProofCount: items.filter((item) => !hasProofRecord(item)).length,
+      missingProofCount: items.filter(needsProofRecord).length,
       missingPriceResearchCount: items.filter((item) => !hasPriceResearch(item)).length,
       missingListingDraftCount: items.filter((item) => !hasListingDraft(item)).length,
       reviewLaterCount: items.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION).length,
@@ -896,7 +948,8 @@ export default function ResellerItApp() {
     toResearch: items.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
     readyToList: items.filter((item) => itemStatus(item) === "Ready to List"),
     soldNotShipped: items.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))),
-    missingProof: items.filter((item) => !hasProofRecord(item)),
+    missingProof: items.filter(needsProofRecord),
+    needsListing: items.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
   }), [items]);
 
   const salesWorkflow = useMemo(() => {
@@ -929,7 +982,7 @@ export default function ResellerItApp() {
       stock: {
         inventoryValue: items.filter((item) => !isSoldStatus(item)).reduce((sum, item) => sum + number(item.purchasePrice), 0),
         readyToList: items.filter((item) => itemStatus(item) === "Ready to List").length,
-        missingProof: items.filter((item) => !hasProofRecord(item)).length,
+        missingProof: items.filter(needsProofRecord).length,
         recentSourcing: items.filter((item) => inMonth(item.purchaseDate)).length,
       },
       sales: {
@@ -955,9 +1008,10 @@ export default function ResellerItApp() {
       if (inventoryClassification !== "All classifications" && itemClassification(item) !== inventoryClassification) return false;
       if (inventoryStatus !== "All statuses" && itemStatus(item) !== inventoryStatus) return false;
       if (inventoryCategory !== "All categories" && item.category !== inventoryCategory) return false;
-      if (inventoryIssueFilter === "Missing proof" && hasProofRecord(item)) return false;
+      if (inventoryIssueFilter === "Missing proof" && !needsProofRecord(item)) return false;
       if (inventoryIssueFilter === "Missing price research" && hasPriceResearch(item)) return false;
       if (inventoryIssueFilter === "Missing listing draft" && hasListingDraft(item)) return false;
+      if (inventoryIssueFilter === "Review later" && itemClassification(item) !== DEFAULT_CLASSIFICATION) return false;
       if (inventoryIssueFilter === "Sold only" && !isSoldStatus(item)) return false;
       if (inventoryIssueFilter === "Unsold only" && isSoldStatus(item)) return false;
       return true;
@@ -968,22 +1022,32 @@ export default function ResellerItApp() {
       if (inventorySort === "Highest expected/listing value") return expectedListingValue(b) - expectedListingValue(a);
       if (inventorySort === "Highest final sale price") return finalSaleValue(b) - finalSaleValue(a);
       if (inventorySort === "Highest estimated profit") return itemProfitValue(b) - itemProfitValue(a);
-      if (inventorySort === "Missing proof first") return Number(hasProofRecord(a)) - Number(hasProofRecord(b));
+      if (inventorySort === "Missing proof first") return Number(!needsProofRecord(a)) - Number(!needsProofRecord(b));
       return String(b.purchaseDate || "").localeCompare(String(a.purchaseDate || ""));
     });
   }, [inventoryCategory, inventoryClassification, inventoryIssueFilter, inventorySearch, inventorySort, inventoryStatus, items]);
 
+  const stockSectionItems = useMemo(() => {
+    if (stockSection === "needsAttention") {
+      return inventoryManagerItems.filter((item) => needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
+    }
+    if (stockSection === "readyToList") {
+      return inventoryManagerItems.filter((item) => itemStatus(item) === "Ready to List");
+    }
+    return inventoryManagerItems;
+  }, [inventoryManagerItems, stockSection]);
+
   const proofSummary = useMemo(() => ({
     totalItems: items.length,
-    proofComplete: items.filter(hasProofRecord).length,
-    missingProof: items.filter((item) => !hasProofRecord(item)).length,
+    proofComplete: items.filter((item) => !needsProofRecord(item)).length,
+    missingProof: items.filter(needsProofRecord).length,
     needsEigenbeleg: items.filter(needsEigenbeleg).length,
     externallyStored: items.filter(externallyStoredProof).length,
   }), [items]);
 
   const proofManagerItems = useMemo(() => (
     items.filter((item) => {
-      if (proofFilter === "Missing proof") return !hasProofRecord(item);
+      if (proofFilter === "Missing proof") return needsProofRecord(item);
       if (proofFilter === "Needs Eigenbeleg") return needsEigenbeleg(item);
       if (proofFilter === "Externally stored") return externallyStoredProof(item);
       if (proofFilter === "Receipt / invoice") return receiptOrInvoiceProof(item);
@@ -1032,7 +1096,7 @@ export default function ResellerItApp() {
     const platformFeeTotal = soldItems.reduce((sum, item) => sum + platformFees(item), 0);
     const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
     const profitEstimate = salesTotal + shippingCharged - purchaseTotal - actualShippingCosts - platformFeeTotal - expenseTotal;
-    const missingProofItems = activityItems.filter((item) => !hasProofRecord(item));
+    const missingProofItems = activityItems.filter(needsProofRecord);
     const reviewItems = activityItems.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION);
 
     return {
@@ -1054,6 +1118,22 @@ export default function ResellerItApp() {
     };
   }, [closingMonth, expenses, items]);
 
+  const workflowQueues = useMemo(() => ({
+    needsProof: items.filter(needsProofRecord),
+    needsResearch: items.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
+    needsListing: items.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
+    readyToList: items.filter((item) => itemStatus(item) === "Ready to List"),
+    needsShipping: items.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))),
+    needsTaxReview: items.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION),
+  }), [items]);
+
+  const taxRecordQueues = useMemo(() => ({
+    missingProof: items.filter(needsProofRecord),
+    eigenbelegNeeded: items.filter(needsEigenbeleg),
+    expensesWithoutReceiptNote: expenses.filter((expense) => expense.receiptAvailable === "No" && !String(expense.receiptNotes || "").trim()),
+    reviewLater: items.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION),
+  }), [expenses, items]);
+
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
       if (expenseMonthFilter && !inMonth(expense.date, expenseMonthFilter)) return false;
@@ -1069,9 +1149,10 @@ export default function ResellerItApp() {
   const filtered = useMemo(() => {
     let nextItems = [];
     if (activeTab === "dashboard") nextItems = [];
-    else if (activeTab === "stock" && stockSection === "sourcing") nextItems = items.filter((item) => item.status === "Sourced" || item.status === "Listed");
+    else if (activeTab === "stock" && stockSection === "needsAttention") nextItems = items.filter((item) => needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
+    else if (activeTab === "stock" && stockSection === "readyToList") nextItems = items.filter((item) => itemStatus(item) === "Ready to List");
     else if (activeTab === "sales") nextItems = items.filter((item) => ["Sold", "Shipped", "Completed", "Returned"].includes(itemStatus(item)) || isSoldStatus(item));
-    else if (activeTab === "finance" && financeSection === "tax") nextItems = items;
+    else if (activeTab === "finance" && financeSection === "taxRecords") nextItems = items.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
     else nextItems = items;
 
     if (classificationFilter === "All classifications") return nextItems;
@@ -1158,8 +1239,8 @@ export default function ResellerItApp() {
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">Quick actions</p>
               <div className="grid gap-2">
                 <button type="button" onClick={() => { setActiveTab("dashboard"); setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add item</button>
-                <button type="button" onClick={() => { setActiveTab("stock"); setStockSection("items"); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Open Stock Control</button>
-                <button type="button" onClick={() => setActiveTab("sales")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales & shipping queue</button>
+                <button type="button" onClick={() => openStockQueue("needsAttention")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Open Stock Control</button>
+                <button type="button" onClick={() => openSalesQueue("awaitingShipment")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales & shipping queue</button>
               </div>
             </div>
 
@@ -1207,11 +1288,13 @@ export default function ResellerItApp() {
 
         {activeTab === "dashboard" && (
         <>
-        <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard icon={ShoppingCart} label={`Monthly sales ${CURRENT_MONTH}`} value={money(monthlySummary.salesTotal)} />
-          <StatCard icon={ReceiptText} label="Monthly purchases" value={money(monthlySummary.purchaseTotal)} />
-          <StatCard icon={Euro} label="Monthly fees" value={money(monthlySummary.feesTotal)} sub="eBay fees + shipping" />
-          <StatCard icon={FileText} label="Estimated profit" value={money(monthlySummary.profit)} sub="sales minus purchases, fees, shipping" />
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <QueueCard icon={ReceiptText} label="Needs proof" value={workflowQueues.needsProof.length} sub="Source records incomplete" onClick={() => openStockQueue("needsAttention", "Missing proof")} />
+          <QueueCard icon={Search} label="Needs price research" value={workflowQueues.needsResearch.length} sub="Research before listing" onClick={() => openStockQueue("needsAttention", "Missing price research")} />
+          <QueueCard icon={FileText} label="Needs listing" value={workflowQueues.needsListing.length} sub="Draft title or copy" onClick={() => openStockQueue("needsAttention", "Missing listing draft")} />
+          <QueueCard icon={ClipboardList} label="Ready to list" value={workflowQueues.readyToList.length} sub="Open listing studio" onClick={() => openStockQueue("readyToList")} />
+          <QueueCard icon={Truck} label="Sold / needs shipping" value={workflowQueues.needsShipping.length} sub="Pack, track, complete" tone="sales" onClick={() => openSalesQueue("awaitingShipment")} />
+          <QueueCard icon={ReceiptText} label="Needs tax record review" value={workflowQueues.needsTaxReview.length} sub="Proof, Eigenbeleg, unsure" tone="finance" onClick={() => openFinanceQueue("taxRecords")} />
         </section>
 
         <form onSubmit={saveItem} className="premium-panel rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4">
@@ -1259,7 +1342,7 @@ export default function ResellerItApp() {
                       <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{money(form.chosenListingPrice || form.expectedSalePrice)}</p></div>
                       <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Final sale</p><p className="font-semibold">{money(finalSaleValue(form))}</p></div>
                       <div className="rounded-2xl bg-lime-50 p-3 text-lime-900"><p className="text-xs text-lime-700">Profit</p><p className="font-semibold">{money(itemProfitValue(form))}</p></div>
-                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof</p><p className="font-semibold">{hasProofRecord(form) ? "Recorded" : "Missing"}</p></div>
+                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof</p><p className="font-semibold">{needsProofRecord(form) ? "Missing" : "Recorded"}</p></div>
                       <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{hasListingDraft(form) ? "Ready" : "Draft"}</p></div>
                     </div>
                   </div>
@@ -1735,6 +1818,16 @@ export default function ResellerItApp() {
           </div>
         )}
 
+        {activeTab === "sales" && (
+          <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
+            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {salesSections.map(([key, label]) => (
+                <button key={key} type="button" onClick={() => setSalesSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 ${salesSection === key ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20 hover:shadow-sm"}`}>{label}</button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {activeTab === "finance" && (
           <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
@@ -1772,7 +1865,7 @@ export default function ResellerItApp() {
           </section>
         )}
 
-        {(activeTab === "stock" || activeTab === "sales" || (activeTab === "finance" && financeSection === "tax")) && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        {(activeTab === "stock" || activeTab === "sales" || (activeTab === "finance" && financeSection === "taxRecords")) && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
               <option>All classifications</option>
@@ -1783,15 +1876,15 @@ export default function ResellerItApp() {
         </div>}
 
         <section className="grid gap-4">
-          {activeTab === "stock" && stockSection === "items" && (
+          {activeTab === "stock" && ["needsAttention", "inventory", "readyToList"].includes(stockSection) && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">Inventory Manager</h2>
-                    <p className="mt-1 text-sm text-neutral-600">Search, filter, sort, and move items through the resale workflow before monthly closing.</p>
+                    <h2 className="text-lg font-semibold text-neutral-950">{stockSection === "needsAttention" ? "Needs Attention" : stockSection === "readyToList" ? "Ready to List" : "Active Inventory"}</h2>
+                    <p className="mt-1 text-sm text-neutral-600">{stockSection === "needsAttention" ? "Items blocked by missing proof, missing research, missing listing drafts, or Unsure / Review Later classification." : stockSection === "readyToList" ? "Items that have reached the listing stage and need final listing work." : "Search, filter, sort, and move items through the resale workflow before monthly closing."}</p>
                   </div>
-                  <p className="text-sm font-semibold text-neutral-500">{inventoryManagerItems.length} shown</p>
+                  <p className="text-sm font-semibold text-neutral-500">{stockSectionItems.length} shown</p>
                 </div>
 
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
@@ -1840,6 +1933,7 @@ export default function ResellerItApp() {
                       <option>Missing proof</option>
                       <option>Missing price research</option>
                       <option>Missing listing draft</option>
+                      <option>Review later</option>
                       <option>Sold only</option>
                       <option>Unsold only</option>
                     </Select>
@@ -1848,8 +1942,8 @@ export default function ResellerItApp() {
               </div>
 
               <div className="grid gap-3">
-                {inventoryManagerItems.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No inventory items match the current filters.</p>}
-                {inventoryManagerItems.map((item) => (
+                {stockSectionItems.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No inventory items match the current filters.</p>}
+                {stockSectionItems.map((item) => (
                   <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
                     <div className="grid gap-3 xl:grid-cols-[1fr_auto] xl:items-center">
                       <div className="grid gap-3 md:grid-cols-[1.2fr_0.8fr_0.8fr] md:items-center">
@@ -1867,7 +1961,7 @@ export default function ResellerItApp() {
                         </div>
                         <div className="grid grid-cols-2 gap-2 text-sm">
                           <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Profit</p><p className="font-semibold">{money(itemProfitValue(item))}</p></div>
-                          <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Health</p><p className="font-semibold">{[!hasProofRecord(item) && "Proof", !hasPriceResearch(item) && "Price", !hasListingDraft(item) && "Draft"].filter(Boolean).join(", ") || "OK"}</p></div>
+                          <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Health</p><p className="font-semibold">{[needsProofRecord(item) && "Proof", !hasPriceResearch(item) && "Price", !hasListingDraft(item) && "Draft", itemClassification(item) === DEFAULT_CLASSIFICATION && "Review"].filter(Boolean).join(", ") || "OK"}</p></div>
                         </div>
                       </div>
                       <div className="flex flex-wrap gap-1.5 xl:max-w-sm xl:justify-end">
@@ -1884,7 +1978,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "stock" && stockSection === "listings" && (
+          {activeTab === "stock" && stockSection === "listingStudio" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -1958,16 +2052,16 @@ export default function ResellerItApp() {
                       <h3 className="text-sm font-semibold text-neutral-950">Today workflow</h3>
                       <p className="text-xs text-neutral-500">Quick queues for the next daily actions.</p>
                     </div>
-                    <button type="button" onClick={() => { setActiveTab("stock"); setStockSection("items"); }} className="text-left text-xs font-semibold text-orange-700 hover:text-orange-900 sm:text-right">Open Stock Control</button>
+                    <button type="button" onClick={() => openStockQueue("needsAttention")} className="text-left text-xs font-semibold text-orange-700 hover:text-orange-900 sm:text-right">Open Stock Control</button>
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
                     {[
-                      ["Items to research", todayWorkflow.toResearch.length, "stock", "items", "Price checks"],
-                      ["Ready to list", todayWorkflow.readyToList.length, "stock", "listings", "Listing queue"],
-                      ["Sold not shipped", todayWorkflow.soldNotShipped.length, "sales", "", "Ship next"],
-                      ["Missing proof", todayWorkflow.missingProof.length, "stock", "proof", "Proof gaps"],
+                      ["Items to research", todayWorkflow.toResearch.length, "stock", "needsAttention", "Price checks"],
+                      ["Ready to list", todayWorkflow.readyToList.length, "stock", "readyToList", "Listing queue"],
+                      ["Sold not shipped", todayWorkflow.soldNotShipped.length, "sales", "awaitingShipment", "Ship next"],
+                      ["Missing proof", todayWorkflow.missingProof.length, "stock", "needsAttention", "Proof gaps"],
                     ].map(([label, value, tab, section, sub]) => (
-                      <button key={label} type="button" onClick={() => { setActiveTab(tab); if (section === "items" || section === "proof" || section === "listings") setStockSection(section); }} className="rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-[#f0be45]/60 hover:bg-[#f0be45]/10">
+                      <button key={label} type="button" onClick={() => { if (tab === "stock") openStockQueue(section, label === "Items to research" ? "Missing price research" : label === "Missing proof" ? "Missing proof" : "All items"); else openSalesQueue(section); }} className="rounded-xl border border-stone-200 bg-white p-3 text-left transition hover:border-[#f0be45]/60 hover:bg-[#f0be45]/10">
                         <div className="flex items-start justify-between gap-2">
                           <p className="text-xs font-semibold text-stone-500">{label}</p>
                           <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-semibold text-stone-600">{sub}</span>
@@ -2001,7 +2095,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "stock" && stockSection === "proof" && (
+          {((activeTab === "stock" && stockSection === "needsAttention") || (activeTab === "finance" && financeSection === "taxRecords")) && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -2033,7 +2127,7 @@ export default function ResellerItApp() {
                 {proofManagerItems.map((item) => {
                   const eigenbelegOpen = expandedEigenbelegId === item.id;
                   const proofType = item.proofType || item.receiptType || "Eigenbeleg";
-                  const proofStatus = hasProofRecord(item) ? "Proof available" : "Missing proof";
+                  const proofStatus = needsProofRecord(item) ? "Missing proof" : "Proof available";
                   return (
                     <article key={item.id} className="premium-card rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                       <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
@@ -2080,7 +2174,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "finance" && financeSection === "ebay" && (
+          {activeTab === "finance" && financeSection === "reconciliation" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -2186,10 +2280,48 @@ export default function ResellerItApp() {
             </div>
           )}
 
+          {activeTab === "finance" && financeSection === "taxRecords" && (
+            <div className="grid gap-4">
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-neutral-950">Tax Records</h2>
+                    <p className="mt-1 text-sm text-neutral-600">Review source proof, Eigenbeleg needs, expense notes, and Unsure / Review Later items before reconciliation.</p>
+                  </div>
+                  <p className="text-sm font-semibold text-neutral-500">{workflowQueues.needsTaxReview.length + taxRecordQueues.expensesWithoutReceiptNote.length} open checks</p>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <QueueCard icon={ReceiptText} label="Missing proof" value={taxRecordQueues.missingProof.length} sub="Items without receipt or proof location" onClick={() => { setProofFilter("Missing proof"); openStockQueue("needsAttention", "Missing proof"); }} />
+                  <QueueCard icon={FileText} label="Eigenbeleg needed" value={taxRecordQueues.eigenbelegNeeded.length} sub="Self-receipts to draft or file" onClick={() => { setProofFilter("Needs Eigenbeleg"); openFinanceQueue("taxRecords"); }} tone="finance" />
+                  <QueueCard icon={ReceiptText} label="Expenses without receipt note" value={taxRecordQueues.expensesWithoutReceiptNote.length} sub="Add missing receipt context" onClick={() => openFinanceQueue("reconciliation")} tone="finance" />
+                  <QueueCard icon={Info} label="Unsure / Review Later" value={taxRecordQueues.reviewLater.length} sub="Classification needs decision" onClick={() => openFinanceQueue("taxRecords")} tone="finance" />
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h3 className="text-sm font-semibold text-neutral-950">Expense receipt-note gaps</h3>
+                <div className="mt-3 grid gap-2">
+                  {taxRecordQueues.expensesWithoutReceiptNote.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No expenses without receipt notes.</p>}
+                  {taxRecordQueues.expensesWithoutReceiptNote.map((expense) => (
+                    <article key={expense.id} className="rounded-2xl bg-neutral-50 p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <p className="font-semibold text-neutral-950">{expense.description}</p>
+                          <p className="mt-1 text-sm text-neutral-600">{expense.date} / {expense.category} / {expense.paymentMethod}</p>
+                        </div>
+                        <button type="button" onClick={() => { editExpense(expense); openFinanceQueue("reconciliation"); }} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Edit expense</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === "sales" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <h2 className="text-lg font-semibold text-neutral-950">Sales & Shipping</h2>
+                <h2 className="text-lg font-semibold text-neutral-950">{salesSections.find(([key]) => key === salesSection)?.[1] || "Sales & Shipping"}</h2>
                 <p className="mt-1 text-sm text-neutral-600">Sold-item workflow for packing, DHL tracking, completion, returns, and monthly reconciliation checks.</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <StatCard icon={ShoppingCart} label="Monthly sales" value={money(monthlySummary.salesTotal)} />
@@ -2208,7 +2340,7 @@ export default function ResellerItApp() {
                 ))}
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+              {salesSection === "awaitingShipment" && <div className="grid gap-4">
                 <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                     <div>
@@ -2242,8 +2374,11 @@ export default function ResellerItApp() {
                     ))}
                   </div>
                 </div>
+              </div>}
 
+              {(salesSection === "completed" || salesSection === "issues") && (
                 <div className="grid gap-4">
+                  {salesSection === "completed" && (
                   <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                     <h3 className="text-sm font-semibold text-neutral-950">Recent completed sales</h3>
                     <div className="mt-3 grid gap-2">
@@ -2256,6 +2391,8 @@ export default function ResellerItApp() {
                       ))}
                     </div>
                   </div>
+                  )}
+                  {salesSection === "issues" && (
                   <div className="rounded-3xl border border-red-100 bg-white p-5 shadow-sm">
                     <h3 className="text-sm font-semibold text-neutral-950">Return/problem items</h3>
                     <div className="mt-3 grid gap-2">
@@ -2268,10 +2405,11 @@ export default function ResellerItApp() {
                       ))}
                     </div>
                   </div>
+                  )}
                 </div>
-              </div>
+              )}
 
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+              {salesSection === "tracking" && <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <h3 className="text-sm font-semibold text-neutral-950">Tracking</h3>
                 <p className="mt-1 text-sm text-neutral-600">DHL is the default carrier. Tracking links open DHL Sendungsverfolgung in a new tab.</p>
                 <div className="mt-4 grid gap-3">
@@ -2299,11 +2437,11 @@ export default function ResellerItApp() {
                     </article>
                   ))}
                 </div>
-              </div>
+              </div>}
             </div>
           )}
 
-          {activeTab === "finance" && financeSection === "monthly" && (
+          {activeTab === "finance" && financeSection === "thisMonth" && (
             <div id="monthly-closing-summary" className="grid gap-4 print:block">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm print:border-0 print:shadow-none">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -2373,7 +2511,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "finance" && financeSection === "expenses" && (
+          {activeTab === "finance" && financeSection === "reconciliation" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -2456,7 +2594,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "finance" && financeSection === "tax" && (
+          {activeTab === "finance" && financeSection === "yearEnd" && (
             <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-semibold text-neutral-950">Tax Summary for EÜR-style yearly totals</h2>
               <p className="mt-1 text-sm text-neutral-600">Year-to-date support overview for German reseller self-reporting. This is tax support, not legal or tax advice.</p>
@@ -2521,7 +2659,7 @@ export default function ResellerItApp() {
             const priceExpanded = expandedCardPanel === `${item.id}:price`;
             const listingExpanded = expandedCardPanel === `${item.id}:listing`;
             const feeExpanded = expandedCardPanel === `${item.id}:fees`;
-            const proofStatus = hasProofRecord(item) ? "Proof recorded" : "Missing proof";
+            const proofStatus = needsProofRecord(item) ? "Missing proof" : "Proof recorded";
             const listingDraft = generateListingDraft(item);
             return (
               <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
