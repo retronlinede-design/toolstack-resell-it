@@ -91,6 +91,12 @@ const modules = [
 const stockSections = [["needsAttention", "Needs Attention"], ["inventory", "Active Inventory"], ["readyToList", "Ready to List"], ["listingStudio", "Listing Studio"]];
 const salesSections = [["awaitingShipment", "Awaiting Shipment"], ["tracking", "Shipped / Tracking"], ["completed", "Completed Sales"], ["issues", "Returns / Issues"]];
 const financeSections = [["thisMonth", "This Month"], ["taxRecords", "Tax Records"], ["reconciliation", "Reconciliation"], ["yearEnd", "Year-End / EÜR"]];
+const stockSectionDetails = {
+  needsAttention: ["Needs Attention", "Items missing information, proof, pricing, or listing preparation."],
+  inventory: ["Active Inventory", "Current inventory being managed and tracked."],
+  readyToList: ["Ready to List", "Prepared items ready for eBay listing."],
+  listingStudio: ["Listing Studio", "Create and manage listing titles, descriptions, and HTML templates."],
+};
 
 const emptyItem = {
   name: "",
@@ -575,6 +581,22 @@ function QueueCard({ icon: Icon, label, value, sub, onClick, tone = "stock" }) {
         <div className="rounded-xl bg-stone-900 p-2 text-amber-50"><Icon size={18} /></div>
       </div>
     </button>
+  );
+}
+
+function SectionHeader({ title, subtitle, count }) {
+  return (
+    <div className="rounded-3xl border border-[#b7412e]/15 bg-[#fffdf8] p-4 shadow-[0_14px_34px_rgba(41,37,36,0.055)]">
+      <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+        <div className="max-w-3xl">
+          <div className="mb-3 h-1 w-14 rounded-full bg-[#b7412e]" />
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Control</p>
+          <h2 className="mt-1 text-xl font-semibold tracking-tight text-stone-950">{title}</h2>
+          <p className="mt-1 text-sm leading-6 text-stone-600">{subtitle}</p>
+        </div>
+        {count !== undefined && <p className="rounded-2xl border border-[#b7412e]/15 bg-[#b7412e]/8 px-3 py-2 text-sm font-semibold text-[#8f3124]">{count} shown</p>}
+      </div>
+    </div>
   );
 }
 
@@ -1877,16 +1899,17 @@ export default function ResellerItApp() {
 
         <section className="grid gap-4">
           {activeTab === "stock" && ["needsAttention", "inventory", "readyToList"].includes(stockSection) && (
-            <div className="grid gap-4">
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">{stockSection === "needsAttention" ? "Needs Attention" : stockSection === "readyToList" ? "Ready to List" : "Active Inventory"}</h2>
-                    <p className="mt-1 text-sm text-neutral-600">{stockSection === "needsAttention" ? "Items blocked by missing proof, missing research, missing listing drafts, or Unsure / Review Later classification." : stockSection === "readyToList" ? "Items that have reached the listing stage and need final listing work." : "Search, filter, sort, and move items through the resale workflow before monthly closing."}</p>
-                  </div>
-                  <p className="text-sm font-semibold text-neutral-500">{stockSectionItems.length} shown</p>
-                </div>
+            <div className="grid gap-5">
+              <SectionHeader title={stockSectionDetails[stockSection][0]} subtitle={stockSectionDetails[stockSection][1]} count={stockSectionItems.length} />
 
+              <div className="rounded-3xl border border-[#b7412e]/10 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-3 border-b border-stone-100 pb-3">
+                  <div className="h-8 w-1 rounded-full bg-[#b7412e]" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-stone-950">Queue health</h3>
+                    <p className="text-xs text-stone-500">Counts that explain why items need action.</p>
+                  </div>
+                </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
                   <StatCard icon={Package} label="Total items" value={inventoryHealth.totalItems} />
                   <StatCard icon={Euro} label="Unsold inventory value" value={money(inventoryHealth.unsoldInventoryValue)} />
@@ -1897,7 +1920,14 @@ export default function ResellerItApp() {
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+              <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-sm">
+                <div className="mb-4 flex items-center gap-3 border-b border-stone-200/70 pb-3">
+                  <div className="h-8 w-1 rounded-full bg-[#b7412e]/80" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-stone-950">Inventory controls</h3>
+                    <p className="text-xs text-stone-500">Search, filter, and sort this subsection without changing records.</p>
+                  </div>
+                </div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <Input label="Search inventory" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, eBay title, source..." />
                   <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}>
@@ -1941,6 +1971,14 @@ export default function ResellerItApp() {
                 )}
               </div>
 
+              <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-sm">
+                <div className="mb-4 flex items-center gap-3 border-b border-stone-200/70 pb-3">
+                  <div className="h-8 w-1 rounded-full bg-[#b7412e]/80" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-stone-950">{stockSectionDetails[stockSection][0]} items</h3>
+                    <p className="text-xs text-stone-500">Operational item cards grouped under the selected workflow queue.</p>
+                  </div>
+                </div>
               <div className="grid gap-3">
                 {stockSectionItems.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No inventory items match the current filters.</p>}
                 {stockSectionItems.map((item) => (
@@ -1975,21 +2013,33 @@ export default function ResellerItApp() {
                   </article>
                 ))}
               </div>
+              </div>
             </div>
           )}
 
           {activeTab === "stock" && stockSection === "listingStudio" && (
-            <div className="grid gap-4">
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+            <div className="grid gap-5">
+              <SectionHeader title={stockSectionDetails.listingStudio[0]} subtitle={stockSectionDetails.listingStudio[1]} count={items.length} />
+
+              <div className="rounded-3xl border border-[#b7412e]/10 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex items-center gap-3 border-b border-stone-100 pb-3">
+                  <div className="h-8 w-1 rounded-full bg-[#b7412e]" />
                   <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">Listing Studio</h2>
-                    <p className="mt-1 text-sm text-neutral-600">Prepare and review eBay listing copy for every inventory item. Editing opens the existing detailed item form.</p>
+                    <h3 className="text-sm font-semibold text-stone-950">Listing readiness</h3>
+                    <p className="text-xs text-stone-500">Draft coverage across the current stock catalogue.</p>
                   </div>
-                  <StatCard icon={FileText} label="Missing listing draft" value={inventoryHealth.missingListingDraftCount} sub={`${items.length} total items`} />
                 </div>
+                <StatCard icon={FileText} label="Missing listing draft" value={inventoryHealth.missingListingDraftCount} sub={`${items.length} total items`} />
               </div>
 
+              <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-sm">
+                <div className="mb-4 flex items-center gap-3 border-b border-stone-200/70 pb-3">
+                  <div className="h-8 w-1 rounded-full bg-[#b7412e]/80" />
+                  <div>
+                    <h3 className="text-sm font-semibold text-stone-950">Listing workbench</h3>
+                    <p className="text-xs text-stone-500">Open item editing to create or refine listing copy and HTML.</p>
+                  </div>
+                </div>
               <div className="grid gap-3">
                 {items.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No items yet. Add an item first, then prepare its listing here.</p>}
                 {items.map((item) => {
@@ -2031,6 +2081,7 @@ export default function ResellerItApp() {
                     </article>
                   );
                 })}
+              </div>
               </div>
             </div>
           )}
