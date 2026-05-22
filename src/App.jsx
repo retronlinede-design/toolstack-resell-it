@@ -351,10 +351,6 @@ function externallyStoredProof(item) {
   return item.proofStoredExternally === "Yes" || Boolean(item.proofFileName || item.proofFolderLocation);
 }
 
-function receiptOrInvoiceProof(item) {
-  return ["Shop receipt", "Invoice"].includes(item.proofType || item.receiptType);
-}
-
 function priceResearchQuery(item) {
   return (item.researchQuery || item.ebayTitle || item.name || "").trim();
 }
@@ -662,7 +658,6 @@ export default function ResellerItApp() {
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
   const [backupMessage, setBackupMessage] = useState("");
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
-  const [proofFilter, setProofFilter] = useState("All");
   const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("basic");
 
@@ -1067,18 +1062,12 @@ export default function ResellerItApp() {
     externallyStored: items.filter(externallyStoredProof).length,
   }), [items]);
 
-  const proofManagerItems = useMemo(() => (
-    items.filter((item) => {
-      if (proofFilter === "Missing proof") return needsProofRecord(item);
-      if (proofFilter === "Needs Eigenbeleg") return needsEigenbeleg(item);
-      if (proofFilter === "Externally stored") return externallyStoredProof(item);
-      if (proofFilter === "Receipt / invoice") return receiptOrInvoiceProof(item);
-      if (proofFilter === "Private items") return itemClassification(item) === "Private Sale / Personal Collection";
-      if (proofFilter === "Business stock") return itemClassification(item) === "Business Stock / Resale Inventory";
-      if (proofFilter === "Legacy stock") return itemClassification(item) === "Legacy Stock / Previous Business";
-      return true;
-    })
-  ), [items, proofFilter]);
+  const receiptRecordGroups = useMemo(() => ({
+    complete: items.filter((item) => !needsProofRecord(item)),
+    needsAttention: items.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION),
+    externalFiles: items.filter((item) => externallyStoredProof(item) || item.proofFileName || item.proofFolderLocation),
+    expensesMissingNotes: expenses.filter((expense) => expense.receiptAvailable === "No" && !String(expense.receiptNotes || "").trim()),
+  }), [expenses, items]);
 
   const monthlySummary = useMemo(() => {
     const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
@@ -2147,61 +2136,78 @@ export default function ResellerItApp() {
           )}
 
           {((activeTab === "stock" && stockSection === "needsAttention") || (activeTab === "finance" && financeSection === "taxRecords")) && (
-            <div className="grid gap-4">
+            <div className="grid gap-5">
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-stone-950">Proof / Receipts Manager</h2>
-                    <p className="mt-1 text-sm text-stone-600">Track where receipts, invoices, seller notes, and Eigenbelege are stored. Originals stay in your own folder system.</p>
+                    <div className="mb-3 h-1 w-14 rounded-full bg-[#b7412e]" />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Receipt Records</p>
+                    <h2 className="mt-1 text-xl font-semibold text-stone-950">Tax Proof Manager</h2>
+                    <p className="mt-1 text-sm leading-6 text-stone-600">Check which purchases have a receipt record, which need attention, and where external files are stored.</p>
                   </div>
-                  <p className="text-sm font-semibold text-stone-500">{proofManagerItems.length} shown</p>
+                  <p className="rounded-2xl border border-[#b7412e]/15 bg-[#b7412e]/8 px-3 py-2 text-sm font-semibold text-[#8f3124]">{items.length} items</p>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <StatCard icon={Package} label="Total items" value={proofSummary.totalItems} />
-                  <StatCard icon={ReceiptText} label="Proof complete" value={proofSummary.proofComplete} />
-                  <StatCard icon={FileText} label="Missing proof" value={proofSummary.missingProof} />
-                  <StatCard icon={FileText} label="Needs Eigenbeleg" value={proofSummary.needsEigenbeleg} />
-                  <StatCard icon={ReceiptText} label="Externally stored" value={proofSummary.externallyStored} />
+                  <StatCard icon={ReceiptText} label="Complete" value={proofSummary.proofComplete} />
+                  <StatCard icon={FileText} label="Missing Proof" value={proofSummary.missingProof} />
+                  <StatCard icon={FileText} label="Eigenbeleg Needed" value={proofSummary.needsEigenbeleg} />
+                  <StatCard icon={ReceiptText} label="External references" value={proofSummary.externallyStored} />
                 </div>
               </div>
 
-              <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
-                <div className="flex flex-wrap gap-2">
-                  {["All", "Missing proof", "Needs Eigenbeleg", "Externally stored", "Receipt / invoice", "Private items", "Business stock", "Legacy stock"].map((filter) => (
-                    <button key={filter} type="button" onClick={() => setProofFilter(filter)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 ${proofFilter === filter ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20 hover:shadow-sm"}`}>{filter}</button>
+              <div className="rounded-3xl border border-lime-100 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex flex-col gap-1 border-b border-lime-100 pb-3">
+                  <h3 className="text-lg font-semibold text-stone-950">Complete Records</h3>
+                  <p className="text-sm text-stone-600">Items with a usable receipt record or tax proof reference.</p>
+                </div>
+                <div className="grid gap-3">
+                  {receiptRecordGroups.complete.length === 0 && <p className="rounded-2xl bg-stone-50 p-4 text-sm text-stone-600">No complete receipt records yet.</p>}
+                  {receiptRecordGroups.complete.map((item) => (
+                    <article key={item.id} className="rounded-2xl border border-lime-100 bg-lime-50/45 p-4">
+                      <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-semibold text-stone-950">{item.name}</h4>
+                            <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-semibold text-lime-800">Complete</span>
+                          </div>
+                          <p className="mt-1 text-sm text-stone-600">{item.proofType || item.receiptType || "Receipt Record"} / {item.purchaseDate || "no date"} / {money(item.proofAmount || item.purchasePrice)}</p>
+                        </div>
+                        <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-lime-200 bg-white px-3 py-2 text-sm font-semibold text-lime-800 hover:bg-lime-50">Edit record</button>
+                      </div>
+                    </article>
                   ))}
                 </div>
               </div>
 
-              <div className="grid gap-3">
-                {proofManagerItems.length === 0 && <p className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 text-sm text-stone-600 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">No proof records match the current filter.</p>}
-                {proofManagerItems.map((item) => {
+              <div className="rounded-3xl border border-[#b7412e]/15 bg-[#fffdf8] p-5 shadow-sm">
+                <div className="mb-4 flex flex-col gap-1 border-b border-[#b7412e]/10 pb-3">
+                  <h3 className="text-lg font-semibold text-stone-950">Needs Attention</h3>
+                  <p className="text-sm text-stone-600">Missing proof, Eigenbeleg tasks, missing receipt notes, or items marked for review.</p>
+                </div>
+                <div className="grid gap-3">
+                {receiptRecordGroups.needsAttention.length === 0 && receiptRecordGroups.expensesMissingNotes.length === 0 && <p className="rounded-2xl bg-white p-4 text-sm text-stone-600">No receipt records need attention.</p>}
+                {receiptRecordGroups.needsAttention.map((item) => {
                   const eigenbelegOpen = expandedEigenbelegId === item.id;
-                  const proofType = item.proofType || item.receiptType || "Eigenbeleg";
-                  const proofStatus = needsProofRecord(item) ? "Missing proof" : "Proof available";
+                  const statusLabel = needsProofRecord(item) ? "Missing Proof" : needsEigenbeleg(item) ? "Eigenbeleg Needed" : "Review Needed";
+                  const statusClass = needsProofRecord(item) ? "bg-red-50 text-red-700 border-red-100" : needsEigenbeleg(item) ? "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/30" : "bg-orange-50 text-orange-800 border-orange-100";
                   return (
-                    <article key={item.id} className="premium-card rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
-                      <div className="grid gap-4 lg:grid-cols-[1fr_auto] lg:items-start">
+                    <article key={item.id} className="premium-card rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+                      <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-stone-950">{item.name}</h3>
-                            <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{itemClassification(item)}</span>
-                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${proofBadgeClass(item)}`}>{proofStatus}</span>
-                            {needsEigenbeleg(item) && <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">Eigenbeleg needed</span>}
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusClass}`}>{statusLabel}</span>
+                            {itemClassification(item) === DEFAULT_CLASSIFICATION && <span className="rounded-full bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-800">Review Needed</span>}
                           </div>
-                          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
                             <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Purchase date</p><p className="font-semibold">{item.purchaseDate || "-"}</p></div>
                             <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Purchase price</p><p className="font-semibold">{money(item.purchasePrice)}</p></div>
-                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof type</p><p className="font-semibold">{proofType}</p></div>
-                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Stored externally</p><p className="font-semibold">{externallyStoredProof(item) ? "Yes" : "No"}</p></div>
-                          </div>
-                          <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
-                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof file name</p><p className="break-all font-semibold">{item.proofFileName || "-"}</p></div>
-                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof folder location</p><p className="break-all font-semibold">{item.proofFolderLocation || "-"}</p></div>
+                            <div className="rounded-xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Receipt record</p><p className="font-semibold">{item.proofType || item.receiptType || "Not set"}</p></div>
                           </div>
                         </div>
                         <div className="flex flex-wrap gap-2 lg:justify-end">
-                          <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Edit proof</button>
+                          <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Edit record</button>
                           {needsEigenbeleg(item) && <button type="button" onClick={() => setExpandedEigenbelegId(eigenbelegOpen ? null : item.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">{eigenbelegOpen ? "Hide Eigenbeleg" : "Eigenbeleg"}</button>}
                         </div>
                       </div>
@@ -2221,6 +2227,48 @@ export default function ResellerItApp() {
                     </article>
                   );
                 })}
+                {receiptRecordGroups.expensesMissingNotes.map((expense) => (
+                  <article key={expense.id} className="rounded-2xl border border-orange-100 bg-white p-4 shadow-sm">
+                    <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-semibold text-stone-950">{expense.description}</h4>
+                          <span className="rounded-full border border-orange-100 bg-orange-50 px-3 py-1 text-xs font-semibold text-orange-800">Missing receipt note</span>
+                        </div>
+                        <p className="mt-1 text-sm text-stone-600">{expense.date} / {expense.category} / {money(expense.amount)}</p>
+                      </div>
+                      <button type="button" onClick={() => { editExpense(expense); openFinanceQueue("reconciliation"); }} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Edit expense</button>
+                    </div>
+                  </article>
+                ))}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-stone-200 bg-white p-5 shadow-sm">
+                <div className="mb-4 flex flex-col gap-1 border-b border-stone-100 pb-3">
+                  <h3 className="text-lg font-semibold text-stone-950">External File References</h3>
+                  <p className="text-sm text-stone-600">Receipt files, folder references, and proof locations stored outside ResellIt.</p>
+                </div>
+                <div className="grid gap-3">
+                  {receiptRecordGroups.externalFiles.length === 0 && <p className="rounded-2xl bg-stone-50 p-4 text-sm text-stone-600">No external receipt file references recorded.</p>}
+                  {receiptRecordGroups.externalFiles.map((item) => (
+                    <article key={item.id} className="rounded-2xl border border-stone-200 bg-[#fffdf8] p-4">
+                      <div className="grid gap-3 lg:grid-cols-[1fr_auto] lg:items-start">
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h4 className="font-semibold text-stone-950">{item.name}</h4>
+                            <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-700">External reference</span>
+                          </div>
+                          <div className="mt-3 grid gap-2 text-sm md:grid-cols-2">
+                            <div className="rounded-xl bg-white p-3"><p className="text-xs text-stone-500">File name</p><p className="break-all font-semibold">{item.proofFileName || item.proofImageName || "-"}</p></div>
+                            <div className="rounded-xl bg-white p-3"><p className="text-xs text-stone-500">Folder / proof location</p><p className="break-all font-semibold">{item.proofFolderLocation || "Stored externally"}</p></div>
+                          </div>
+                        </div>
+                        <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Edit reference</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
               </div>
             </div>
           )}
@@ -2342,8 +2390,8 @@ export default function ResellerItApp() {
                   <p className="text-sm font-semibold text-neutral-500">{workflowQueues.needsTaxReview.length + taxRecordQueues.expensesWithoutReceiptNote.length} open checks</p>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <QueueCard icon={ReceiptText} label="Missing proof" value={taxRecordQueues.missingProof.length} sub="Items without receipt or proof location" onClick={() => { setProofFilter("Missing proof"); openStockQueue("needsAttention", "Missing proof"); }} />
-                  <QueueCard icon={FileText} label="Eigenbeleg needed" value={taxRecordQueues.eigenbelegNeeded.length} sub="Self-receipts to draft or file" onClick={() => { setProofFilter("Needs Eigenbeleg"); openFinanceQueue("taxRecords"); }} tone="finance" />
+                  <QueueCard icon={ReceiptText} label="Missing proof" value={taxRecordQueues.missingProof.length} sub="Items without receipt or proof location" onClick={() => openStockQueue("needsAttention", "Missing proof")} />
+                  <QueueCard icon={FileText} label="Eigenbeleg needed" value={taxRecordQueues.eigenbelegNeeded.length} sub="Self-receipts to draft or file" onClick={() => openFinanceQueue("taxRecords")} tone="finance" />
                   <QueueCard icon={ReceiptText} label="Expenses without receipt note" value={taxRecordQueues.expensesWithoutReceiptNote.length} sub="Add missing receipt context" onClick={() => openFinanceQueue("reconciliation")} tone="finance" />
                   <QueueCard icon={Info} label="Unsure / Review Later" value={taxRecordQueues.reviewLater.length} sub="Classification needs decision" onClick={() => openFinanceQueue("taxRecords")} tone="finance" />
                 </div>
