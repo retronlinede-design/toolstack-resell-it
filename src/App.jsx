@@ -1410,6 +1410,8 @@ export default function ResellerItApp() {
     purchaseTotal: stockTimelineItems.reduce((sum, item) => sum + number(item.purchasePrice), 0),
     soldTotal: stockTimelineItems.reduce((sum, item) => sum + finalSaleValue(item), 0),
     profitTotal: stockTimelineItems.reduce((sum, item) => sum + itemProfitValue(item), 0),
+    unsoldCount: stockTimelineItems.filter((item) => !isSoldStatus(item)).length,
+    missingProofCount: stockTimelineItems.filter(needsProofRecord).length,
   }), [stockTimelineItems]);
 
   const stockActiveFilterCount = [
@@ -2446,11 +2448,25 @@ export default function ResellerItApp() {
               </div>
 
               <div className="p-1.5 sm:p-2">
-                <div className="mb-2 grid gap-1.5 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-[11px] sm:grid-cols-4">
-                  <div><span className="text-stone-500">Items</span><span className="ml-2 font-semibold text-stone-950">{stockTimelineTotals.itemCount}</span></div>
-                  <div><span className="text-stone-500">Purchase</span><span className="ml-2 font-semibold text-stone-950">{money(stockTimelineTotals.purchaseTotal)}</span></div>
-                  <div><span className="text-stone-500">Sold</span><span className="ml-2 font-semibold text-stone-950">{money(stockTimelineTotals.soldTotal)}</span></div>
-                  <div><span className="text-stone-500">Profit</span><span className="ml-2 font-semibold text-lime-800">{money(stockTimelineTotals.profitTotal)}</span></div>
+                <div className="mb-2 overflow-x-auto rounded-lg border border-[#b7412e]/15 bg-white shadow-[0_4px_14px_rgba(41,37,36,0.04)]">
+                  <div className="grid min-w-[760px] grid-cols-6 divide-x divide-stone-100 border-l-2 border-[#b7412e] text-[11px]">
+                    {[
+                      [Package, "Visible", stockTimelineTotals.itemCount],
+                      [Euro, "Purchase cost", money(stockTimelineTotals.purchaseTotal)],
+                      [ShoppingCart, "Sold total", money(stockTimelineTotals.soldTotal)],
+                      [Euro, "Est. profit", money(stockTimelineTotals.profitTotal), "text-lime-800"],
+                      [Package, "Unsold", stockTimelineTotals.unsoldCount],
+                      [ReceiptText, "Missing proof", stockTimelineTotals.missingProofCount, stockTimelineTotals.missingProofCount ? "text-[#8f3124]" : ""],
+                    ].map(([Icon, label, value, valueClass = "text-stone-950"]) => (
+                      <div key={label} className="flex items-center gap-2 px-2 py-2">
+                        <Icon size={13} className="shrink-0 text-[#b7412e]" />
+                        <div className="min-w-0">
+                          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-stone-500">{label}</p>
+                          <p className={`truncate text-sm font-semibold ${valueClass}`}>{value}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 <div className="mb-2 overflow-x-auto rounded-lg border border-[#b7412e]/20 bg-[#fff6e6] shadow-[0_4px_14px_rgba(183,65,46,0.06)]">
