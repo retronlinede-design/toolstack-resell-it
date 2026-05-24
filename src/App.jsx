@@ -17,6 +17,8 @@ const classificationOptions = [
   DEFAULT_CLASSIFICATION,
 ];
 const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
+const listingLanguageOptions = ["German", "English"];
+const DEFAULT_LISTING_LANGUAGE = "German";
 const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
 const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Written Off"];
 const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Ready to Pack", "Packed", "Shipped", "Completed"];
@@ -154,6 +156,7 @@ const emptyItem = {
   chosenListingPrice: "",
   priceResearchNotes: "",
   priceResearchUpdatedAt: "",
+  listingLanguage: DEFAULT_LISTING_LANGUAGE,
   listingTitle: "",
   brand: "",
   model: "",
@@ -404,28 +407,112 @@ function bulletLines(value) {
     .filter(Boolean);
 }
 
+function listingLanguage(item) {
+  return listingLanguageOptions.includes(item?.listingLanguage) ? item.listingLanguage : DEFAULT_LISTING_LANGUAGE;
+}
+
+function isGermanListing(item) {
+  return listingLanguage(item) === "German";
+}
+
+function listingLabels(item) {
+  return isGermanListing(item)
+    ? {
+      title: "Titel",
+      condition: "Zustand",
+      description: "Beschreibung",
+      included: "Lieferumfang",
+      shipping: "Versand",
+      notes: "Hinweise",
+      brand: "Marke",
+      model: "Modell",
+      sizeSpecs: "Groesse / Spezifikation",
+      colour: "Farbe",
+      category: "Kategorie",
+      price: "Angebotspreis",
+      defects: "Maengel / Gebrauchsspuren",
+      researchNotes: "Recherchehinweise",
+      copyTitle: "Titel kopieren",
+      copyCondition: "Zustand kopieren",
+      copyDescription: "Beschreibung kopieren",
+      copyHtmlDescription: "HTML-Beschreibung kopieren",
+      missing: "Fehlt",
+      exists: "Vorhanden",
+      notSpecified: "Nicht angegeben",
+      noSourceFields: "Noch keine Quelldaten eingetragen",
+      preview: "HTML-Beschreibung Vorschau",
+    }
+    : {
+      title: "Title",
+      condition: "Condition",
+      description: "Description",
+      included: "What is included",
+      shipping: "Shipping",
+      notes: "Notes",
+      brand: "Brand",
+      model: "Model",
+      sizeSpecs: "Size / specs",
+      colour: "Colour",
+      category: "Category",
+      price: "Listing price",
+      defects: "Defects / wear",
+      researchNotes: "Research notes",
+      copyTitle: "Copy title",
+      copyCondition: "Copy condition",
+      copyDescription: "Copy plain description",
+      copyHtmlDescription: "Copy HTML description",
+      missing: "Missing",
+      exists: "Exists",
+      notSpecified: "Not specified",
+      noSourceFields: "No source fields added yet",
+      preview: "HTML description preview",
+    };
+}
+
 function generatedListingTitle(item) {
   return item.listingTitle || item.ebayTitle || [item.brand, item.model, item.name, item.sizeSpecs, item.colour].filter(Boolean).join(" - ") || item.name;
 }
 
-function generatedConditionText(item) {
-  return item.conditionText || [item.conditionGrade, item.conditionNotes || item.notes, item.defectsNotes && `Defects / wear: ${item.defectsNotes}`].filter(Boolean).join("\n") || "Please review the description for condition details.";
+function germanConditionGrade(grade) {
+  const normalized = String(grade || "").trim().toLowerCase();
+  if (!normalized) return "";
+  if (["new", "neu", "brand new", "new with tags", "new in box", "nib"].includes(normalized)) return "Neu";
+  if (["like new", "as new", "mint", "neuwertig"].includes(normalized)) return "Neuwertig";
+  if (["very good", "sehr gut"].includes(normalized)) return "Sehr guter gebrauchter Zustand";
+  if (["good", "gut"].includes(normalized)) return "Guter gebrauchter Zustand";
+  if (["used", "pre-owned", "preowned", "gebraucht"].includes(normalized)) return "Gebraucht";
+  if (["fair", "acceptable", "akzeptabel"].includes(normalized)) return "Akzeptabler gebrauchter Zustand";
+  if (["for parts", "defective", "defekt", "parts only"].includes(normalized)) return "Als defekt / fuer Ersatzteile";
+  return grade;
 }
 
-function generateHtmlDescription(item, plainDescription) {
+function generatedConditionText(item, { preferSaved = true } = {}) {
+  if (preferSaved && item.conditionText) return item.conditionText;
+  if (isGermanListing(item)) {
+    return [
+      germanConditionGrade(item.conditionGrade),
+      item.conditionNotes,
+      item.defectsNotes && `Maengel / Gebrauchsspuren: ${item.defectsNotes}`,
+    ].filter(Boolean).join("\n") || "Bitte die Beschreibung fuer Details zum Zustand beachten.";
+  }
+  return [item.conditionGrade, item.conditionNotes || item.notes, item.defectsNotes && `Defects / wear: ${item.defectsNotes}`].filter(Boolean).join("\n") || "Please review the description for condition details.";
+}
+
+function generateHtmlDescription(item, plainDescription, { preferSaved = true } = {}) {
+  const labels = listingLabels(item);
   const details = [
-    ["Brand", item.brand],
-    ["Model", item.model],
-    ["Size / specs", item.sizeSpecs],
-    ["Colour", item.colour],
-    ["Condition", item.conditionGrade],
+    [labels.brand, item.brand],
+    [labels.model, item.model],
+    [labels.sizeSpecs, item.sizeSpecs],
+    [labels.colour, item.colour],
+    [labels.condition, isGermanListing(item) ? germanConditionGrade(item.conditionGrade) : item.conditionGrade],
   ].filter(([, value]) => value);
   const included = bulletLines(item.includedItems);
   const notes = [
-    item.conditionNotes && ["Condition notes", item.conditionNotes],
-    item.defectsNotes && ["Defects / wear", item.defectsNotes],
-    item.shippingNotes && ["Shipping", item.shippingNotes],
-    item.priceResearchNotes && ["Research notes", item.priceResearchNotes],
+    item.conditionNotes && [labels.notes, item.conditionNotes],
+    item.defectsNotes && [labels.defects, item.defectsNotes],
+    item.shippingNotes && [labels.shipping, item.shippingNotes],
+    item.priceResearchNotes && [labels.researchNotes, item.priceResearchNotes],
   ].filter(Boolean);
 
   return [
@@ -434,43 +521,45 @@ function generateHtmlDescription(item, plainDescription) {
     details.length ? '  <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">' : "",
     ...details.map(([label, value]) => `    <tr><th style="text-align:left;border:1px solid #e5ded4;padding:8px;background:#faf7ef;">${escapeHtml(label)}</th><td style="border:1px solid #e5ded4;padding:8px;">${escapeHtml(value)}</td></tr>`),
     details.length ? "  </table>" : "",
-    `  <h3 style="font-size:16px;margin:16px 0 8px;">Condition</h3>`,
-    `  <p style="margin:0 0 12px;">${escapeHtml(generatedConditionText(item)).replaceAll("\n", "<br>")}</p>`,
-    included.length ? '  <h3 style="font-size:16px;margin:16px 0 8px;">What is included</h3>' : "",
+    `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.condition)}</h3>`,
+    `  <p style="margin:0 0 12px;">${escapeHtml(generatedConditionText(item, { preferSaved })).replaceAll("\n", "<br>")}</p>`,
+    included.length ? `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.included)}</h3>` : "",
     included.length ? "  <ul>" : "",
     ...included.map((line) => `    <li>${escapeHtml(line)}</li>`),
     included.length ? "  </ul>" : "",
     notes.map(([label, value]) => `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(label)}</h3>\n  <p style="margin:0 0 12px;">${escapeHtml(value).replaceAll("\n", "<br>")}</p>`).join("\n"),
-    plainDescription ? `  <h3 style="font-size:16px;margin:16px 0 8px;">Description</h3>\n  <p style="margin:0;">${escapeHtml(plainDescription).replaceAll("\n", "<br>")}</p>` : "",
+    plainDescription ? `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.description)}</h3>\n  <p style="margin:0;">${escapeHtml(plainDescription).replaceAll("\n", "<br>")}</p>` : "",
     "</div>",
   ].filter(Boolean).join("\n");
 }
 
-function generateListingDraft(item) {
+function generateListingDraft(item, { preferSaved = true } = {}) {
   const title = generatedListingTitle(item);
-  const condition = generatedConditionText(item);
+  const condition = generatedConditionText(item, { preferSaved });
   const price = listingPrice(item);
+  const labels = listingLabels(item);
   const descriptionParts = [
-    item.name && `Item: ${item.name}`,
-    item.brand && `Brand: ${item.brand}`,
-    item.model && `Model: ${item.model}`,
-    item.category && `Category: ${item.category}`,
-    item.sizeSpecs && `Size / specs: ${item.sizeSpecs}`,
-    item.colour && `Colour: ${item.colour}`,
-    price && `Listing price: ${money(price)}`,
-    condition && `Condition: ${condition}`,
-    item.includedItems && `Included: ${item.includedItems}`,
-    item.defectsNotes && `Defects / notes: ${item.defectsNotes}`,
-    item.shippingNotes && `Shipping: ${item.shippingNotes}`,
-    item.priceResearchNotes && `Research notes: ${item.priceResearchNotes}`,
+    item.name && `${isGermanListing(item) ? "Artikel" : "Item"}: ${item.name}`,
+    item.brand && `${labels.brand}: ${item.brand}`,
+    item.model && `${labels.model}: ${item.model}`,
+    item.category && `${labels.category}: ${item.category}`,
+    item.sizeSpecs && `${labels.sizeSpecs}: ${item.sizeSpecs}`,
+    item.colour && `${labels.colour}: ${item.colour}`,
+    price && `${labels.price}: ${money(price)}`,
+    condition && `${labels.condition}: ${condition}`,
+    item.includedItems && `${labels.included}: ${item.includedItems}`,
+    item.defectsNotes && `${labels.defects}: ${item.defectsNotes}`,
+    item.shippingNotes && `${labels.shipping}: ${item.shippingNotes}`,
+    item.notes && `${labels.notes}: ${item.notes}`,
+    item.priceResearchNotes && `${labels.researchNotes}: ${item.priceResearchNotes}`,
   ].filter(Boolean);
-  const description = item.descriptionText || descriptionParts.join("\n");
+  const description = preferSaved ? item.descriptionText || descriptionParts.join("\n") : descriptionParts.join("\n");
 
   return {
     title,
     condition,
     description,
-    htmlDescription: item.htmlDescription || generateHtmlDescription(item, description),
+    htmlDescription: preferSaved ? item.htmlDescription || generateHtmlDescription(item, description, { preferSaved }) : generateHtmlDescription(item, description, { preferSaved }),
   };
 }
 
@@ -705,6 +794,7 @@ export default function ResellerItApp() {
       name: form.name.trim(),
       classification: form.classification || DEFAULT_CLASSIFICATION,
       ebayFeeMode: form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE,
+      listingLanguage: listingLanguage(form),
       estimatedEbayFee: form.ebayFeeMode === "Business Estimate" ? String(ebayBaseFee(form)) : form.estimatedEbayFee,
       priceResearchUpdatedAt: form.researchQuery || form.researchedLowPrice || form.researchedMidPrice || form.researchedHighPrice || form.chosenListingPrice || form.priceResearchNotes
         ? new Date().toISOString()
@@ -1214,7 +1304,7 @@ export default function ResellerItApp() {
   }
 
   function generateCurrentListingDraft() {
-    const draft = generateListingDraft(form);
+    const draft = generateListingDraft(form, { preferSaved: false });
     setForm({
       ...form,
       listingTitle: draft.title,
@@ -1234,6 +1324,7 @@ export default function ResellerItApp() {
 
   const activeModule = modules.find(([key]) => key === activeTab);
   const activeTitle = activeModule?.[1] || "Dashboard";
+  const formListingLabels = listingLabels(form);
 
   return (
     <div className="min-h-screen bg-[#24120f] p-3 text-stone-900 sm:p-4 md:p-5">
@@ -1463,6 +1554,9 @@ export default function ResellerItApp() {
                       {listingResearchLinks(form).map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>)}
                     </div>
                     <div className="grid gap-3 lg:grid-cols-2">
+                      <Select label="Listing language" value={listingLanguage(form)} onChange={(e) => setForm({ ...form, listingLanguage: e.target.value })}>
+                        {listingLanguageOptions.map((language) => <option key={language}>{language}</option>)}
+                      </Select>
                       <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
                       <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
                       <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
@@ -1475,10 +1569,10 @@ export default function ResellerItApp() {
                       <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span><textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => copyText("title", form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
-                      <button type="button" onClick={() => copyText("condition", form.conditionText || generatedConditionText(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
-                      <button type="button" onClick={() => copyText("plain description", form.descriptionText)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy plain description</button>
-                      <button type="button" onClick={() => copyText("HTML description", form.htmlDescription)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy HTML description</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyTitle}</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), form.conditionText || generatedConditionText(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyCondition}</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyDescription}</button>
+                      <button type="button" onClick={() => copyText("HTML description", form.htmlDescription)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyHtmlDescription}</button>
                     </div>
                     {(form.htmlDescription || form.descriptionText) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: form.htmlDescription || generateHtmlDescription(form, form.descriptionText) }} /></div>}
                   </div>
@@ -1787,22 +1881,25 @@ export default function ResellerItApp() {
               </div>
 
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                <Select label="Listing language" value={listingLanguage(form)} onChange={(e) => setForm({ ...form, listingLanguage: e.target.value })}>
+                  {listingLanguageOptions.map((language) => <option key={language}>{language}</option>)}
+                </Select>
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">eBay title</span>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                    <button type="button" onClick={() => copyText("title", form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
+                    <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyTitle}</button>
                   </div>
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition</span>
                   <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText("condition", form.conditionText || generatedConditionText(form))} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
+                  <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), form.conditionText || generatedConditionText(form))} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyCondition}</button>
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span>
                   <textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText("plain description", form.descriptionText)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy plain description</button>
+                  <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyDescription}</button>
                 </label>
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">What is included</span>
@@ -1811,11 +1908,11 @@ export default function ResellerItApp() {
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span>
                   <textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-32 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText("HTML description", form.htmlDescription)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy HTML description</button>
+                  <button type="button" onClick={() => copyText("HTML description", form.htmlDescription)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyHtmlDescription}</button>
                 </label>
                 {(form.htmlDescription || form.descriptionText) && (
                   <div className="lg:col-span-2">
-                    <p className="mb-1.5 text-xs font-semibold text-neutral-600">HTML description preview</p>
+                    <p className="mb-1.5 text-xs font-semibold text-neutral-600">{formListingLabels.preview}</p>
                     <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
                       <div dangerouslySetInnerHTML={{ __html: form.htmlDescription || generateHtmlDescription(form, form.descriptionText) }} />
                     </div>
@@ -2066,6 +2163,7 @@ export default function ResellerItApp() {
                 {items.length === 0 && <p className="rounded-3xl border border-neutral-200 bg-white p-5 text-sm text-neutral-600 shadow-sm">No items yet. Add an item first, then prepare its listing here.</p>}
                 {items.map((item) => {
                   const draft = generateListingDraft(item);
+                  const draftLabels = listingLabels(item);
                   const hasPlainDescription = Boolean(item.descriptionText);
                   const hasHtmlDescription = Boolean(item.htmlDescription);
                   return (
@@ -2079,20 +2177,20 @@ export default function ResellerItApp() {
                           </div>
                           <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                             <div className="rounded-xl bg-neutral-50 p-3">
-                              <p className="text-xs font-semibold text-neutral-500">Listing title</p>
-                              <p className="mt-1 text-sm font-semibold text-neutral-900">{draft.title || "Missing"}</p>
+                              <p className="text-xs font-semibold text-neutral-500">{draftLabels.title}</p>
+                              <p className="mt-1 text-sm font-semibold text-neutral-900">{draft.title || draftLabels.missing}</p>
                             </div>
                             <div className="rounded-xl bg-neutral-50 p-3">
-                              <p className="text-xs font-semibold text-neutral-500">Condition</p>
-                              <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm text-neutral-700">{draft.condition || "Missing"}</p>
+                              <p className="text-xs font-semibold text-neutral-500">{draftLabels.condition}</p>
+                              <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-sm text-neutral-700">{draft.condition || draftLabels.missing}</p>
                             </div>
                             <div className={`rounded-xl p-3 ${hasPlainDescription ? "bg-lime-50 text-lime-900" : "bg-red-50 text-red-800"}`}>
-                              <p className="text-xs font-semibold opacity-75">Plain description</p>
-                              <p className="mt-1 text-sm font-semibold">{hasPlainDescription ? "Exists" : "Missing"}</p>
+                              <p className="text-xs font-semibold opacity-75">{draftLabels.description}</p>
+                              <p className="mt-1 text-sm font-semibold">{hasPlainDescription ? draftLabels.exists : draftLabels.missing}</p>
                             </div>
                             <div className={`rounded-xl p-3 ${hasHtmlDescription ? "bg-lime-50 text-lime-900" : "bg-red-50 text-red-800"}`}>
                               <p className="text-xs font-semibold opacity-75">HTML description</p>
-                              <p className="mt-1 text-sm font-semibold">{hasHtmlDescription ? "Exists" : "Missing"}</p>
+                              <p className="mt-1 text-sm font-semibold">{hasHtmlDescription ? draftLabels.exists : draftLabels.missing}</p>
                             </div>
                           </div>
                         </div>
@@ -2842,6 +2940,7 @@ export default function ResellerItApp() {
             const feeExpanded = expandedCardPanel === `${item.id}:fees`;
             const proofStatus = needsProofRecord(item) ? "Missing proof" : "Proof recorded";
             const listingDraft = generateListingDraft(item);
+            const itemListingLabels = listingLabels(item);
             return (
               <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-white p-3 shadow-sm">
                 <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -2908,25 +3007,25 @@ export default function ResellerItApp() {
                         <p className="mt-2 whitespace-pre-wrap text-sm text-neutral-600">{listingDraft.condition}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => copyText("title", listingDraft.title)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy title</button>
-                        <button type="button" onClick={() => copyText("condition", listingDraft.condition)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy condition</button>
-                        <button type="button" onClick={() => copyText("plain description", listingDraft.description)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy plain description</button>
-                        <button type="button" onClick={() => copyText("HTML description", listingDraft.htmlDescription)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy HTML description</button>
+                        <button type="button" onClick={() => copyText(itemListingLabels.title.toLowerCase(), listingDraft.title)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{itemListingLabels.copyTitle}</button>
+                        <button type="button" onClick={() => copyText(itemListingLabels.condition.toLowerCase(), listingDraft.condition)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{itemListingLabels.copyCondition}</button>
+                        <button type="button" onClick={() => copyText(itemListingLabels.description.toLowerCase(), listingDraft.description)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{itemListingLabels.copyDescription}</button>
+                        <button type="button" onClick={() => copyText("HTML description", listingDraft.htmlDescription)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{itemListingLabels.copyHtmlDescription}</button>
                       </div>
                     </div>
                     <div className="mt-4 grid gap-3 lg:grid-cols-2">
                       <div className="rounded-xl bg-neutral-50 p-3">
-                        <p className="text-xs font-semibold text-neutral-500">What's included</p>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{item.includedItems || "Not specified"}</p>
+                        <p className="text-xs font-semibold text-neutral-500">{itemListingLabels.included}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{item.includedItems || itemListingLabels.notSpecified}</p>
                       </div>
                       <div className="rounded-xl bg-neutral-50 p-3">
                         <p className="text-xs font-semibold text-neutral-500">Source fields</p>
-                        <p className="mt-1 text-sm text-neutral-700">{[item.brand, item.model, item.sizeSpecs, item.colour, item.conditionGrade].filter(Boolean).join(" / ") || "No source fields added yet"}</p>
+                        <p className="mt-1 text-sm text-neutral-700">{[item.brand, item.model, item.sizeSpecs, item.colour, item.conditionGrade].filter(Boolean).join(" / ") || itemListingLabels.noSourceFields}</p>
                       </div>
                     </div>
                     <pre className="mt-3 max-h-44 overflow-auto whitespace-pre-wrap rounded-xl bg-neutral-50 p-3 text-xs text-neutral-700">{listingDraft.description}</pre>
                     <div className="mt-3">
-                      <p className="mb-1.5 text-xs font-semibold text-neutral-500">HTML description preview</p>
+                      <p className="mb-1.5 text-xs font-semibold text-neutral-500">{itemListingLabels.preview}</p>
                       <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
                         <div dangerouslySetInnerHTML={{ __html: listingDraft.htmlDescription }} />
                       </div>
