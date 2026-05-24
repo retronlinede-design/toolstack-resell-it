@@ -907,7 +907,7 @@ export default function ResellerItApp() {
   });
 
   useEffect(() => {
-    if (!editingId) return undefined;
+    if (!editingId && !itemFormOpen) return undefined;
     function handleKeyDown(event) {
       if (event.key === "Escape") {
         setEditingId(null);
@@ -917,7 +917,7 @@ export default function ResellerItApp() {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editingId]);
+  }, [editingId, itemFormOpen]);
 
   useEffect(() => {
     localStorage.setItem(STOCK_VIEW_KEY, stockViewMode);
@@ -957,7 +957,7 @@ export default function ResellerItApp() {
     persist(next);
     setForm(emptyItem);
     setEditingId(null);
-    if (keepAdding) setItemFormOpen(false);
+    setItemFormOpen(false);
   }
 
   function saveItem(e) {
@@ -988,6 +988,23 @@ export default function ResellerItApp() {
   function editItem(item) {
     setForm({ ...emptyItem, ...item });
     setEditingId(item.id);
+    setAdvancedFeesOpen(false);
+    setItemFormOpen(true);
+    setActiveWorkflowSection("source");
+  }
+
+  function openNewItemEditor() {
+    setForm({
+      ...emptyItem,
+      purchaseDate: CURRENT_DATE,
+      status: "Draft",
+      classification: "Private Sale / Personal Collection",
+      carrier: "DHL",
+      listingLanguage: "German",
+      hasReceipt: "No",
+      proofStoredExternally: "No",
+    });
+    setEditingId(null);
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
     setActiveWorkflowSection("source");
@@ -1629,7 +1646,7 @@ export default function ResellerItApp() {
             <div className="rounded-3xl border border-[#5a3028] bg-[#45251f] p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">Quick actions</p>
               <div className="grid gap-2">
-                <button type="button" onClick={() => { setActiveTab("dashboard"); setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add item</button>
+                <button type="button" onClick={openNewItemEditor} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add item</button>
                 <button type="button" onClick={() => openStockQueue("needsAttention")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Open Stock Control</button>
                 <button type="button" onClick={() => openSalesQueue("awaitingShipment")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales & shipping queue</button>
               </div>
@@ -1677,37 +1694,27 @@ export default function ResellerItApp() {
             </div>
           </div>
 
-        {editingId && (
-          <div className={editingId ? "fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1f120f]/75 p-3 backdrop-blur-sm sm:p-6" : ""} onMouseDown={(event) => { if (editingId && event.target === event.currentTarget) closeItemEditor(); }}>
-            <div className={editingId ? "w-full max-w-6xl" : ""} onMouseDown={(event) => event.stopPropagation()}>
-        <form onSubmit={saveItem} className={`premium-panel border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4 ${editingId ? "max-h-[calc(100vh-3rem)] overflow-y-auto rounded-3xl" : "rounded-3xl"}`}>
+        {(editingId || itemFormOpen) && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1f120f]/75 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) closeItemEditor(); }}>
+            <div className="w-full max-w-6xl" onMouseDown={(event) => event.stopPropagation()}>
+        <form onSubmit={saveItem} className="premium-panel max-h-[calc(100vh-3rem)] overflow-y-auto rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4">
           <div className="mb-4 rounded-2xl border border-[#eadfce] bg-white/80 p-3 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{editingId ? "Item editor" : "Add item"}</p>
-              <h2 className="mt-0.5 text-base font-semibold text-neutral-950">{editingId ? form.name || "Untitled item" : "Quick Add"}</h2>
-              {editingId ? (
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{form.classification || DEFAULT_CLASSIFICATION}</span>
-                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(form)}`}>{itemStatus(form)}</span>
-                </div>
-              ) : (
-                <p className="mt-1 text-xs leading-5 text-neutral-500">Fast daily capture first. Open the advanced form only when you need deeper fields.</p>
-              )}
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{editingId ? "Item editor" : "New item"}</p>
+              <h2 className="mt-0.5 text-base font-semibold text-neutral-950">{editingId ? form.name || "Untitled item" : "New Item"}</h2>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{form.classification || DEFAULT_CLASSIFICATION}</span>
+                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(form)}`}>{itemStatus(form)}</span>
+              </div>
             </div>
             <div className="flex flex-wrap gap-2">
-              {!editingId && (
-                <div className="inline-flex rounded-2xl border border-stone-200 bg-[#fffdf8] p-1">
-                  <button type="button" className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "text-stone-600 hover:bg-[#f0be45]/25" : "bg-[#e06b2c] text-[#24110e] shadow-sm"}`}>Quick Add</button>
-                  <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "text-stone-600 hover:bg-[#f0be45]/25"}`}>{itemFormOpen ? "Advanced open" : "Advanced Form"}</button>
-                </div>
-              )}
-              {editingId && <button type="button" onClick={closeItemEditor} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>}
+              <button type="button" onClick={closeItemEditor} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
             </div>
             </div>
           </div>
 
-          {editingId && (
+          {(editingId || itemFormOpen) && (
             <div className="space-y-4">
               <div className="premium-card overflow-hidden rounded-3xl border border-stone-200 bg-white shadow-sm">
                 <div className="flex h-1.5">
@@ -1955,7 +1962,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {!editingId && <div className="space-y-3">
+          {false && !editingId && <div className="space-y-3">
             {!editingId && (
               <div className="rounded-2xl border border-[#eadfce] bg-white/80 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Item templates</p>
@@ -2009,7 +2016,7 @@ export default function ResellerItApp() {
             </div>
           </div>}
 
-          {!editingId && itemFormOpen && <div className="mt-6 space-y-4 border-t border-[#eadfce] pt-5">
+          {false && !editingId && itemFormOpen && <div className="mt-6 space-y-4 border-t border-[#eadfce] pt-5">
             <div className="premium-panel rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -2368,8 +2375,13 @@ export default function ResellerItApp() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Control</p>
                     <h2 className="mt-0.5 text-lg font-semibold text-stone-950">Master Inventory Stock Control Sheet</h2>
                   </div>
-                  <div className="rounded-md border border-[#b7412e]/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124]">
-                    {stockTimelineItems.length} of {items.length} items
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button type="button" onClick={openNewItemEditor} className="rounded-md bg-[#e06b2c] px-3 py-1.5 text-xs font-semibold text-[#24110e] shadow-sm hover:bg-[#f0be45]">
+                      Add Item
+                    </button>
+                    <div className="rounded-md border border-[#b7412e]/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124]">
+                      {stockTimelineItems.length} of {items.length} items
+                    </div>
                   </div>
                 </div>
 
@@ -2441,15 +2453,15 @@ export default function ResellerItApp() {
                   <div><span className="text-stone-500">Profit</span><span className="ml-2 font-semibold text-lime-800">{money(stockTimelineTotals.profitTotal)}</span></div>
                 </div>
 
-                <div className="mb-2 overflow-x-auto rounded-lg border border-stone-200 bg-white">
-                  <div className="grid min-w-[760px] grid-cols-[7rem_1.6fr_1.1fr_7rem_13rem] items-center gap-1 border-b border-stone-100 bg-[#fff8ea] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                <div className="mb-2 overflow-x-auto rounded-lg border border-[#b7412e]/20 bg-[#fff6e6] shadow-[0_4px_14px_rgba(183,65,46,0.06)]">
+                  <div className="grid min-w-[760px] grid-cols-[7rem_1.6fr_1.1fr_7rem_13rem] items-center gap-1 border-b border-[#b7412e]/10 bg-[#fff2dc] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
                     <span>Date</span>
                     <span>Item</span>
                     <span>Source</span>
                     <span className="text-right">Purchase</span>
-                    <span className="text-center">Quick add</span>
+                    <span className="text-center text-[#8f3124]">Quick Stock Entry</span>
                   </div>
-                  <div className="grid min-w-[760px] grid-cols-[7rem_1.6fr_1.1fr_7rem_13rem] items-center gap-1 px-1.5 py-1">
+                  <div className="grid min-w-[760px] grid-cols-[7rem_1.6fr_1.1fr_7rem_13rem] items-center gap-1 border-l-2 border-[#b7412e] px-1.5 py-1.5">
                     <input type="date" value={quickAddItem.purchaseDate} onChange={(e) => setQuickAddItem({ ...quickAddItem, purchaseDate: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-1 text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" />
                     <input value={quickAddItem.name} onChange={(e) => setQuickAddItem({ ...quickAddItem, name: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-2 text-[11px] font-semibold text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="New stock item" />
                     <input value={quickAddItem.sourceName} onChange={(e) => setQuickAddItem({ ...quickAddItem, sourceName: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-2 text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="Source" />
