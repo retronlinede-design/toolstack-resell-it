@@ -250,6 +250,26 @@ function inYear(date, year = CURRENT_YEAR) {
   return String(date || "").startsWith(year);
 }
 
+function formatShortDate(date) {
+  if (!date) return "No date";
+  return new Date(`${date}T00:00:00`).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+}
+
+function timelineGroupLabel(date, grouping) {
+  if (grouping === "Ungrouped") return "All items";
+  if (!date) return "No purchase date";
+  const parsed = new Date(`${date}T00:00:00`);
+  if (Number.isNaN(parsed.getTime())) return "No purchase date";
+  if (grouping === "Year") return String(parsed.getFullYear());
+  if (grouping === "Week") {
+    const monday = new Date(parsed);
+    const day = monday.getDay() || 7;
+    monday.setDate(monday.getDate() - day + 1);
+    return `Week of ${monday.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}`;
+  }
+  return parsed.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
+}
+
 function itemClassification(item) {
   return item.classification || DEFAULT_CLASSIFICATION;
 }
@@ -866,6 +886,8 @@ export default function ResellerItApp() {
   const [inventoryCategory, setInventoryCategory] = useState("All categories");
   const [inventoryIssueFilter, setInventoryIssueFilter] = useState("All items");
   const [inventorySort, setInventorySort] = useState("Newest purchase date");
+  const [inventoryTimelineGrouping, setInventoryTimelineGrouping] = useState("Month");
+  const [inventoryTimelineMonth, setInventoryTimelineMonth] = useState("");
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
@@ -1258,6 +1280,22 @@ export default function ResellerItApp() {
       return String(b.purchaseDate || "").localeCompare(String(a.purchaseDate || ""));
     });
   }, [inventoryCategory, inventoryClassification, inventoryIssueFilter, inventorySearch, inventorySort, inventoryStatus, items]);
+
+  const stockTimelineItems = useMemo(() => {
+    return inventoryManagerItems
+      .filter((item) => !inventoryTimelineMonth || inMonth(item.purchaseDate, inventoryTimelineMonth))
+      .sort((a, b) => String(b.purchaseDate || "").localeCompare(String(a.purchaseDate || "")));
+  }, [inventoryManagerItems, inventoryTimelineMonth]);
+
+  const stockTimelineGroups = useMemo(() => {
+    const groups = new Map();
+    stockTimelineItems.forEach((item) => {
+      const label = timelineGroupLabel(item.purchaseDate, inventoryTimelineGrouping);
+      if (!groups.has(label)) groups.set(label, []);
+      groups.get(label).push(item);
+    });
+    return Array.from(groups.entries());
+  }, [inventoryTimelineGrouping, stockTimelineItems]);
 
   const stockSectionItems = useMemo(() => {
     if (stockSection === "needsAttention") {
@@ -2145,16 +2183,6 @@ export default function ResellerItApp() {
         </>
         )}
 
-        {activeTab === "stock" && (
-          <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {stockSections.map(([key, label]) => (
-                <button key={key} type="button" onClick={() => setStockSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 ${stockSection === key ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20 hover:shadow-sm"}`}>{label}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {activeTab === "sales" && (
           <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
@@ -2175,15 +2203,6 @@ export default function ResellerItApp() {
           </div>
         )}
 
-        {activeTab === "stock" && (
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard icon={Euro} label="Total inventory value" value={money(sectionSummaries.stock.inventoryValue)} sub="unsold purchase cost" accentClass="bg-[#b7412e]" />
-            <StatCard icon={Package} label="Items ready to list" value={sectionSummaries.stock.readyToList} accentClass="bg-[#b7412e]" />
-            <StatCard icon={ReceiptText} label="Missing proof" value={sectionSummaries.stock.missingProof} accentClass="bg-[#b7412e]" />
-            <StatCard icon={ShoppingCart} label="Recent sourcing" value={sectionSummaries.stock.recentSourcing} sub={CURRENT_MONTH} accentClass="bg-[#b7412e]" />
-          </section>
-        )}
-
         {activeTab === "sales" && (
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard icon={Truck} label="Awaiting shipment" value={sectionSummaries.sales.awaitingShipment} accentClass="bg-[#e06b2c]" />
@@ -2202,7 +2221,7 @@ export default function ResellerItApp() {
           </section>
         )}
 
-        {(activeTab === "stock" || activeTab === "sales" || (activeTab === "finance" && financeSection === "taxRecords")) && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        {(activeTab === "sales" || (activeTab === "finance" && financeSection === "taxRecords")) && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
               <option>All classifications</option>
@@ -2213,7 +2232,119 @@ export default function ResellerItApp() {
         </div>}
 
         <section className="grid gap-4">
-          {activeTab === "stock" && ["needsAttention", "inventory", "readyToList"].includes(stockSection) && (
+          {activeTab === "stock" && (
+            <div className="rounded-3xl border border-[#b7412e]/15 bg-[#fffaf0] shadow-[0_18px_50px_rgba(0,0,0,0.14)]">
+              <div className="border-b border-[#eadfce] p-4 sm:p-5">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                  <div>
+                    <div className="mb-3 h-1 w-16 rounded-full bg-[#b7412e]" />
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Control</p>
+                    <h2 className="mt-1 text-2xl font-semibold text-stone-950">Master Inventory Timeline</h2>
+                    <p className="mt-1 text-sm leading-6 text-stone-600">All sourced resale items in one chronological ledger. Open any row to edit details, proof, pricing, sale data, tax records, or Listing Studio.</p>
+                  </div>
+                  <div className="rounded-2xl border border-[#b7412e]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8f3124]">
+                    {stockTimelineItems.length} of {items.length} items
+                  </div>
+                </div>
+
+                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                  <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." className="xl:col-span-2" />
+                  <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}>
+                    <option>Month</option>
+                    <option>Week</option>
+                    <option>Year</option>
+                    <option>Ungrouped</option>
+                  </Select>
+                  <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}>
+                    <option>All classifications</option>
+                    {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+                  </Select>
+                  <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}>
+                    <option>All statuses</option>
+                    {statusOptions.map((status) => <option key={status}>{status}</option>)}
+                  </Select>
+                </div>
+
+                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                  <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} className="sm:max-w-xs" />
+                  <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-xl border border-[#b7412e]/20 bg-white px-3 py-2 text-sm font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
+                    {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
+                  </button>
+                </div>
+
+                {advancedInventoryFiltersOpen && (
+                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                    <Select label="Category" value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
+                      <option>All categories</option>
+                      {categoryOptions.map((category) => <option key={category}>{category}</option>)}
+                    </Select>
+                    <Select label="Inventory filter" value={inventoryIssueFilter} onChange={(e) => setInventoryIssueFilter(e.target.value)}>
+                      <option>All items</option>
+                      <option>Missing proof</option>
+                      <option>Missing price research</option>
+                      <option>Missing listing draft</option>
+                      <option>Review later</option>
+                      <option>Sold only</option>
+                      <option>Unsold only</option>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 p-3 sm:p-5">
+                {stockTimelineItems.length === 0 && (
+                  <p className="rounded-2xl border border-stone-200 bg-white p-5 text-sm text-stone-600">No inventory items match the current timeline filters.</p>
+                )}
+
+                {stockTimelineGroups.map(([groupLabel, groupItems]) => (
+                  <div key={groupLabel} className="grid gap-2">
+                    <div className="flex items-center justify-between gap-3 px-1">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8f3124]">{groupLabel}</h3>
+                      <span className="rounded-full bg-[#b7412e]/10 px-3 py-1 text-xs font-semibold text-[#8f3124]">{groupItems.length}</span>
+                    </div>
+
+                    <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
+                      {groupItems.map((item) => {
+                        const sold = isSoldStatus(item);
+                        const proofStatus = needsProofRecord(item) ? "Proof missing" : "Proof OK";
+                        const listingStatus = hasListingDraft(item) ? "Listing ready" : "Draft needed";
+                        return (
+                          <button key={item.id} type="button" onClick={() => editItem(item)} className="grid w-full gap-2 border-b border-stone-100 px-3 py-3 text-left transition hover:bg-[#fff6e6] last:border-b-0 md:grid-cols-[1.35fr_0.7fr_0.85fr_0.85fr_0.7fr_0.7fr_0.7fr_0.8fr_0.85fr] md:items-center">
+                            <div className="min-w-0">
+                              <p className="truncate font-semibold text-stone-950">{item.name || "Untitled item"}</p>
+                              <p className="mt-0.5 text-xs text-stone-500">{item.category || "No category"}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 md:hidden">Purchase date</p>
+                              <p className="text-sm text-stone-700">{formatShortDate(item.purchaseDate)}</p>
+                            </div>
+                            <div><span className="inline-flex rounded-full bg-stone-900 px-2.5 py-1 text-xs font-semibold text-amber-50">{itemClassification(item)}</span></div>
+                            <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span></div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 md:hidden">Purchase</p>
+                              <p className="text-sm font-semibold text-stone-900">{money(item.purchasePrice)}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 md:hidden">Sold</p>
+                              <p className="text-sm font-semibold text-stone-900">{sold ? money(finalSaleValue(item)) : "-"}</p>
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 md:hidden">Profit</p>
+                              <p className={`text-sm font-semibold ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</p>
+                            </div>
+                            <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${proofBadgeClass(item)}`}>{proofStatus}</span></div>
+                            <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${hasListingDraft(item) ? "border-lime-200 bg-lime-50 text-lime-800" : "border-[#f0be45]/40 bg-[#f0be45]/15 text-[#8a5b10]"}`}>{listingStatus}</span></div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {false && activeTab === "stock" && ["needsAttention", "inventory", "readyToList"].includes(stockSection) && (
             <div className="grid gap-5">
               <SectionHeader title={stockSectionDetails[stockSection][0]} subtitle={stockSectionDetails[stockSection][1]} count={stockSectionItems.length} />
 
@@ -2332,7 +2463,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "stock" && stockSection === "listingStudio" && (
+          {false && activeTab === "stock" && stockSection === "listingStudio" && (
             <div className="grid gap-5">
               <SectionHeader title={stockSectionDetails.listingStudio[0]} subtitle={stockSectionDetails.listingStudio[1]} count={items.length} />
 
@@ -2462,7 +2593,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {((activeTab === "stock" && stockSection === "needsAttention") || (activeTab === "finance" && financeSection === "taxRecords")) && (
+          {(activeTab === "finance" && financeSection === "taxRecords") && (
             <div className="grid gap-5">
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -3127,7 +3258,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {filtered.map((item) => {
+          {activeTab !== "stock" && filtered.map((item) => {
             const itemProfit = itemProfitValue(item);
             const classification = itemClassification(item);
             const proofExpanded = expandedProofId === item.id;
