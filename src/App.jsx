@@ -892,6 +892,7 @@ export default function ResellerItApp() {
   const [stockViewMode, setStockViewMode] = useState(() => localStorage.getItem(STOCK_VIEW_KEY) || "Detailed view");
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
+  const [stockFiltersOpen, setStockFiltersOpen] = useState(false);
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
   const [backupMessage, setBackupMessage] = useState("");
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
@@ -1041,6 +1042,32 @@ export default function ResellerItApp() {
 
   function updateItemField(id, field, value) {
     persist(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+  }
+
+  function updateItemProofStatus(id, value) {
+    persist(items.map((item) => {
+      if (item.id !== id) return item;
+      if (value === "OK") return { ...item, hasReceipt: "Yes", receiptType: item.receiptType || "Shop receipt", proofType: item.proofType || "Shop receipt" };
+      if (value === "Eigenbeleg") return { ...item, hasReceipt: "No", receiptType: "Eigenbeleg needed", proofType: "Eigenbeleg", proofStoredExternally: "No" };
+      return { ...item, hasReceipt: "No", receiptType: "", proofType: "", proofStoredExternally: "No", proofFileName: "", proofFolderLocation: "", proofImageDataUrl: "", proofNotes: "" };
+    }));
+  }
+
+  function updateItemListingStatus(id, value) {
+    persist(items.map((item) => {
+      if (item.id !== id) return item;
+      if (value === "Ready") {
+        const draft = generateListingDraft(item);
+        return {
+          ...item,
+          listingTitle: item.listingTitle || draft.title,
+          conditionText: item.conditionText || draft.condition,
+          descriptionText: item.descriptionText || draft.description,
+          htmlDescription: item.htmlDescription || draft.htmlDescription,
+        };
+      }
+      return { ...item, listingTitle: "", conditionText: "", descriptionText: "", htmlDescription: "" };
+    }));
   }
 
   function updateItemShipmentStatus(id, status) {
@@ -1323,6 +1350,16 @@ export default function ResellerItApp() {
     });
     return Array.from(groups.entries());
   }, [inventoryTimelineGrouping, stockTimelineItems]);
+
+  const stockActiveFilterCount = [
+    inventorySearch.trim(),
+    inventoryTimelineGrouping !== "Month",
+    inventoryClassification !== "All classifications",
+    inventoryStatus !== "All statuses",
+    inventoryTimelineMonth,
+    inventoryCategory !== "All categories",
+    inventoryIssueFilter !== "All items",
+  ].filter(Boolean).length;
 
   const stockSectionItems = useMemo(() => {
     if (stockSection === "needsAttention") {
@@ -2286,51 +2323,62 @@ export default function ResellerItApp() {
                   </div>
                 </div>
 
-                <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-                  <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." className="xl:col-span-2" />
-                  <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}>
-                    <option>Month</option>
-                    <option>Week</option>
-                    <option>Year</option>
-                    <option>Ungrouped</option>
-                  </Select>
-                  <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}>
-                    <option>All classifications</option>
-                    {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
-                  </Select>
-                  <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}>
-                    <option>All statuses</option>
-                    {statusOptions.map((status) => <option key={status}>{status}</option>)}
-                  </Select>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button type="button" onClick={() => setStockFiltersOpen(!stockFiltersOpen)} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
+                    Search / Filters{stockActiveFilterCount > 0 ? ` (${stockActiveFilterCount})` : ""}
+                  </button>
+                  <button type="button" onClick={() => setStockViewMode(stockViewMode === "Compact view" ? "Detailed view" : "Compact view")} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
+                    {stockViewMode}
+                  </button>
                 </div>
 
-                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} className="sm:max-w-xs" />
-                  <div className="flex flex-wrap gap-2 sm:justify-end">
-                    <button type="button" onClick={() => setStockViewMode(stockViewMode === "Compact view" ? "Detailed view" : "Compact view")} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
-                      {stockViewMode}
-                    </button>
-                    <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
-                      {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
-                    </button>
-                  </div>
-                </div>
+                {stockFiltersOpen && (
+                  <div className="mt-2 rounded-lg border border-stone-200 bg-white/75 p-2">
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+                      <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." className="xl:col-span-2" />
+                      <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}>
+                        <option>Month</option>
+                        <option>Week</option>
+                        <option>Year</option>
+                        <option>Ungrouped</option>
+                      </Select>
+                      <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}>
+                        <option>All classifications</option>
+                        {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+                      </Select>
+                      <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}>
+                        <option>All statuses</option>
+                        {statusOptions.map((status) => <option key={status}>{status}</option>)}
+                      </Select>
+                    </div>
 
-                {advancedInventoryFiltersOpen && (
-                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                    <Select label="Category" value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
-                      <option>All categories</option>
-                      {categoryOptions.map((category) => <option key={category}>{category}</option>)}
-                    </Select>
-                    <Select label="Inventory filter" value={inventoryIssueFilter} onChange={(e) => setInventoryIssueFilter(e.target.value)}>
-                      <option>All items</option>
-                      <option>Missing proof</option>
-                      <option>Missing price research</option>
-                      <option>Missing listing draft</option>
-                      <option>Review later</option>
-                      <option>Sold only</option>
-                      <option>Unsold only</option>
-                    </Select>
+                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                      <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} className="sm:max-w-xs" />
+                      <div className="flex flex-wrap gap-2 sm:justify-end">
+                        <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
+                          {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
+                        </button>
+                        <button type="button" onClick={() => { setInventorySearch(""); setInventoryTimelineGrouping("Month"); setInventoryClassification("All classifications"); setInventoryStatus("All statuses"); setInventoryTimelineMonth(""); setInventoryCategory("All categories"); setInventoryIssueFilter("All items"); }} className="rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">
+                          Reset filters
+                        </button>
+                      </div>
+                    </div>
+
+                    {advancedInventoryFiltersOpen && <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+                      <Select label="Category" value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
+                        <option>All categories</option>
+                        {categoryOptions.map((category) => <option key={category}>{category}</option>)}
+                      </Select>
+                      <Select label="Inventory filter" value={inventoryIssueFilter} onChange={(e) => setInventoryIssueFilter(e.target.value)}>
+                        <option>All items</option>
+                        <option>Missing proof</option>
+                        <option>Missing price research</option>
+                        <option>Missing listing draft</option>
+                        <option>Review later</option>
+                        <option>Sold only</option>
+                        <option>Unsold only</option>
+                      </Select>
+                    </div>}
                   </div>
                 )}
               </div>
@@ -2368,7 +2416,7 @@ export default function ResellerItApp() {
                             </tr>
                             {groupItems.map((item) => {
                               const sold = isSoldStatus(item);
-                              const proofStatus = needsProofRecord(item) ? "Missing" : "OK";
+                              const proofStatus = quickProofStatus(item) === "Eigenbeleg needed" ? "Eigenbeleg" : needsProofRecord(item) ? "Missing" : "OK";
                               const listingStatus = hasListingDraft(item) ? "Ready" : "Needed";
                               const inputClass = "h-6 w-full truncate rounded border border-transparent bg-transparent px-1 text-[11px] text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
                               return (
@@ -2399,8 +2447,19 @@ export default function ResellerItApp() {
                                     <input type="number" step="0.01" value={item.finalSalePrice !== undefined ? item.finalSalePrice : item.salePrice || ""} onChange={(e) => updateItemField(item.id, "finalSalePrice", e.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" />
                                   </td>
                                   {stockViewMode === "Detailed view" && <td className={`w-24 px-1.5 py-0.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</td>}
-                                  {stockViewMode === "Detailed view" && <td className={`w-14 px-1.5 py-0.5 font-semibold ${needsProofRecord(item) ? "text-red-700" : "text-lime-800"}`}>{proofStatus}</td>}
-                                  {stockViewMode === "Detailed view" && <td className={`w-16 px-1.5 py-0.5 font-semibold ${hasListingDraft(item) ? "text-lime-800" : "text-[#8a5b10]"}`}>{listingStatus}</td>}
+                                  {stockViewMode === "Detailed view" && <td className="w-20 px-1.5 py-0.5">
+                                    <select value={proofStatus} onChange={(e) => updateItemProofStatus(item.id, e.target.value)} className={`${inputClass} font-semibold ${proofStatus === "Missing" ? "text-red-700" : proofStatus === "Eigenbeleg" ? "text-[#8a5b10]" : "text-lime-800"}`}>
+                                      <option>OK</option>
+                                      <option>Missing</option>
+                                      <option>Eigenbeleg</option>
+                                    </select>
+                                  </td>}
+                                  {stockViewMode === "Detailed view" && <td className="w-20 px-1.5 py-0.5">
+                                    <select value={listingStatus} onChange={(e) => updateItemListingStatus(item.id, e.target.value)} className={`${inputClass} font-semibold ${listingStatus === "Ready" ? "text-lime-800" : "text-[#8a5b10]"}`}>
+                                      <option>Ready</option>
+                                      <option>Needed</option>
+                                    </select>
+                                  </td>}
                                   <td className="w-10 px-1 py-0.5 text-center">
                                     <button type="button" onClick={() => editItem(item)} className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent bg-transparent text-stone-500 hover:border-stone-200 hover:bg-white hover:text-[#8f3124]" title="Open full item workspace" aria-label={`Open ${item.name || "item"} workspace`}>
                                       <Edit3 size={12} />
