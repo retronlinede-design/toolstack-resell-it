@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Plus, Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
 import resellItLogo from "./assets/resellitlogo2.png";
 
@@ -68,12 +68,12 @@ const classificationHelp = [
   ["Unsure / Review Later", "Needs later review before reporting decisions."],
 ];
 const workflowSections = [
-  ["basic", "Basic Info", Info, "Identity, category, source, and status"],
-  ["pricing", "Pricing & Research", Search, "Comps, listing price, fees, and profit"],
-  ["listing", "Listing Studio", ClipboardList, "eBay title, copy, HTML, and research links"],
-  ["proof", "Proof & Receipts", ReceiptText, "Receipt status, file references, Eigenbeleg"],
-  ["sale", "Shipping & Sale", Truck, "Final sale, shipping, and completion"],
-  ["notes", "Notes & Extras", StickyNote, "Defects, included items, and metadata"],
+  ["basic", "Basic", Info, "Identity, category, and status"],
+  ["pricing", "Purchase", Search, "Purchase, pricing, fees, and profit"],
+  ["listing", "Listing", ClipboardList, "eBay title, copy, HTML, and research links"],
+  ["sale", "Sale / Shipping", Truck, "Final sale, shipping, and completion"],
+  ["proof", "Tax Proof", ReceiptText, "Receipt status, file references, Eigenbeleg"],
+  ["notes", "Notes", StickyNote, "Defects, included items, and metadata"],
 ];
 const advancedFormSections = [
   ["basic", "Basic Info", Info, "Name, category, classification, status", "border-[#b7412e] bg-[#b7412e] text-[#fff7e8] ring-[#b7412e]/20", "hover:border-[#b7412e]/50 hover:bg-[#b7412e]/12", "text-[#b7412e]"],
@@ -897,6 +897,19 @@ export default function ResellerItApp() {
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("basic");
   const [marketResearchOpen, setMarketResearchOpen] = useState(false);
 
+  useEffect(() => {
+    if (!editingId) return undefined;
+    function handleKeyDown(event) {
+      if (event.key === "Escape") {
+        setEditingId(null);
+        setForm(emptyItem);
+        setItemFormOpen(false);
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [editingId]);
+
   function persist(nextItems) {
     setItems(nextItems);
     localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: nextItems, expenses, updatedAt: new Date().toISOString() }));
@@ -962,11 +975,15 @@ export default function ResellerItApp() {
   function editItem(item) {
     setForm({ ...emptyItem, ...item });
     setEditingId(item.id);
-    setActiveTab("dashboard");
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
     setActiveWorkflowSection("basic");
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function closeItemEditor() {
+    setEditingId(null);
+    setForm(emptyItem);
+    setItemFormOpen(false);
   }
 
   function openStockQueue(section, issueFilter = "All items", status = "All statuses") {
@@ -1570,7 +1587,7 @@ export default function ResellerItApp() {
             </div>
           </div>
 
-        {activeTab === "dashboard" && (
+        {activeTab === "dashboard" && !editingId && (
         <>
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <QueueCard icon={ReceiptText} label="Needs proof" value={workflowQueues.needsProof.length} sub="Source records incomplete" onClick={() => openStockQueue("needsAttention", "Missing proof")} />
@@ -1580,14 +1597,26 @@ export default function ResellerItApp() {
           <QueueCard icon={Truck} label="Sold / needs shipping" value={workflowQueues.needsShipping.length} sub="Pack, track, complete" tone="sales" onClick={() => openSalesQueue("awaitingShipment")} />
           <QueueCard icon={ReceiptText} label="Needs tax record review" value={workflowQueues.needsTaxReview.length} sub="Proof, Eigenbeleg, unsure" tone="finance" onClick={() => openFinanceQueue("taxRecords")} />
         </section>
+        </>
+        )}
 
-        <form onSubmit={saveItem} className="premium-panel rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4">
+        {(activeTab === "dashboard" || editingId) && (
+          <div className={editingId ? "fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1f120f]/75 p-3 backdrop-blur-sm sm:p-6" : ""} onMouseDown={(event) => { if (editingId && event.target === event.currentTarget) closeItemEditor(); }}>
+            <div className={editingId ? "w-full max-w-6xl" : ""} onMouseDown={(event) => event.stopPropagation()}>
+        <form onSubmit={saveItem} className={`premium-panel border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4 ${editingId ? "max-h-[calc(100vh-3rem)] overflow-y-auto rounded-3xl" : "rounded-3xl"}`}>
           <div className="mb-4 rounded-2xl border border-[#eadfce] bg-white/80 p-3 shadow-sm">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{editingId ? "Item Workspace" : "Add item"}</p>
-              <h2 className="mt-0.5 text-base font-semibold text-neutral-950">{editingId ? "Edit Item" : "Quick Add"}</h2>
-              <p className="mt-1 text-xs leading-5 text-neutral-500">Fast daily capture first. Open the advanced form only when you need deeper fields.</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{editingId ? "Item editor" : "Add item"}</p>
+              <h2 className="mt-0.5 text-base font-semibold text-neutral-950">{editingId ? form.name || "Untitled item" : "Quick Add"}</h2>
+              {editingId ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{form.classification || DEFAULT_CLASSIFICATION}</span>
+                  <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(form)}`}>{itemStatus(form)}</span>
+                </div>
+              ) : (
+                <p className="mt-1 text-xs leading-5 text-neutral-500">Fast daily capture first. Open the advanced form only when you need deeper fields.</p>
+              )}
             </div>
             <div className="flex flex-wrap gap-2">
               {!editingId && (
@@ -1596,7 +1625,7 @@ export default function ResellerItApp() {
                   <button type="button" onClick={() => setItemFormOpen(!itemFormOpen)} className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition ${itemFormOpen ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "text-stone-600 hover:bg-[#f0be45]/25"}`}>{itemFormOpen ? "Advanced open" : "Advanced Form"}</button>
                 </div>
               )}
-              {editingId && <button type="button" onClick={() => { setEditingId(null); setForm(emptyItem); setItemFormOpen(false); }} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">Cancel edit</button>}
+              {editingId && <button type="button" onClick={closeItemEditor} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>}
             </div>
             </div>
           </div>
@@ -2184,7 +2213,8 @@ export default function ResellerItApp() {
 
           </div>}
         </form>
-        </>
+            </div>
+          </div>
         )}
 
         {activeTab === "sales" && (
