@@ -4,6 +4,7 @@ import resellItLogo from "./assets/resellitlogo2.png";
 
 const STORAGE_KEY = "toolstack.resellerit.v1";
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
+const STOCK_VIEW_KEY = "toolstack.resellit.stockView.v1";
 const CURRENT_DATE = new Date().toISOString().slice(0, 10);
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const CURRENT_YEAR = new Date().getFullYear().toString();
@@ -888,6 +889,7 @@ export default function ResellerItApp() {
   const [inventorySort, setInventorySort] = useState("Newest purchase date");
   const [inventoryTimelineGrouping, setInventoryTimelineGrouping] = useState("Month");
   const [inventoryTimelineMonth, setInventoryTimelineMonth] = useState("");
+  const [stockViewMode, setStockViewMode] = useState(() => localStorage.getItem(STOCK_VIEW_KEY) || "Detailed view");
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
@@ -909,6 +911,10 @@ export default function ResellerItApp() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [editingId]);
+
+  useEffect(() => {
+    localStorage.setItem(STOCK_VIEW_KEY, stockViewMode);
+  }, [stockViewMode]);
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -2300,9 +2306,14 @@ export default function ResellerItApp() {
 
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} className="sm:max-w-xs" />
-                  <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
-                    {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
-                  </button>
+                  <div className="flex flex-wrap gap-2 sm:justify-end">
+                    <button type="button" onClick={() => setStockViewMode(stockViewMode === "Compact view" ? "Detailed view" : "Compact view")} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
+                      {stockViewMode}
+                    </button>
+                    <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
+                      {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
+                    </button>
+                  </div>
                 </div>
 
                 {advancedInventoryFiltersOpen && (
@@ -2331,7 +2342,7 @@ export default function ResellerItApp() {
 
                 {stockTimelineItems.length > 0 && (
                   <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
-                    <table className="min-w-[1040px] w-full border-collapse text-left text-[11px]">
+                    <table className={`${stockViewMode === "Compact view" ? "min-w-[840px]" : "min-w-[1040px]"} w-full border-collapse text-left text-[11px]`}>
                       <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
                         <tr className="border-b border-stone-200">
                           <th className="px-1.5 py-1.5 font-semibold">Date</th>
@@ -2341,9 +2352,9 @@ export default function ResellerItApp() {
                           <th className="px-1.5 py-1.5 font-semibold">Source</th>
                           <th className="px-1.5 py-1.5 text-right font-semibold">Purchase</th>
                           <th className="px-1.5 py-1.5 text-right font-semibold">Sold</th>
-                          <th className="px-1.5 py-1.5 text-right font-semibold">Profit</th>
-                          <th className="px-1.5 py-1.5 font-semibold">Proof</th>
-                          <th className="px-1.5 py-1.5 font-semibold">Listing</th>
+                          {stockViewMode === "Detailed view" && <th className="px-1.5 py-1.5 text-right font-semibold">Profit</th>}
+                          {stockViewMode === "Detailed view" && <th className="px-1.5 py-1.5 font-semibold">Proof</th>}
+                          {stockViewMode === "Detailed view" && <th className="px-1.5 py-1.5 font-semibold">Listing</th>}
                           <th className="px-1.5 py-1.5 text-center font-semibold">Edit</th>
                         </tr>
                       </thead>
@@ -2351,7 +2362,7 @@ export default function ResellerItApp() {
                         {stockTimelineGroups.map(([groupLabel, groupItems]) => (
                           <React.Fragment key={groupLabel}>
                             <tr>
-                              <td colSpan={11} className="border-b border-stone-200 bg-[#fffaf0] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#8f3124]">
+                              <td colSpan={stockViewMode === "Compact view" ? 8 : 11} className="border-b border-stone-200 bg-[#fffaf0] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#8f3124]">
                                 {groupLabel} <span className="font-medium text-stone-400">({groupItems.length})</span>
                               </td>
                             </tr>
@@ -2387,9 +2398,9 @@ export default function ResellerItApp() {
                                   <td className="w-24 px-1.5 py-0.5">
                                     <input type="number" step="0.01" value={item.finalSalePrice !== undefined ? item.finalSalePrice : item.salePrice || ""} onChange={(e) => updateItemField(item.id, "finalSalePrice", e.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" />
                                   </td>
-                                  <td className={`w-24 px-1.5 py-0.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</td>
-                                  <td className={`w-14 px-1.5 py-0.5 font-semibold ${needsProofRecord(item) ? "text-red-700" : "text-lime-800"}`}>{proofStatus}</td>
-                                  <td className={`w-16 px-1.5 py-0.5 font-semibold ${hasListingDraft(item) ? "text-lime-800" : "text-[#8a5b10]"}`}>{listingStatus}</td>
+                                  {stockViewMode === "Detailed view" && <td className={`w-24 px-1.5 py-0.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</td>}
+                                  {stockViewMode === "Detailed view" && <td className={`w-14 px-1.5 py-0.5 font-semibold ${needsProofRecord(item) ? "text-red-700" : "text-lime-800"}`}>{proofStatus}</td>}
+                                  {stockViewMode === "Detailed view" && <td className={`w-16 px-1.5 py-0.5 font-semibold ${hasListingDraft(item) ? "text-lime-800" : "text-[#8a5b10]"}`}>{listingStatus}</td>}
                                   <td className="w-10 px-1 py-0.5 text-center">
                                     <button type="button" onClick={() => editItem(item)} className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent bg-transparent text-stone-500 hover:border-stone-200 hover:bg-white hover:text-[#8f3124]" title="Open full item workspace" aria-label={`Open ${item.name || "item"} workspace`}>
                                       <Edit3 size={12} />
