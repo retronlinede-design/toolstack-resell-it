@@ -891,7 +891,7 @@ export default function ResellerItApp() {
   const [stockViewMode, setStockViewMode] = useState(() => localStorage.getItem(STOCK_VIEW_KEY) || "Detailed view");
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
-  const [stockFiltersOpen, setStockFiltersOpen] = useState(false);
+  const [stockFilterMenu, setStockFilterMenu] = useState("");
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
   const [backupMessage, setBackupMessage] = useState("");
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
@@ -2387,64 +2387,32 @@ export default function ResellerItApp() {
                   </div>
                 </div>
 
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <button type="button" onClick={() => setStockFiltersOpen(!stockFiltersOpen)} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
-                    Search / Filters{stockActiveFilterCount > 0 ? ` (${stockActiveFilterCount})` : ""}
-                  </button>
-                  <button type="button" onClick={() => setStockViewMode(stockViewMode === "Compact view" ? "Detailed view" : "Compact view")} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
-                    {stockViewMode}
-                  </button>
+                <div className="relative mt-2 flex flex-wrap gap-2">
+                  {[
+                    ["search", Search, "Search", inventorySearch.trim()],
+                    ["group", ClipboardList, "Group", inventoryTimelineGrouping !== "Month"],
+                    ["classification", Package, "Classification", inventoryClassification !== "All classifications"],
+                    ["status", Info, "Status", inventoryStatus !== "All statuses"],
+                    ["date", ReceiptText, "Date", inventoryTimelineMonth],
+                    ["view", FileText, "View", stockViewMode === "Compact view"],
+                  ].map(([key, Icon, label, active]) => (
+                    <button key={key} type="button" onClick={() => setStockFilterMenu(stockFilterMenu === key ? "" : key)} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition ${active ? "border-[#b7412e]/35 bg-[#b7412e]/10 text-[#8f3124]" : "border-stone-200 bg-white text-stone-700 hover:border-[#b7412e]/25 hover:bg-[#fff6e6]"}`}>
+                      <Icon size={13} /> {label}
+                    </button>
+                  ))}
+                  {stockActiveFilterCount > 0 && <button type="button" onClick={() => { setInventorySearch(""); setInventoryTimelineGrouping("Month"); setInventoryClassification("All classifications"); setInventoryStatus("All statuses"); setInventoryTimelineMonth(""); setInventoryCategory("All categories"); setInventoryIssueFilter("All items"); setStockFilterMenu(""); }} className="rounded-full border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-50">Clear filters</button>}
+
+                  {stockFilterMenu && (
+                    <div className="absolute left-0 top-10 z-20 w-72 rounded-xl border border-stone-200 bg-white p-3 shadow-[0_18px_42px_rgba(41,37,36,0.16)]">
+                      {stockFilterMenu === "search" && <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." />}
+                      {stockFilterMenu === "group" && <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}><option>Month</option><option>Week</option><option>Year</option><option>Ungrouped</option></Select>}
+                      {stockFilterMenu === "classification" && <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}><option>All classifications</option>{classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}</Select>}
+                      {stockFilterMenu === "status" && <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}><option>All statuses</option>{statusOptions.map((status) => <option key={status}>{status}</option>)}</Select>}
+                      {stockFilterMenu === "date" && <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} />}
+                      {stockFilterMenu === "view" && <Select label="View" value={stockViewMode} onChange={(e) => setStockViewMode(e.target.value)}><option>Compact view</option><option>Detailed view</option></Select>}
+                    </div>
+                  )}
                 </div>
-
-                {stockFiltersOpen && (
-                  <div className="mt-2 rounded-lg border border-stone-200 bg-white/75 p-2">
-                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-                      <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." className="xl:col-span-2" />
-                      <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}>
-                        <option>Month</option>
-                        <option>Week</option>
-                        <option>Year</option>
-                        <option>Ungrouped</option>
-                      </Select>
-                      <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}>
-                        <option>All classifications</option>
-                        {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
-                      </Select>
-                      <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}>
-                        <option>All statuses</option>
-                        {statusOptions.map((status) => <option key={status}>{status}</option>)}
-                      </Select>
-                    </div>
-
-                    <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                      <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} className="sm:max-w-xs" />
-                      <div className="flex flex-wrap gap-2 sm:justify-end">
-                        <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
-                          {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
-                        </button>
-                        <button type="button" onClick={() => { setInventorySearch(""); setInventoryTimelineGrouping("Month"); setInventoryClassification("All classifications"); setInventoryStatus("All statuses"); setInventoryTimelineMonth(""); setInventoryCategory("All categories"); setInventoryIssueFilter("All items"); }} className="rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">
-                          Reset filters
-                        </button>
-                      </div>
-                    </div>
-
-                    {advancedInventoryFiltersOpen && <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
-                      <Select label="Category" value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
-                        <option>All categories</option>
-                        {categoryOptions.map((category) => <option key={category}>{category}</option>)}
-                      </Select>
-                      <Select label="Inventory filter" value={inventoryIssueFilter} onChange={(e) => setInventoryIssueFilter(e.target.value)}>
-                        <option>All items</option>
-                        <option>Missing proof</option>
-                        <option>Missing price research</option>
-                        <option>Missing listing draft</option>
-                        <option>Review later</option>
-                        <option>Sold only</option>
-                        <option>Unsold only</option>
-                      </Select>
-                    </div>}
-                  </div>
-                )}
               </div>
 
               <div className="p-1.5 sm:p-2">
