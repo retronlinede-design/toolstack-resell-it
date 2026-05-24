@@ -1016,6 +1016,10 @@ export default function ResellerItApp() {
     persist(items.map((item) => (item.id === id ? { ...item, status } : item)));
   }
 
+  function updateItemField(id, field, value) {
+    persist(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+  }
+
   function updateItemShipmentStatus(id, status) {
     const today = new Date().toISOString().slice(0, 10);
     persist(items.map((item) => {
@@ -2233,21 +2237,20 @@ export default function ResellerItApp() {
 
         <section className="grid gap-4">
           {activeTab === "stock" && (
-            <div className="rounded-3xl border border-[#b7412e]/15 bg-[#fffaf0] shadow-[0_18px_50px_rgba(0,0,0,0.14)]">
-              <div className="border-b border-[#eadfce] p-4 sm:p-5">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+            <div className="rounded-2xl border border-[#b7412e]/15 bg-[#fffaf0] shadow-[0_14px_34px_rgba(0,0,0,0.1)]">
+              <div className="border-b border-[#eadfce] p-3 sm:p-4">
+                <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <div className="mb-3 h-1 w-16 rounded-full bg-[#b7412e]" />
+                    <div className="mb-2 h-0.5 w-14 rounded-full bg-[#b7412e]" />
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Control</p>
-                    <h2 className="mt-1 text-2xl font-semibold text-stone-950">Master Inventory Timeline</h2>
-                    <p className="mt-1 text-sm leading-6 text-stone-600">All sourced resale items in one chronological ledger. Open any row to edit details, proof, pricing, sale data, tax records, or Listing Studio.</p>
+                    <h2 className="mt-1 text-xl font-semibold text-stone-950">Master Inventory Timeline</h2>
                   </div>
-                  <div className="rounded-2xl border border-[#b7412e]/15 bg-white px-4 py-3 text-sm font-semibold text-[#8f3124]">
+                  <div className="rounded-lg border border-[#b7412e]/15 bg-white px-3 py-2 text-sm font-semibold text-[#8f3124]">
                     {stockTimelineItems.length} of {items.length} items
                   </div>
                 </div>
 
-                <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
                   <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." className="xl:col-span-2" />
                   <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}>
                     <option>Month</option>
@@ -2265,15 +2268,15 @@ export default function ResellerItApp() {
                   </Select>
                 </div>
 
-                <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} className="sm:max-w-xs" />
-                  <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-xl border border-[#b7412e]/20 bg-white px-3 py-2 text-sm font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
+                  <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-lg border border-[#b7412e]/20 bg-white px-3 py-2 text-sm font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
                     {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
                   </button>
                 </div>
 
                 {advancedInventoryFiltersOpen && (
-                  <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
                     <Select label="Category" value={inventoryCategory} onChange={(e) => setInventoryCategory(e.target.value)}>
                       <option>All categories</option>
                       {categoryOptions.map((category) => <option key={category}>{category}</option>)}
@@ -2291,55 +2294,86 @@ export default function ResellerItApp() {
                 )}
               </div>
 
-              <div className="grid gap-4 p-3 sm:p-5">
+              <div className="p-2 sm:p-3">
                 {stockTimelineItems.length === 0 && (
-                  <p className="rounded-2xl border border-stone-200 bg-white p-5 text-sm text-stone-600">No inventory items match the current timeline filters.</p>
+                  <p className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-600">No inventory items match the current timeline filters.</p>
                 )}
 
-                {stockTimelineGroups.map(([groupLabel, groupItems]) => (
-                  <div key={groupLabel} className="grid gap-2">
-                    <div className="flex items-center justify-between gap-3 px-1">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8f3124]">{groupLabel}</h3>
-                      <span className="rounded-full bg-[#b7412e]/10 px-3 py-1 text-xs font-semibold text-[#8f3124]">{groupItems.length}</span>
-                    </div>
-
-                    <div className="overflow-hidden rounded-2xl border border-stone-200 bg-white">
-                      {groupItems.map((item) => {
-                        const sold = isSoldStatus(item);
-                        const proofStatus = needsProofRecord(item) ? "Proof missing" : "Proof OK";
-                        const listingStatus = hasListingDraft(item) ? "Listing ready" : "Draft needed";
-                        return (
-                          <button key={item.id} type="button" onClick={() => editItem(item)} className="grid w-full gap-2 border-b border-stone-100 px-3 py-3 text-left transition hover:bg-[#fff6e6] last:border-b-0 md:grid-cols-[1.35fr_0.7fr_0.85fr_0.85fr_0.7fr_0.7fr_0.7fr_0.8fr_0.85fr] md:items-center">
-                            <div className="min-w-0">
-                              <p className="truncate font-semibold text-stone-950">{item.name || "Untitled item"}</p>
-                              <p className="mt-0.5 text-xs text-stone-500">{item.category || "No category"}</p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 md:hidden">Purchase date</p>
-                              <p className="text-sm text-stone-700">{formatShortDate(item.purchaseDate)}</p>
-                            </div>
-                            <div><span className="inline-flex rounded-full bg-stone-900 px-2.5 py-1 text-xs font-semibold text-amber-50">{itemClassification(item)}</span></div>
-                            <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span></div>
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 md:hidden">Purchase</p>
-                              <p className="text-sm font-semibold text-stone-900">{money(item.purchasePrice)}</p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 md:hidden">Sold</p>
-                              <p className="text-sm font-semibold text-stone-900">{sold ? money(finalSaleValue(item)) : "-"}</p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 md:hidden">Profit</p>
-                              <p className={`text-sm font-semibold ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</p>
-                            </div>
-                            <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${proofBadgeClass(item)}`}>{proofStatus}</span></div>
-                            <div><span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${hasListingDraft(item) ? "border-lime-200 bg-lime-50 text-lime-800" : "border-[#f0be45]/40 bg-[#f0be45]/15 text-[#8a5b10]"}`}>{listingStatus}</span></div>
-                          </button>
-                        );
-                      })}
-                    </div>
+                {stockTimelineItems.length > 0 && (
+                  <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
+                    <table className="min-w-[1180px] w-full border-collapse text-left text-xs">
+                      <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[11px] uppercase tracking-wide text-stone-500">
+                        <tr className="border-b border-stone-200">
+                          <th className="px-2 py-2 font-semibold">Date</th>
+                          <th className="px-2 py-2 font-semibold">Item</th>
+                          <th className="px-2 py-2 font-semibold">Classification</th>
+                          <th className="px-2 py-2 font-semibold">Status</th>
+                          <th className="px-2 py-2 font-semibold">Source</th>
+                          <th className="px-2 py-2 text-right font-semibold">Purchase Price</th>
+                          <th className="px-2 py-2 text-right font-semibold">Sold Price</th>
+                          <th className="px-2 py-2 text-right font-semibold">Profit</th>
+                          <th className="px-2 py-2 font-semibold">Proof</th>
+                          <th className="px-2 py-2 font-semibold">Listing</th>
+                          <th className="px-2 py-2 text-center font-semibold">Edit</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stockTimelineGroups.map(([groupLabel, groupItems]) => (
+                          <React.Fragment key={groupLabel}>
+                            <tr>
+                              <td colSpan={11} className="border-b border-stone-200 bg-[#fffaf0] px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#8f3124]">
+                                {groupLabel} <span className="font-medium text-stone-400">({groupItems.length})</span>
+                              </td>
+                            </tr>
+                            {groupItems.map((item) => {
+                              const sold = isSoldStatus(item);
+                              const proofStatus = needsProofRecord(item) ? "Missing" : "OK";
+                              const listingStatus = hasListingDraft(item) ? "Ready" : "Needed";
+                              const inputClass = "h-8 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
+                              return (
+                                <tr key={item.id} className="border-b border-stone-100 last:border-b-0 hover:bg-[#fffaf0]">
+                                  <td className="w-28 px-2 py-1">
+                                    <input type="date" value={item.purchaseDate || ""} onChange={(e) => updateItemField(item.id, "purchaseDate", e.target.value)} className={inputClass} />
+                                  </td>
+                                  <td className="w-56 px-2 py-1">
+                                    <input value={item.name || ""} onChange={(e) => updateItemField(item.id, "name", e.target.value)} className={`${inputClass} font-semibold`} placeholder="Item name" />
+                                  </td>
+                                  <td className="w-40 px-2 py-1">
+                                    <select value={itemClassification(item)} onChange={(e) => updateItemField(item.id, "classification", e.target.value)} className={inputClass}>
+                                      {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+                                    </select>
+                                  </td>
+                                  <td className="w-36 px-2 py-1">
+                                    <select value={itemStatus(item)} onChange={(e) => updateItemField(item.id, "status", e.target.value)} className={inputClass}>
+                                      {statusOptions.map((status) => <option key={status}>{status}</option>)}
+                                    </select>
+                                  </td>
+                                  <td className="w-44 px-2 py-1">
+                                    <input value={item.sourceName || item.sourceLocation || ""} onChange={(e) => updateItemField(item.id, "sourceName", e.target.value)} className={inputClass} placeholder="Source" />
+                                  </td>
+                                  <td className="w-28 px-2 py-1">
+                                    <input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(e) => updateItemField(item.id, "purchasePrice", e.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" />
+                                  </td>
+                                  <td className="w-28 px-2 py-1">
+                                    <input type="number" step="0.01" value={item.finalSalePrice !== undefined ? item.finalSalePrice : item.salePrice || ""} onChange={(e) => updateItemField(item.id, "finalSalePrice", e.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" />
+                                  </td>
+                                  <td className={`w-24 px-2 py-1 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</td>
+                                  <td className={`w-20 px-2 py-1 font-semibold ${needsProofRecord(item) ? "text-red-700" : "text-lime-800"}`}>{proofStatus}</td>
+                                  <td className={`w-24 px-2 py-1 font-semibold ${hasListingDraft(item) ? "text-lime-800" : "text-[#8a5b10]"}`}>{listingStatus}</td>
+                                  <td className="w-16 px-2 py-1 text-center">
+                                    <button type="button" onClick={() => editItem(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-700 hover:border-[#b7412e]/30 hover:bg-[#fff6e6]" title="Open full item workspace" aria-label={`Open ${item.name || "item"} workspace`}>
+                                      <Edit3 size={14} />
+                                    </button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </React.Fragment>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           )}
