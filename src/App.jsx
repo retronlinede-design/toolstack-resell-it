@@ -1677,20 +1677,7 @@ export default function ResellerItApp() {
             </div>
           </div>
 
-        {activeTab === "dashboard" && !editingId && (
-        <>
-        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <QueueCard icon={ReceiptText} label="Needs proof" value={workflowQueues.needsProof.length} sub="Source records incomplete" onClick={() => openStockQueue("needsAttention", "Missing proof")} />
-          <QueueCard icon={Search} label="Needs price research" value={workflowQueues.needsResearch.length} sub="Research before listing" onClick={() => openStockQueue("needsAttention", "Missing price research")} />
-          <QueueCard icon={FileText} label="Needs listing" value={workflowQueues.needsListing.length} sub="Draft title or copy" onClick={() => openStockQueue("needsAttention", "Missing listing draft")} />
-          <QueueCard icon={ClipboardList} label="Ready to list" value={workflowQueues.readyToList.length} sub="Open listing studio" onClick={() => openStockQueue("readyToList")} />
-          <QueueCard icon={Truck} label="Sold / needs shipping" value={workflowQueues.needsShipping.length} sub="Pack, track, complete" tone="sales" onClick={() => openSalesQueue("awaitingShipment")} />
-          <QueueCard icon={ReceiptText} label="Needs tax record review" value={workflowQueues.needsTaxReview.length} sub="Proof, Eigenbeleg, unsure" tone="finance" onClick={() => openFinanceQueue("taxRecords")} />
-        </section>
-        </>
-        )}
-
-        {(activeTab === "dashboard" || editingId) && (
+        {editingId && (
           <div className={editingId ? "fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1f120f]/75 p-3 backdrop-blur-sm sm:p-6" : ""} onMouseDown={(event) => { if (editingId && event.target === event.currentTarget) closeItemEditor(); }}>
             <div className={editingId ? "w-full max-w-6xl" : ""} onMouseDown={(event) => event.stopPropagation()}>
         <form onSubmit={saveItem} className={`premium-panel border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4 ${editingId ? "max-h-[calc(100vh-3rem)] overflow-y-auto rounded-3xl" : "rounded-3xl"}`}>
@@ -2758,6 +2745,63 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "dashboard" && (
+            <div className="grid gap-4">
+              <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.06)]">
+                <div className="mb-4 h-1 w-24 rounded-full bg-gradient-to-r from-[#b7412e] via-[#f0be45] to-[#1f9d99]" />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Today</p>
+                    <h2 className="text-xl font-semibold text-stone-950">Next Actions</h2>
+                  </div>
+                  <button type="button" onClick={() => openStockQueue("needsAttention")} className="text-left text-xs font-semibold text-[#8f3124] hover:text-[#b7412e] sm:text-right">Open Stock Control</button>
+                </div>
+                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    ["Research", todayWorkflow.toResearch.length, "stock", "needsAttention", "Missing price research"],
+                    ["List", todayWorkflow.readyToList.length, "stock", "readyToList", "All items"],
+                    ["Ship", todayWorkflow.soldNotShipped.length, "sales", "awaitingShipment", ""],
+                    ["Proof", todayWorkflow.missingProof.length, "stock", "needsAttention", "Missing proof"],
+                  ].map(([label, value, tab, section, issue]) => (
+                    <button key={label} type="button" onClick={() => { if (tab === "stock") openStockQueue(section, issue || "All items"); else openSalesQueue(section); }} className="rounded-2xl border border-stone-200 bg-[#fffdf8] p-4 text-left transition hover:border-[#e06b2c]/35 hover:bg-[#fff6e6]">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{label}</p>
+                      <p className="mt-2 text-3xl font-semibold text-stone-950">{value}</p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+
+              <div className="grid gap-4 xl:grid-cols-3">
+                <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Snapshot</p>
+                  <div className="mt-4 grid gap-3">
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Items</span><span className="font-semibold text-stone-950">{items.length}</span></div>
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Unsold cost</span><span className="font-semibold text-stone-950">{money(sectionSummaries.stock.inventoryValue)}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Ready to list</span><span className="font-semibold text-stone-950">{sectionSummaries.stock.readyToList}</span></div>
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#e06b2c]">Sales Snapshot</p>
+                  <div className="mt-4 grid gap-3">
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Month sales</span><span className="font-semibold text-stone-950">{money(monthlySummary.salesTotal)}</span></div>
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Awaiting shipment</span><span className="font-semibold text-stone-950">{sectionSummaries.sales.awaitingShipment}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Month profit</span><span className="font-semibold text-lime-800">{money(monthlySummary.profit)}</span></div>
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#1f9d99]">Tax Readiness</p>
+                  <div className="mt-4 grid gap-3">
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Proof complete</span><span className="font-semibold text-stone-950">{proofSummary.proofComplete}</span></div>
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Missing proof</span><span className="font-semibold text-stone-950">{proofSummary.missingProof}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Eigenbeleg needed</span><span className="font-semibold text-stone-950">{proofSummary.needsEigenbeleg}</span></div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          )}
+
+          {false && activeTab === "dashboard" && (
             <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <h2 className="text-lg font-semibold text-neutral-950">Monthly reseller dashboard</h2>
