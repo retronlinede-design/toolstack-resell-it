@@ -69,11 +69,10 @@ const classificationHelp = [
   ["Unsure / Review Later", "Needs later review before reporting decisions."],
 ];
 const workflowSections = [
-  ["basic", "Basic", Info, "Identity, category, and status"],
-  ["pricing", "Purchase", Search, "Purchase, pricing, fees, and profit"],
-  ["listing", "Listing", ClipboardList, "eBay title, copy, HTML, and research links"],
-  ["sale", "Sale / Shipping", Truck, "Final sale, shipping, and completion"],
-  ["proof", "Tax Proof", ReceiptText, "Receipt status, file references, Eigenbeleg"],
+  ["source", "Source", Package, "Purchase source, identity, and cost"],
+  ["listing", "Prepare Listing", ClipboardList, "Product details, condition, and eBay copy"],
+  ["sale", "Sell & Ship", Truck, "Sale, fees, shipping, and status"],
+  ["proof", "Tax Record", ReceiptText, "Proof, receipts, and Eigenbeleg"],
   ["notes", "Notes", StickyNote, "Defects, included items, and metadata"],
 ];
 const advancedFormSections = [
@@ -897,7 +896,7 @@ export default function ResellerItApp() {
   const [backupMessage, setBackupMessage] = useState("");
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
   const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
-  const [activeWorkflowSection, setActiveWorkflowSection] = useState("basic");
+  const [activeWorkflowSection, setActiveWorkflowSection] = useState("source");
   const [marketResearchOpen, setMarketResearchOpen] = useState(false);
 
   useEffect(() => {
@@ -984,7 +983,7 @@ export default function ResellerItApp() {
     setEditingId(item.id);
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
-    setActiveWorkflowSection("basic");
+    setActiveWorkflowSection("source");
   }
 
   function closeItemEditor() {
@@ -1360,6 +1359,9 @@ export default function ResellerItApp() {
     inventoryCategory !== "All categories",
     inventoryIssueFilter !== "All items",
   ].filter(Boolean).length;
+  const activeWorkflowIndex = Math.max(0, workflowSections.findIndex(([key]) => key === activeWorkflowSection));
+  const previousWorkflowStep = workflowSections[activeWorkflowIndex - 1];
+  const nextWorkflowStep = workflowSections[activeWorkflowIndex + 1];
 
   const stockSectionItems = useMemo(() => {
     if (stockSection === "needsAttention") {
@@ -1689,26 +1691,24 @@ export default function ResellerItApp() {
                       <div className="mt-2 flex flex-wrap gap-2">
                         <span className="rounded-full bg-stone-900 px-3 py-1 text-xs font-medium text-amber-50">{form.classification || DEFAULT_CLASSIFICATION}</span>
                         <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(form)}`}>{itemStatus(form)}</span>
-                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${proofBadgeClass(form)}`}>{quickProofStatus(form)}</span>
-                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${hasListingDraft(form) ? "bg-lime-100 text-lime-800" : "bg-orange-100 text-orange-800"}`}>{hasListingDraft(form) ? "Listing ready" : "Listing draft needed"}</span>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:min-w-[520px]">
-                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Purchase</p><p className="font-semibold">{money(form.purchasePrice)}</p></div>
-                      {isSoldStatus(form) && <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Sold</p><p className="font-semibold">{money(finalSaleValue(form))}</p></div>}
-                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Shipping</p><p className="font-semibold">{money(form.actualShippingCost || form.shippingCost)}</p></div>
-                      <div className="rounded-2xl bg-lime-50 p-3 text-lime-900"><p className="text-xs text-lime-700">Profit</p><p className="font-semibold">{money(itemProfitValue(form))}</p></div>
-                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof</p><p className="font-semibold">{needsProofRecord(form) ? "Missing" : "Recorded"}</p></div>
-                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{hasListingDraft(form) ? "Ready" : "Draft"}</p></div>
+                    <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:min-w-[620px]">
+                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Purchase</p><p className="font-semibold">{money(form.purchasePrice)}</p></div>
+                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Sold</p><p className="font-semibold">{money(finalSaleValue(form))}</p></div>
+                      <div className="rounded-xl bg-lime-50 p-2 text-lime-900"><p className="text-xs text-lime-700">Profit</p><p className="font-semibold">{money(itemProfitValue(form))}</p></div>
+                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Tax proof</p><p className="font-semibold">{needsProofRecord(form) ? "Missing" : quickProofStatus(form)}</p></div>
+                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{hasListingDraft(form) ? "Ready" : "Draft"}</p></div>
+                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Status</p><p className="font-semibold">{itemStatus(form)}</p></div>
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 {workflowSections.map(([key, label, Icon, description]) => (
-                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-3xl border p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(41,37,36,0.1)] ${activeWorkflowSection === key ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 ring-2 ring-[#e06b2c]/15" : "border-stone-200 bg-white hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15"}`}>
-                    <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-2xl bg-stone-900 text-amber-50 transition-colors duration-150 group-hover:bg-[#351c17]">
+                  <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-2xl border p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(41,37,36,0.1)] ${activeWorkflowSection === key ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 ring-2 ring-[#e06b2c]/15" : "border-stone-200 bg-white hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15"}`}>
+                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-stone-900 text-amber-50 transition-colors duration-150 group-hover:bg-[#351c17]">
                       <Icon size={18} />
                     </div>
                     <p className="text-sm font-semibold text-stone-950">{label}</p>
@@ -1720,13 +1720,17 @@ export default function ResellerItApp() {
               <div className="premium-panel rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
                 <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Focused editing panel</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Item control center</p>
                     <h3 className="text-lg font-semibold text-stone-950">{workflowSections.find(([key]) => key === activeWorkflowSection)?.[1]}</h3>
                   </div>
-                  <button type="button" onClick={() => saveCurrentItem()} className="rounded-2xl bg-[#e06b2c] px-4 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.18)] hover:bg-[#f0be45]">Save item</button>
+                  <div className="flex flex-wrap gap-2">
+                    {previousWorkflowStep && <button type="button" onClick={() => setActiveWorkflowSection(previousWorkflowStep[0])} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Previous step</button>}
+                    {nextWorkflowStep && <button type="button" onClick={() => setActiveWorkflowSection(nextWorkflowStep[0])} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Next step</button>}
+                    <button type="button" onClick={() => saveCurrentItem()} className="rounded-2xl bg-[#e06b2c] px-4 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.18)] hover:bg-[#f0be45]">Save item</button>
+                  </div>
                 </div>
 
-                {activeWorkflowSection === "basic" && (
+                {activeWorkflowSection === "source" && (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                     <Input label="Item name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                     <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
@@ -1789,8 +1793,20 @@ export default function ResellerItApp() {
                   <div className="space-y-4">
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate output</button>
-                      {listingResearchLinks(form).map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>)}
+                      <button type="button" onClick={() => setMarketResearchOpen(!marketResearchOpen)} className="rounded-xl border border-[#f0be45]/40 px-3 py-2 text-sm font-semibold text-[#72530b] hover:bg-[#f0be45]/15">{marketResearchOpen ? "Hide market research" : "Market research"}</button>
                     </div>
+                    {marketResearchOpen && (
+                      <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+                        <Input label="Research query" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
+                        <label className="mt-3 block">
+                          <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research notes</span>
+                          <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                        </label>
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {listingResearchLinks(form).map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>)}
+                        </div>
+                      </div>
+                    )}
                     <div className="grid gap-3 lg:grid-cols-2">
                       <Select label="Listing language" value={listingLanguage(form)} onChange={(e) => setForm({ ...form, listingLanguage: e.target.value })}>
                         {listingLanguageOptions.map((language) => <option key={language}>{language}</option>)}
@@ -1839,6 +1855,7 @@ export default function ResellerItApp() {
                       </div>
                       <Input label="eBay title legacy field" value={form.ebayTitle || ""} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value })} />
                       <Input label="Listing title" value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} />
+                      <Input label="Included items" className="lg:col-span-2" value={form.includedItems || ""} onChange={(e) => setForm({ ...form, includedItems: e.target.value })} />
                       <label className="block"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span><textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                       <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span><textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                     </div>
@@ -1881,6 +1898,7 @@ export default function ResellerItApp() {
                       <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
                       <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
                       <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
+                      <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
                       <Input label="Carrier" value={form.carrier || "DHL"} onChange={(e) => setForm({ ...form, carrier: e.target.value })} />
                       <Input label="Tracking number" value={form.trackingNumber || ""} onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })} />
                       <Input label="Shipped date" type="date" value={form.shippedDate || ""} onChange={(e) => setForm({ ...form, shippedDate: e.target.value })} />
