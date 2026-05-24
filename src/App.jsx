@@ -344,6 +344,10 @@ function hasListingDraft(item) {
   return Boolean(item.listingTitle || item.conditionText || item.descriptionText || item.htmlDescription);
 }
 
+function hasListingPreviewInput(item) {
+  return Boolean(item.htmlDescription || item.descriptionText || generatedListingTitle(item) || item.conditionGrade || item.conditionNotes || item.defectsNotes || item.includedItems || item.shippingNotes || item.notes);
+}
+
 function isSoldStatus(item) {
   return ["Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned"].includes(itemStatus(item)) || Boolean(item.finalSalePrice || item.salePrice || item.saleDate);
 }
@@ -426,11 +430,11 @@ function listingLabels(item) {
       notes: "Hinweise",
       brand: "Marke",
       model: "Modell",
-      sizeSpecs: "Groesse / Spezifikation",
+      sizeSpecs: "Größe / Spezifikation",
       colour: "Farbe",
       category: "Kategorie",
       price: "Angebotspreis",
-      defects: "Maengel / Gebrauchsspuren",
+      defects: "Mängel / Gebrauchsspuren",
       researchNotes: "Recherchehinweise",
       copyTitle: "Titel kopieren",
       copyCondition: "Zustand kopieren",
@@ -482,7 +486,7 @@ function germanConditionGrade(grade) {
   if (["good", "gut"].includes(normalized)) return "Guter gebrauchter Zustand";
   if (["used", "pre-owned", "preowned", "gebraucht"].includes(normalized)) return "Gebraucht";
   if (["fair", "acceptable", "akzeptabel"].includes(normalized)) return "Akzeptabler gebrauchter Zustand";
-  if (["for parts", "defective", "defekt", "parts only"].includes(normalized)) return "Als defekt / fuer Ersatzteile";
+  if (["for parts", "defective", "defekt", "parts only"].includes(normalized)) return "Als defekt / für Ersatzteile";
   return grade;
 }
 
@@ -492,8 +496,8 @@ function generatedConditionText(item, { preferSaved = true } = {}) {
     return [
       germanConditionGrade(item.conditionGrade),
       item.conditionNotes,
-      item.defectsNotes && `Maengel / Gebrauchsspuren: ${item.defectsNotes}`,
-    ].filter(Boolean).join("\n") || "Bitte die Beschreibung fuer Details zum Zustand beachten.";
+      item.defectsNotes && `Mängel / Gebrauchsspuren: ${item.defectsNotes}`,
+    ].filter(Boolean).join("\n") || "Gebrauchter Zustand. Bitte die Fotos und Beschreibung beachten.";
   }
   return [item.conditionGrade, item.conditionNotes || item.notes, item.defectsNotes && `Defects / wear: ${item.defectsNotes}`].filter(Boolean).join("\n") || "Please review the description for condition details.";
 }
@@ -504,35 +508,44 @@ function privateSellerNote(item) {
     : "Private sale. No warranty, guarantee, or returns.";
 }
 
-function listingArticleDetails(item) {
+function listingArticleLines(item) {
+  const title = generatedListingTitle(item);
+  return [
+    title && `${listingLabels(item).title}: ${title}`,
+    item.name && `${isGermanListing(item) ? "Artikel" : "Item"}: ${item.name}`,
+  ].filter(Boolean);
+}
+
+function listingDescriptionLines(item) {
   const labels = listingLabels(item);
   return [
-    [labels.title, generatedListingTitle(item)],
     [labels.brand, item.brand],
     [labels.model, item.model],
     [labels.category, item.category],
     [labels.sizeSpecs, item.sizeSpecs],
     [labels.colour, item.colour],
     [labels.price, listingPrice(item) ? money(listingPrice(item)) : ""],
-  ].filter(([, value]) => value);
+  ].filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`);
 }
 
 function listingPlainSections(item, condition) {
   const labels = listingLabels(item);
   const included = bulletLines(item.includedItems);
+  const descriptionLines = listingDescriptionLines(item);
   const notes = [
     item.notes,
     item.priceResearchNotes && `${labels.researchNotes}: ${item.priceResearchNotes}`,
     privateSellerNote(item),
   ].filter(Boolean);
   const headings = isGermanListing(item)
-    ? { article: "Artikel", condition: "Zustand", included: "Lieferumfang", shipping: "Versand", notes: "Hinweise" }
-    : { article: "Item", condition: "Condition", included: "What is included", shipping: "Shipping", notes: "Notes" };
+    ? { article: "Artikel", condition: "Zustand", description: "Beschreibung", included: "Lieferumfang", shipping: "Versand", notes: "Hinweise" }
+    : { article: "Item", condition: "Condition", description: "Description", included: "What is included", shipping: "Shipping", notes: "Notes" };
 
   return [
-    [headings.article, listingArticleDetails(item).map(([label, value]) => `${label}: ${value}`)],
+    [headings.article, listingArticleLines(item)],
     [headings.condition, [condition]],
-    [headings.included, included.length ? included.map((line) => `- ${line}`) : [labels.notSpecified]],
+    [headings.description, descriptionLines.length ? descriptionLines : [isGermanListing(item) ? "Details siehe Titel, Zustand und Lieferumfang." : "Details are listed in the title, condition, and included items."]],
+    [headings.included, included.length ? included.map((line) => `- ${line}`) : [isGermanListing(item) ? "Lieferumfang wie beschrieben." : "Included as described."]],
     [headings.shipping, [item.shippingNotes || (isGermanListing(item) ? "Versand nach Vereinbarung." : "Shipping by arrangement.")]],
     [headings.notes, notes],
   ].filter(([, lines]) => lines.length);
@@ -550,7 +563,11 @@ function htmlLines(lines) {
       "    </ul>",
     ].join("\n");
   }
-  return lines.map((line) => `    <p style="margin:0 0 7px;">${escapeHtml(line).replaceAll("\n", "<br>")}</p>`).join("\n");
+  return lines.map((line) => {
+    const isPrivateNote = line === privateSellerNote({ listingLanguage: "German" }) || line === privateSellerNote({ listingLanguage: "English" });
+    const style = isPrivateNote ? "margin:8px 0 0;color:#6b5a46;font-size:13px;" : "margin:0 0 7px;";
+    return `    <p style="${style}">${escapeHtml(line).replaceAll("\n", "<br>")}</p>`;
+  }).join("\n");
 }
 
 function generateHtmlDescription(item, { preferSaved = true } = {}) {
@@ -1591,12 +1608,12 @@ export default function ResellerItApp() {
                       <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span><textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyTitle}</button>
-                      <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), form.conditionText || generatedConditionText(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyCondition}</button>
-                      <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyDescription}</button>
-                      <button type="button" onClick={() => copyText("HTML description", form.htmlDescription)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyHtmlDescription}</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyTitle}</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), form.conditionText || generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyCondition}</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText || generateListingDraft(form).description)} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyDescription}</button>
+                      <button type="button" onClick={() => copyText("HTML description", form.htmlDescription || generateHtmlDescription(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyHtmlDescription}</button>
                     </div>
-                    {(form.htmlDescription || form.descriptionText) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: form.htmlDescription || generateHtmlDescription(form) }} /></div>}
+                    {hasListingPreviewInput(form) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: form.htmlDescription || generateHtmlDescription(form) }} /></div>}
                   </div>
                 )}
 
@@ -1910,18 +1927,18 @@ export default function ResellerItApp() {
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">eBay title</span>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                    <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyTitle}</button>
+                    <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyTitle}</button>
                   </div>
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition</span>
                   <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), form.conditionText || generatedConditionText(form))} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyCondition}</button>
+                  <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), form.conditionText || generatedConditionText(form))} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyCondition}</button>
                 </label>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span>
                   <textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyDescription}</button>
+                  <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText || generateListingDraft(form).description)} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyDescription}</button>
                 </label>
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">What is included</span>
@@ -1930,9 +1947,9 @@ export default function ResellerItApp() {
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span>
                   <textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-32 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText("HTML description", form.htmlDescription)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{formListingLabels.copyHtmlDescription}</button>
+                  <button type="button" onClick={() => copyText("HTML description", form.htmlDescription || generateHtmlDescription(form))} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyHtmlDescription}</button>
                 </label>
-                {(form.htmlDescription || form.descriptionText) && (
+                {hasListingPreviewInput(form) && (
                   <div className="lg:col-span-2">
                     <p className="mb-1.5 text-xs font-semibold text-neutral-600">{formListingLabels.preview}</p>
                     <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
