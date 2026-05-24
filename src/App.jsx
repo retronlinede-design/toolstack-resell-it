@@ -162,6 +162,9 @@ const emptyItem = {
   model: "",
   sizeSpecs: "",
   colour: "",
+  productDescriptionText: "",
+  compatibilityInfo: "",
+  keyFeatures: "",
   conditionGrade: "",
   conditionText: "",
   conditionNotes: "",
@@ -345,7 +348,7 @@ function hasListingDraft(item) {
 }
 
 function hasListingPreviewInput(item) {
-  return Boolean(item.htmlDescription || item.descriptionText || generatedListingTitle(item) || item.conditionGrade || item.conditionNotes || item.defectsNotes || item.includedItems || item.shippingNotes || item.notes);
+  return Boolean(item.htmlDescription || item.descriptionText || generatedListingTitle(item) || item.conditionGrade || item.conditionNotes || item.defectsNotes || item.includedItems || item.shippingNotes || item.notes || item.productDescriptionText || item.compatibilityInfo || item.keyFeatures);
 }
 
 function isSoldStatus(item) {
@@ -537,6 +540,9 @@ function htmlRetroSection(heading, colour, contentHtml) {
 
 function productDescriptionLines(item) {
   const labels = listingLabels(item);
+  const explicitDescription = String(item.productDescriptionText || "").trim();
+  const compatibility = String(item.compatibilityInfo || "").trim();
+  const features = bulletLines(item.keyFeatures);
   const identity = [item.brand, item.model, item.name].filter(Boolean).join(" ");
   const categoryLine = item.category && (isGermanListing(item)
     ? `${identity || item.name || "Der Artikel"} gehört zur Kategorie ${item.category}.`
@@ -548,8 +554,17 @@ function productDescriptionLines(item) {
   const modelLine = item.model && item.brand && (isGermanListing(item)
     ? `Hersteller/Modell: ${item.brand} ${item.model}.`
     : `Maker/model: ${item.brand} ${item.model}.`);
+  const compatibilityLine = compatibility && (isGermanListing(item)
+    ? `Kompatibilität / Plattform: ${compatibility}`
+    : `Compatibility / platform: ${compatibility}`);
+  const featureLines = features.map((feature) => isGermanListing(item) ? `Merkmal: ${feature}` : `Feature: ${feature}`);
 
-  return [categoryLine, modelLine, ...specs].filter(Boolean);
+  return [
+    explicitDescription,
+    compatibilityLine,
+    ...featureLines,
+    ...(explicitDescription ? specs : [categoryLine, modelLine, ...specs]),
+  ].filter(Boolean);
 }
 
 function generateHtmlDescription(item, { preferSaved = true } = {}) {
@@ -1401,6 +1416,7 @@ export default function ResellerItApp() {
   const activeModule = modules.find(([key]) => key === activeTab);
   const activeTitle = activeModule?.[1] || "Dashboard";
   const formListingLabels = listingLabels(form);
+  const formListingSectionHeadings = listingSectionHeadings(form);
 
   return (
     <div className="min-h-screen bg-[#24120f] p-3 text-stone-900 sm:p-4 md:p-5">
@@ -1633,10 +1649,28 @@ export default function ResellerItApp() {
                       <Select label="Listing language" value={listingLanguage(form)} onChange={(e) => setForm({ ...form, listingLanguage: e.target.value })}>
                         {listingLanguageOptions.map((language) => <option key={language}>{language}</option>)}
                       </Select>
-                      <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-                      <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-                      <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
-                      <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
+                      <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
+                        <p className="mt-1 text-xs leading-5 text-stone-600">Describe what the item is, important features, compatibility, and general product information.</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+                          <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+                          <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
+                          <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
+                          <label className="block sm:col-span-2 lg:col-span-4">
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Product Description / About Text</span>
+                            <textarea value={form.productDescriptionText || ""} onChange={(e) => setForm({ ...form, productDescriptionText: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                          </label>
+                          <label className="block sm:col-span-2">
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Compatibility / Platform info</span>
+                            <textarea value={form.compatibilityInfo || ""} onChange={(e) => setForm({ ...form, compatibilityInfo: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                          </label>
+                          <label className="block sm:col-span-2">
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Key Features</span>
+                            <textarea value={form.keyFeatures || ""} onChange={(e) => setForm({ ...form, keyFeatures: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="One feature per line or comma-separated" />
+                          </label>
+                        </div>
+                      </div>
                       <Input label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })} />
                       <Input label="eBay title legacy field" value={form.ebayTitle || ""} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value })} />
                       <Input label="Listing title" value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} />
@@ -1960,6 +1994,28 @@ export default function ResellerItApp() {
                 <Select label="Listing language" value={listingLanguage(form)} onChange={(e) => setForm({ ...form, listingLanguage: e.target.value })}>
                   {listingLanguageOptions.map((language) => <option key={language}>{language}</option>)}
                 </Select>
+                <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
+                  <p className="mt-1 text-xs leading-5 text-stone-600">Describe what the item is, important features, compatibility, and general product information.</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+                    <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+                    <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
+                    <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
+                    <label className="block sm:col-span-2 lg:col-span-4">
+                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Product Description / About Text</span>
+                      <textarea value={form.productDescriptionText || ""} onChange={(e) => setForm({ ...form, productDescriptionText: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                    </label>
+                    <label className="block sm:col-span-2">
+                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Compatibility / Platform info</span>
+                      <textarea value={form.compatibilityInfo || ""} onChange={(e) => setForm({ ...form, compatibilityInfo: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                    </label>
+                    <label className="block sm:col-span-2">
+                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Key Features</span>
+                      <textarea value={form.keyFeatures || ""} onChange={(e) => setForm({ ...form, keyFeatures: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="One feature per line or comma-separated" />
+                    </label>
+                  </div>
+                </div>
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">eBay title</span>
                   <div className="flex flex-col gap-2 sm:flex-row">
@@ -1999,10 +2055,6 @@ export default function ResellerItApp() {
               <div className="mt-4 rounded-2xl bg-neutral-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Editable source fields</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-                  <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-                  <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
-                  <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
                   <Input label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })} placeholder="New, very good, used..." />
                   <Input label="Defects / wear" value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} placeholder="Scratches, missing parts..." />
                   <Input label="Shipping notes" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} placeholder="Tracked DHL, pickup possible..." />
