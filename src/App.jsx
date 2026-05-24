@@ -502,42 +502,79 @@ function generatedConditionText(item, { preferSaved = true } = {}) {
   return [item.conditionGrade, item.conditionNotes || item.notes, item.defectsNotes && `Defects / wear: ${item.defectsNotes}`].filter(Boolean).join("\n") || "Please review the description for condition details.";
 }
 
+function privateSellerNote(item) {
+  return isGermanListing(item)
+    ? "Privatverkauf. Keine Garantie, Gewährleistung oder Rücknahme."
+    : "Private sale. No warranty, guarantee, or returns.";
+}
+
+function listingSectionHeadings(item) {
+  return isGermanListing(item)
+    ? { article: "ARTIKEL", condition: "ZUSTAND", included: "LIEFERUMFANG", shipping: "VERSAND", notes: "HINWEISE" }
+    : { article: "ITEM", condition: "CONDITION", included: "WHAT IS INCLUDED", shipping: "SHIPPING", notes: "NOTES" };
+}
+
+function htmlParagraphs(lines) {
+  return lines.map((line) => `      <p style="margin:0 0 8px;">${escapeHtml(line).replaceAll("\n", "<br>")}</p>`).join("\n");
+}
+
+function htmlBulletList(lines) {
+  return [
+    '      <ul style="margin:0;padding-left:18px;">',
+    ...lines.map((line) => `        <li style="margin:0 0 5px;">${escapeHtml(line)}</li>`),
+    "      </ul>",
+  ].join("\n");
+}
+
+function htmlRetroSection(heading, colour, contentHtml) {
+  return [
+    `    <div style="border-left:5px solid ${colour};background:#fffdf5;margin:0 0 12px;padding:12px 12px 10px;border-radius:4px;">`,
+    `      <h3 style="margin:0 0 8px;font-size:15px;letter-spacing:.04em;color:#2b211d;font-weight:700;">${escapeHtml(heading)}</h3>`,
+    contentHtml,
+    "    </div>",
+  ].join("\n");
+}
+
 function generateHtmlDescription(item, { preferSaved = true } = {}) {
   const labels = listingLabels(item);
+  const headings = listingSectionHeadings(item);
   const condition = generatedConditionText(item, { preferSaved });
   const price = listingPrice(item);
-  const plainDescription = preferSaved ? item.descriptionText || generatedPlainDescription(item, condition) : generatedPlainDescription(item, condition);
-  const details = [
+  const articleLines = [
+    generatedListingTitle(item),
     [labels.brand, item.brand],
     [labels.model, item.model],
+    [labels.category, item.category],
     [labels.sizeSpecs, item.sizeSpecs],
     [labels.colour, item.colour],
-    [labels.condition, isGermanListing(item) ? germanConditionGrade(item.conditionGrade) : item.conditionGrade],
     [labels.price, price ? money(price) : ""],
-  ].filter(([, value]) => value);
+  ].map((entry) => Array.isArray(entry) ? entry : ["", entry])
+    .filter(([, value]) => value)
+    .map(([label, value]) => label ? `${label}: ${value}` : value);
   const included = bulletLines(item.includedItems);
+  const shippingLines = [item.shippingNotes || (isGermanListing(item) ? "Versand nach Vereinbarung." : "Shipping by arrangement.")];
   const notes = [
-    item.conditionNotes && [labels.notes, item.conditionNotes],
-    item.defectsNotes && [labels.defects, item.defectsNotes],
-    item.shippingNotes && [labels.shipping, item.shippingNotes],
-    item.notes && [labels.notes, item.notes],
-    item.priceResearchNotes && [labels.researchNotes, item.priceResearchNotes],
+    item.notes,
+    item.priceResearchNotes && `${labels.researchNotes}: ${item.priceResearchNotes}`,
+    itemClassification(item) === "Private Sale / Personal Collection" && privateSellerNote(item),
   ].filter(Boolean);
+  const notesLines = notes.length ? notes : [isGermanListing(item) ? "Keine weiteren Hinweise." : "No additional notes."];
+  const includedLines = included.length ? included : [isGermanListing(item) ? "Lieferumfang wie beschrieben." : "Included as described."];
 
   return [
-    '<div style="max-width:700px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#2b211d;line-height:1.5;">',
-    `  <h2 style="font-size:22px;margin:0 0 12px;">${escapeHtml(generatedListingTitle(item))}</h2>`,
-    details.length ? '  <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">' : "",
-    ...details.map(([label, value]) => `    <tr><th style="text-align:left;border:1px solid #e5ded4;padding:8px;background:#faf7ef;">${escapeHtml(label)}</th><td style="border:1px solid #e5ded4;padding:8px;">${escapeHtml(value)}</td></tr>`),
-    details.length ? "  </table>" : "",
-    `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.condition)}</h3>`,
-    `  <p style="margin:0 0 12px;">${escapeHtml(condition).replaceAll("\n", "<br>")}</p>`,
-    included.length ? `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.included)}</h3>` : "",
-    included.length ? "  <ul>" : "",
-    ...included.map((line) => `    <li>${escapeHtml(line)}</li>`),
-    included.length ? "  </ul>" : "",
-    notes.map(([label, value]) => `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(label)}</h3>\n  <p style="margin:0 0 12px;">${escapeHtml(value).replaceAll("\n", "<br>")}</p>`).join("\n"),
-    plainDescription ? `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.description)}</h3>\n  <p style="margin:0;">${escapeHtml(plainDescription).replaceAll("\n", "<br>")}</p>` : "",
+    '<div style="background:#2b1b14;padding:14px 10px;margin:0 auto;max-width:720px;">',
+    '  <div style="max-width:700px;margin:0 auto;background:#fff8e8;color:#2b211d;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;border:1px solid #d8c4a4;border-radius:6px;overflow:hidden;">',
+    '    <div style="height:6px;background:#2f9d9a;border-bottom:3px solid #e0b947;"></div>',
+    '    <div style="height:3px;background:#d9783b;border-bottom:3px solid #b7412e;"></div>',
+    '    <div style="padding:16px;">',
+    `      <h2 style="margin:0 0 14px;font-size:22px;line-height:1.25;color:#2b211d;font-weight:700;">${escapeHtml(generatedListingTitle(item))}</h2>`,
+    htmlRetroSection(headings.article, "#2f9d9a", htmlParagraphs(articleLines)),
+    htmlRetroSection(headings.condition, "#e0b947", htmlParagraphs([condition])),
+    htmlRetroSection(headings.included, "#d9783b", htmlBulletList(includedLines)),
+    htmlRetroSection(headings.shipping, "#b7412e", htmlParagraphs(shippingLines)),
+    htmlRetroSection(headings.notes, "#2f9d9a", htmlParagraphs(notesLines)),
+    "    </div>",
+    "  </div>",
     "</div>",
   ].filter(Boolean).join("\n");
 }
