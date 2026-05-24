@@ -502,96 +502,70 @@ function generatedConditionText(item, { preferSaved = true } = {}) {
   return [item.conditionGrade, item.conditionNotes || item.notes, item.defectsNotes && `Defects / wear: ${item.defectsNotes}`].filter(Boolean).join("\n") || "Please review the description for condition details.";
 }
 
-function privateSellerNote(item) {
-  return isGermanListing(item)
-    ? "Privatverkauf. Keine Garantie, Gewährleistung oder Rücknahme."
-    : "Private sale. No warranty, guarantee, or returns.";
-}
-
-function listingArticleLines(item) {
-  const title = generatedListingTitle(item);
-  return [
-    title && `${listingLabels(item).title}: ${title}`,
-    item.name && `${isGermanListing(item) ? "Artikel" : "Item"}: ${item.name}`,
-  ].filter(Boolean);
-}
-
-function listingDescriptionLines(item) {
+function generateHtmlDescription(item, { preferSaved = true } = {}) {
   const labels = listingLabels(item);
-  return [
+  const condition = generatedConditionText(item, { preferSaved });
+  const price = listingPrice(item);
+  const plainDescription = preferSaved ? item.descriptionText || generatedPlainDescription(item, condition) : generatedPlainDescription(item, condition);
+  const details = [
     [labels.brand, item.brand],
     [labels.model, item.model],
-    [labels.category, item.category],
     [labels.sizeSpecs, item.sizeSpecs],
     [labels.colour, item.colour],
-    [labels.price, listingPrice(item) ? money(listingPrice(item)) : ""],
-  ].filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`);
-}
-
-function listingPlainSections(item, condition) {
-  const labels = listingLabels(item);
+    [labels.condition, isGermanListing(item) ? germanConditionGrade(item.conditionGrade) : item.conditionGrade],
+    [labels.price, price ? money(price) : ""],
+  ].filter(([, value]) => value);
   const included = bulletLines(item.includedItems);
-  const descriptionLines = listingDescriptionLines(item);
   const notes = [
-    item.notes,
-    item.priceResearchNotes && `${labels.researchNotes}: ${item.priceResearchNotes}`,
-    privateSellerNote(item),
+    item.conditionNotes && [labels.notes, item.conditionNotes],
+    item.defectsNotes && [labels.defects, item.defectsNotes],
+    item.shippingNotes && [labels.shipping, item.shippingNotes],
+    item.notes && [labels.notes, item.notes],
+    item.priceResearchNotes && [labels.researchNotes, item.priceResearchNotes],
   ].filter(Boolean);
-  const headings = isGermanListing(item)
-    ? { article: "Artikel", condition: "Zustand", description: "Beschreibung", included: "Lieferumfang", shipping: "Versand", notes: "Hinweise" }
-    : { article: "Item", condition: "Condition", description: "Description", included: "What is included", shipping: "Shipping", notes: "Notes" };
 
   return [
-    [headings.article, listingArticleLines(item)],
-    [headings.condition, [condition]],
-    [headings.description, descriptionLines.length ? descriptionLines : [isGermanListing(item) ? "Details siehe Titel, Zustand und Lieferumfang." : "Details are listed in the title, condition, and included items."]],
-    [headings.included, included.length ? included.map((line) => `- ${line}`) : [isGermanListing(item) ? "Lieferumfang wie beschrieben." : "Included as described."]],
-    [headings.shipping, [item.shippingNotes || (isGermanListing(item) ? "Versand nach Vereinbarung." : "Shipping by arrangement.")]],
-    [headings.notes, notes],
-  ].filter(([, lines]) => lines.length);
-}
-
-function plainSectionsToText(sections) {
-  return sections.map(([heading, lines]) => [heading, ...lines].join("\n")).join("\n\n");
-}
-
-function htmlLines(lines) {
-  if (lines.length && lines.every((line) => line.startsWith("- "))) {
-    return [
-      '    <ul style="margin:0;padding-left:18px;">',
-      ...lines.map((line) => `      <li style="margin:0 0 4px;">${escapeHtml(line.slice(2))}</li>`),
-      "    </ul>",
-    ].join("\n");
-  }
-  return lines.map((line) => {
-    const isPrivateNote = line === privateSellerNote({ listingLanguage: "German" }) || line === privateSellerNote({ listingLanguage: "English" });
-    const style = isPrivateNote ? "margin:8px 0 0;color:#6b5a46;font-size:13px;" : "margin:0 0 7px;";
-    return `    <p style="${style}">${escapeHtml(line).replaceAll("\n", "<br>")}</p>`;
-  }).join("\n");
-}
-
-function generateHtmlDescription(item, { preferSaved = true } = {}) {
-  const condition = generatedConditionText(item, { preferSaved });
-  const sections = listingPlainSections(item, condition);
-
-  return [
-    '<div style="max-width:680px;margin:0 auto;background:#fff8e8;color:#2b211d;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;border:1px solid #e7d7bd;">',
-    '  <div style="height:4px;background:#d9783b;border-bottom:1px solid #e0b947;"></div>',
-    '  <div style="padding:16px;">',
-    `    <h2 style="margin:0 0 14px;font-size:20px;line-height:1.25;color:#2b211d;">${escapeHtml(generatedListingTitle(item))}</h2>`,
-    ...sections.map(([heading, lines], index) => [
-      `    <h3 style="margin:${index ? "16px" : "0"} 0 7px;padding-left:8px;border-left:4px solid ${["#d9783b", "#e0b947", "#2f9d9a"][index % 3]};font-size:15px;color:#6f3b1e;">${escapeHtml(heading)}</h3>`,
-      htmlLines(lines),
-    ].join("\n")),
-    "  </div>",
+    '<div style="max-width:700px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#2b211d;line-height:1.5;">',
+    `  <h2 style="font-size:22px;margin:0 0 12px;">${escapeHtml(generatedListingTitle(item))}</h2>`,
+    details.length ? '  <table style="width:100%;border-collapse:collapse;margin:0 0 16px;">' : "",
+    ...details.map(([label, value]) => `    <tr><th style="text-align:left;border:1px solid #e5ded4;padding:8px;background:#faf7ef;">${escapeHtml(label)}</th><td style="border:1px solid #e5ded4;padding:8px;">${escapeHtml(value)}</td></tr>`),
+    details.length ? "  </table>" : "",
+    `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.condition)}</h3>`,
+    `  <p style="margin:0 0 12px;">${escapeHtml(condition).replaceAll("\n", "<br>")}</p>`,
+    included.length ? `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.included)}</h3>` : "",
+    included.length ? "  <ul>" : "",
+    ...included.map((line) => `    <li>${escapeHtml(line)}</li>`),
+    included.length ? "  </ul>" : "",
+    notes.map(([label, value]) => `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(label)}</h3>\n  <p style="margin:0 0 12px;">${escapeHtml(value).replaceAll("\n", "<br>")}</p>`).join("\n"),
+    plainDescription ? `  <h3 style="font-size:16px;margin:16px 0 8px;">${escapeHtml(labels.description)}</h3>\n  <p style="margin:0;">${escapeHtml(plainDescription).replaceAll("\n", "<br>")}</p>` : "",
     "</div>",
-  ].join("\n");
+  ].filter(Boolean).join("\n");
+}
+
+function generatedPlainDescription(item, condition) {
+  const labels = listingLabels(item);
+  const price = listingPrice(item);
+  return [
+    item.name && `${isGermanListing(item) ? "Artikel" : "Item"}: ${item.name}`,
+    item.brand && `${labels.brand}: ${item.brand}`,
+    item.model && `${labels.model}: ${item.model}`,
+    item.category && `${labels.category}: ${item.category}`,
+    item.sizeSpecs && `${labels.sizeSpecs}: ${item.sizeSpecs}`,
+    item.colour && `${labels.colour}: ${item.colour}`,
+    price && `${labels.price}: ${money(price)}`,
+    condition && `${labels.condition}: ${condition}`,
+    item.includedItems && `${labels.included}: ${item.includedItems}`,
+    item.defectsNotes && `${labels.defects}: ${item.defectsNotes}`,
+    item.shippingNotes && `${labels.shipping}: ${item.shippingNotes}`,
+    item.notes && `${labels.notes}: ${item.notes}`,
+    item.priceResearchNotes && `${labels.researchNotes}: ${item.priceResearchNotes}`,
+  ].filter(Boolean).join("\n");
 }
 
 function generateListingDraft(item, { preferSaved = true } = {}) {
   const title = generatedListingTitle(item);
   const condition = generatedConditionText(item, { preferSaved });
-  const generatedDescription = plainSectionsToText(listingPlainSections(item, condition));
+  const generatedDescription = generatedPlainDescription(item, condition);
   const description = preferSaved ? item.descriptionText || generatedDescription : generatedDescription;
 
   return {
