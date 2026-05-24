@@ -510,8 +510,8 @@ function privateSellerNote(item) {
 
 function listingSectionHeadings(item) {
   return isGermanListing(item)
-    ? { article: "ARTIKEL", condition: "ZUSTAND", included: "LIEFERUMFANG", shipping: "VERSAND", notes: "HINWEISE" }
-    : { article: "ITEM", condition: "CONDITION", included: "WHAT IS INCLUDED", shipping: "SHIPPING", notes: "NOTES" };
+    ? { article: "ARTIKEL", productDescription: "PRODUKTBESCHREIBUNG", condition: "ZUSTAND", included: "LIEFERUMFANG", shipping: "VERSAND", notes: "HINWEISE" }
+    : { article: "ITEM", productDescription: "ABOUT THE ITEM", condition: "CONDITION", included: "WHAT IS INCLUDED", shipping: "SHIPPING", notes: "NOTES" };
 }
 
 function htmlParagraphs(lines) {
@@ -535,11 +535,27 @@ function htmlRetroSection(heading, colour, contentHtml) {
   ].join("\n");
 }
 
+function productDescriptionLines(item) {
+  const labels = listingLabels(item);
+  const identity = [item.brand, item.model, item.name].filter(Boolean).join(" ");
+  const categoryLine = item.category && (isGermanListing(item)
+    ? `${identity || item.name || "Der Artikel"} gehört zur Kategorie ${item.category}.`
+    : `${identity || item.name || "This item"} is in the ${item.category} category.`);
+  const specs = [
+    item.sizeSpecs && `${labels.sizeSpecs}: ${item.sizeSpecs}`,
+    item.colour && `${labels.colour}: ${item.colour}`,
+  ].filter(Boolean);
+  const modelLine = item.model && item.brand && (isGermanListing(item)
+    ? `Hersteller/Modell: ${item.brand} ${item.model}.`
+    : `Maker/model: ${item.brand} ${item.model}.`);
+
+  return [categoryLine, modelLine, ...specs].filter(Boolean);
+}
+
 function generateHtmlDescription(item, { preferSaved = true } = {}) {
   const labels = listingLabels(item);
   const headings = listingSectionHeadings(item);
   const condition = generatedConditionText(item, { preferSaved });
-  const price = listingPrice(item);
   const articleLines = [
     generatedListingTitle(item),
     [labels.brand, item.brand],
@@ -547,15 +563,14 @@ function generateHtmlDescription(item, { preferSaved = true } = {}) {
     [labels.category, item.category],
     [labels.sizeSpecs, item.sizeSpecs],
     [labels.colour, item.colour],
-    [labels.price, price ? money(price) : ""],
   ].map((entry) => Array.isArray(entry) ? entry : ["", entry])
     .filter(([, value]) => value)
     .map(([label, value]) => label ? `${label}: ${value}` : value);
+  const productLines = productDescriptionLines(item);
   const included = bulletLines(item.includedItems);
   const shippingLines = [item.shippingNotes || (isGermanListing(item) ? "Versand nach Vereinbarung." : "Shipping by arrangement.")];
   const notes = [
     item.notes,
-    item.priceResearchNotes && `${labels.researchNotes}: ${item.priceResearchNotes}`,
     itemClassification(item) === "Private Sale / Personal Collection" && privateSellerNote(item),
   ].filter(Boolean);
   const notesLines = notes.length ? notes : [isGermanListing(item) ? "Keine weiteren Hinweise." : "No additional notes."];
@@ -569,6 +584,7 @@ function generateHtmlDescription(item, { preferSaved = true } = {}) {
     '    <div style="padding:16px;">',
     `      <h2 style="margin:0 0 14px;font-size:22px;line-height:1.25;color:#2b211d;font-weight:700;">${escapeHtml(generatedListingTitle(item))}</h2>`,
     htmlRetroSection(headings.article, "#2f9d9a", htmlParagraphs(articleLines)),
+    productLines.length ? htmlRetroSection(headings.productDescription, "#e0b947", htmlParagraphs(productLines)) : "",
     htmlRetroSection(headings.condition, "#e0b947", htmlParagraphs([condition])),
     htmlRetroSection(headings.included, "#d9783b", htmlBulletList(includedLines)),
     htmlRetroSection(headings.shipping, "#b7412e", htmlParagraphs(shippingLines)),
@@ -581,22 +597,32 @@ function generateHtmlDescription(item, { preferSaved = true } = {}) {
 
 function generatedPlainDescription(item, condition) {
   const labels = listingLabels(item);
-  const price = listingPrice(item);
-  return [
+  const headings = listingSectionHeadings(item);
+  const articleLines = [
+    generatedListingTitle(item),
     item.name && `${isGermanListing(item) ? "Artikel" : "Item"}: ${item.name}`,
     item.brand && `${labels.brand}: ${item.brand}`,
     item.model && `${labels.model}: ${item.model}`,
     item.category && `${labels.category}: ${item.category}`,
     item.sizeSpecs && `${labels.sizeSpecs}: ${item.sizeSpecs}`,
     item.colour && `${labels.colour}: ${item.colour}`,
-    price && `${labels.price}: ${money(price)}`,
-    condition && `${labels.condition}: ${condition}`,
-    item.includedItems && `${labels.included}: ${item.includedItems}`,
-    item.defectsNotes && `${labels.defects}: ${item.defectsNotes}`,
-    item.shippingNotes && `${labels.shipping}: ${item.shippingNotes}`,
-    item.notes && `${labels.notes}: ${item.notes}`,
-    item.priceResearchNotes && `${labels.researchNotes}: ${item.priceResearchNotes}`,
-  ].filter(Boolean).join("\n");
+  ].filter(Boolean);
+  const productLines = productDescriptionLines(item);
+  const includedLines = bulletLines(item.includedItems);
+  const notesLines = [
+    item.notes,
+    itemClassification(item) === "Private Sale / Personal Collection" && privateSellerNote(item),
+  ].filter(Boolean);
+  const sections = [
+    [headings.article, articleLines],
+    productLines.length && [headings.productDescription, productLines],
+    [headings.condition, [condition]],
+    [headings.included, includedLines.length ? includedLines.map((line) => `- ${line}`) : [isGermanListing(item) ? "Lieferumfang wie beschrieben." : "Included as described."]],
+    [headings.shipping, [item.shippingNotes || (isGermanListing(item) ? "Versand nach Vereinbarung." : "Shipping by arrangement.")]],
+    [headings.notes, notesLines.length ? notesLines : [isGermanListing(item) ? "Keine weiteren Hinweise." : "No additional notes."]],
+  ].filter(Boolean);
+
+  return sections.map(([heading, lines]) => [heading, ...lines].join("\n")).join("\n\n");
 }
 
 function generateListingDraft(item, { preferSaved = true } = {}) {
