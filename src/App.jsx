@@ -898,6 +898,13 @@ export default function ResellerItApp() {
   const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("source");
   const [marketResearchOpen, setMarketResearchOpen] = useState(false);
+  const [quickAddItem, setQuickAddItem] = useState({
+    purchaseDate: CURRENT_DATE,
+    name: "",
+    sourceName: "",
+    purchasePrice: "",
+    classification: "Business Stock / Resale Inventory",
+  });
 
   useEffect(() => {
     if (!editingId) return undefined;
@@ -984,6 +991,37 @@ export default function ResellerItApp() {
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
     setActiveWorkflowSection("source");
+  }
+
+  function createQuickLedgerItem({ openEditor = false } = {}) {
+    if (!quickAddItem.name.trim()) return;
+    const newItem = {
+      ...emptyItem,
+      id: crypto.randomUUID(),
+      purchaseDate: quickAddItem.purchaseDate || CURRENT_DATE,
+      name: quickAddItem.name.trim(),
+      sourceName: quickAddItem.sourceName.trim(),
+      purchasePrice: quickAddItem.purchasePrice,
+      classification: quickAddItem.classification || "Business Stock / Resale Inventory",
+      status: "Draft",
+      hasReceipt: "No",
+      receiptType: "",
+      proofType: "",
+      proofStoredExternally: "No",
+      listingTitle: "",
+      conditionText: "",
+      descriptionText: "",
+      htmlDescription: "",
+    };
+    persist([newItem, ...items]);
+    setQuickAddItem({
+      purchaseDate: CURRENT_DATE,
+      name: "",
+      sourceName: "",
+      purchasePrice: "",
+      classification: newItem.classification,
+    });
+    if (openEditor) editItem(newItem);
   }
 
   function closeItemEditor() {
@@ -1349,6 +1387,13 @@ export default function ResellerItApp() {
     });
     return Array.from(groups.entries());
   }, [inventoryTimelineGrouping, stockTimelineItems]);
+
+  const stockTimelineTotals = useMemo(() => ({
+    itemCount: stockTimelineItems.length,
+    purchaseTotal: stockTimelineItems.reduce((sum, item) => sum + number(item.purchasePrice), 0),
+    soldTotal: stockTimelineItems.reduce((sum, item) => sum + finalSaleValue(item), 0),
+    profitTotal: stockTimelineItems.reduce((sum, item) => sum + itemProfitValue(item), 0),
+  }), [stockTimelineItems]);
 
   const stockActiveFilterCount = [
     inventorySearch.trim(),
@@ -2402,6 +2447,33 @@ export default function ResellerItApp() {
               </div>
 
               <div className="p-1.5 sm:p-2">
+                <div className="mb-2 grid gap-1.5 rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-[11px] sm:grid-cols-4">
+                  <div><span className="text-stone-500">Items</span><span className="ml-2 font-semibold text-stone-950">{stockTimelineTotals.itemCount}</span></div>
+                  <div><span className="text-stone-500">Purchase</span><span className="ml-2 font-semibold text-stone-950">{money(stockTimelineTotals.purchaseTotal)}</span></div>
+                  <div><span className="text-stone-500">Sold</span><span className="ml-2 font-semibold text-stone-950">{money(stockTimelineTotals.soldTotal)}</span></div>
+                  <div><span className="text-stone-500">Profit</span><span className="ml-2 font-semibold text-lime-800">{money(stockTimelineTotals.profitTotal)}</span></div>
+                </div>
+
+                <div className="mb-2 overflow-x-auto rounded-lg border border-stone-200 bg-white">
+                  <div className="grid min-w-[760px] grid-cols-[7rem_1.6fr_1.1fr_7rem_13rem] items-center gap-1 border-b border-stone-100 bg-[#fff8ea] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                    <span>Date</span>
+                    <span>Item</span>
+                    <span>Source</span>
+                    <span className="text-right">Purchase</span>
+                    <span className="text-center">Quick add</span>
+                  </div>
+                  <div className="grid min-w-[760px] grid-cols-[7rem_1.6fr_1.1fr_7rem_13rem] items-center gap-1 px-1.5 py-1">
+                    <input type="date" value={quickAddItem.purchaseDate} onChange={(e) => setQuickAddItem({ ...quickAddItem, purchaseDate: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-1 text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" />
+                    <input value={quickAddItem.name} onChange={(e) => setQuickAddItem({ ...quickAddItem, name: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-2 text-[11px] font-semibold text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="New stock item" />
+                    <input value={quickAddItem.sourceName} onChange={(e) => setQuickAddItem({ ...quickAddItem, sourceName: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-2 text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="Source" />
+                    <input type="number" step="0.01" value={quickAddItem.purchasePrice} onChange={(e) => setQuickAddItem({ ...quickAddItem, purchasePrice: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-1 text-right text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="0.00" />
+                    <div className="flex justify-end gap-1">
+                      <button type="button" onClick={() => createQuickLedgerItem()} className="h-7 rounded border border-[#b7412e]/20 bg-white px-2 text-[11px] font-semibold text-[#8f3124] hover:bg-[#fff6e6]">Add</button>
+                      <button type="button" onClick={() => createQuickLedgerItem({ openEditor: true })} className="h-7 rounded bg-[#e06b2c] px-2 text-[11px] font-semibold text-[#24110e] hover:bg-[#f0be45]">Add & Edit</button>
+                    </div>
+                  </div>
+                </div>
+
                 {stockTimelineItems.length === 0 && (
                   <p className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-600">No inventory items match the current timeline filters.</p>
                 )}
