@@ -2237,20 +2237,20 @@ export default function ResellerItApp() {
 
         <section className="grid gap-4">
           {activeTab === "stock" && (
-            <div className="rounded-2xl border border-[#b7412e]/15 bg-[#fffaf0] shadow-[0_14px_34px_rgba(0,0,0,0.1)]">
-              <div className="border-b border-[#eadfce] p-3 sm:p-4">
+            <div className="rounded-xl border border-[#b7412e]/15 bg-[#fffaf0] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
+              <div className="border-b border-[#eadfce] p-2.5 sm:p-3">
                 <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
                   <div>
-                    <div className="mb-2 h-0.5 w-14 rounded-full bg-[#b7412e]" />
+                    <div className="mb-1.5 h-0.5 w-12 rounded-full bg-[#b7412e]" />
                     <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Control</p>
-                    <h2 className="mt-1 text-xl font-semibold text-stone-950">Master Inventory Timeline</h2>
+                    <h2 className="mt-0.5 text-lg font-semibold text-stone-950">Master Inventory Stock Control Sheet</h2>
                   </div>
-                  <div className="rounded-lg border border-[#b7412e]/15 bg-white px-3 py-2 text-sm font-semibold text-[#8f3124]">
+                  <div className="rounded-md border border-[#b7412e]/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124]">
                     {stockTimelineItems.length} of {items.length} items
                   </div>
                 </div>
 
-                <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
+                <div className="mt-2 grid gap-2 md:grid-cols-2 xl:grid-cols-5">
                   <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." className="xl:col-span-2" />
                   <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}>
                     <option>Month</option>
@@ -2270,7 +2270,7 @@ export default function ResellerItApp() {
 
                 <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} className="sm:max-w-xs" />
-                  <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-lg border border-[#b7412e]/20 bg-white px-3 py-2 text-sm font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
+                  <button type="button" onClick={() => setAdvancedInventoryFiltersOpen(!advancedInventoryFiltersOpen)} className="rounded-md border border-[#b7412e]/20 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124] hover:bg-[#fff6e6]">
                     {advancedInventoryFiltersOpen ? "Hide advanced filters" : "Advanced filters"}
                   </button>
                 </div>
@@ -2294,34 +2294,34 @@ export default function ResellerItApp() {
                 )}
               </div>
 
-              <div className="p-2 sm:p-3">
+              <div className="p-1.5 sm:p-2">
                 {stockTimelineItems.length === 0 && (
                   <p className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-600">No inventory items match the current timeline filters.</p>
                 )}
 
                 {stockTimelineItems.length > 0 && (
-                  <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
-                    <table className="min-w-[1180px] w-full border-collapse text-left text-xs">
-                      <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[11px] uppercase tracking-wide text-stone-500">
+                  <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
+                    <table className="min-w-[1040px] w-full border-collapse text-left text-[11px]">
+                      <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
                         <tr className="border-b border-stone-200">
-                          <th className="px-2 py-2 font-semibold">Date</th>
-                          <th className="px-2 py-2 font-semibold">Item</th>
-                          <th className="px-2 py-2 font-semibold">Classification</th>
-                          <th className="px-2 py-2 font-semibold">Status</th>
-                          <th className="px-2 py-2 font-semibold">Source</th>
-                          <th className="px-2 py-2 text-right font-semibold">Purchase Price</th>
-                          <th className="px-2 py-2 text-right font-semibold">Sold Price</th>
-                          <th className="px-2 py-2 text-right font-semibold">Profit</th>
-                          <th className="px-2 py-2 font-semibold">Proof</th>
-                          <th className="px-2 py-2 font-semibold">Listing</th>
-                          <th className="px-2 py-2 text-center font-semibold">Edit</th>
+                          <th className="px-1.5 py-1.5 font-semibold">Date</th>
+                          <th className="px-1.5 py-1.5 font-semibold">Item</th>
+                          <th className="px-1.5 py-1.5 font-semibold">Class.</th>
+                          <th className="px-1.5 py-1.5 font-semibold">Status</th>
+                          <th className="px-1.5 py-1.5 font-semibold">Source</th>
+                          <th className="px-1.5 py-1.5 text-right font-semibold">Purchase</th>
+                          <th className="px-1.5 py-1.5 text-right font-semibold">Sold</th>
+                          <th className="px-1.5 py-1.5 text-right font-semibold">Profit</th>
+                          <th className="px-1.5 py-1.5 font-semibold">Proof</th>
+                          <th className="px-1.5 py-1.5 font-semibold">Listing</th>
+                          <th className="px-1.5 py-1.5 text-center font-semibold">Edit</th>
                         </tr>
                       </thead>
                       <tbody>
                         {stockTimelineGroups.map(([groupLabel, groupItems]) => (
                           <React.Fragment key={groupLabel}>
                             <tr>
-                              <td colSpan={11} className="border-b border-stone-200 bg-[#fffaf0] px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-[#8f3124]">
+                              <td colSpan={11} className="border-b border-stone-200 bg-[#fffaf0] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#8f3124]">
                                 {groupLabel} <span className="font-medium text-stone-400">({groupItems.length})</span>
                               </td>
                             </tr>
@@ -2329,40 +2329,40 @@ export default function ResellerItApp() {
                               const sold = isSoldStatus(item);
                               const proofStatus = needsProofRecord(item) ? "Missing" : "OK";
                               const listingStatus = hasListingDraft(item) ? "Ready" : "Needed";
-                              const inputClass = "h-8 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
+                              const inputClass = "h-6 w-full truncate rounded border border-transparent bg-transparent px-1 text-[11px] text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
                               return (
-                                <tr key={item.id} className="border-b border-stone-100 last:border-b-0 hover:bg-[#fffaf0]">
-                                  <td className="w-28 px-2 py-1">
+                                <tr key={item.id} className="border-b border-stone-100 last:border-b-0 hover:bg-[#fffaf0]/75">
+                                  <td className="w-24 px-1.5 py-0.5">
                                     <input type="date" value={item.purchaseDate || ""} onChange={(e) => updateItemField(item.id, "purchaseDate", e.target.value)} className={inputClass} />
                                   </td>
-                                  <td className="w-56 px-2 py-1">
+                                  <td className="w-60 px-1.5 py-0.5">
                                     <input value={item.name || ""} onChange={(e) => updateItemField(item.id, "name", e.target.value)} className={`${inputClass} font-semibold`} placeholder="Item name" />
                                   </td>
-                                  <td className="w-40 px-2 py-1">
+                                  <td className="w-28 px-1.5 py-0.5">
                                     <select value={itemClassification(item)} onChange={(e) => updateItemField(item.id, "classification", e.target.value)} className={inputClass}>
                                       {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
                                     </select>
                                   </td>
-                                  <td className="w-36 px-2 py-1">
+                                  <td className="w-24 px-1.5 py-0.5">
                                     <select value={itemStatus(item)} onChange={(e) => updateItemField(item.id, "status", e.target.value)} className={inputClass}>
                                       {statusOptions.map((status) => <option key={status}>{status}</option>)}
                                     </select>
                                   </td>
-                                  <td className="w-44 px-2 py-1">
+                                  <td className="w-36 px-1.5 py-0.5">
                                     <input value={item.sourceName || item.sourceLocation || ""} onChange={(e) => updateItemField(item.id, "sourceName", e.target.value)} className={inputClass} placeholder="Source" />
                                   </td>
-                                  <td className="w-28 px-2 py-1">
+                                  <td className="w-24 px-1.5 py-0.5">
                                     <input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(e) => updateItemField(item.id, "purchasePrice", e.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" />
                                   </td>
-                                  <td className="w-28 px-2 py-1">
+                                  <td className="w-24 px-1.5 py-0.5">
                                     <input type="number" step="0.01" value={item.finalSalePrice !== undefined ? item.finalSalePrice : item.salePrice || ""} onChange={(e) => updateItemField(item.id, "finalSalePrice", e.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" />
                                   </td>
-                                  <td className={`w-24 px-2 py-1 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</td>
-                                  <td className={`w-20 px-2 py-1 font-semibold ${needsProofRecord(item) ? "text-red-700" : "text-lime-800"}`}>{proofStatus}</td>
-                                  <td className={`w-24 px-2 py-1 font-semibold ${hasListingDraft(item) ? "text-lime-800" : "text-[#8a5b10]"}`}>{listingStatus}</td>
-                                  <td className="w-16 px-2 py-1 text-center">
-                                    <button type="button" onClick={() => editItem(item)} className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-stone-200 bg-white text-stone-700 hover:border-[#b7412e]/30 hover:bg-[#fff6e6]" title="Open full item workspace" aria-label={`Open ${item.name || "item"} workspace`}>
-                                      <Edit3 size={14} />
+                                  <td className={`w-24 px-1.5 py-0.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</td>
+                                  <td className={`w-14 px-1.5 py-0.5 font-semibold ${needsProofRecord(item) ? "text-red-700" : "text-lime-800"}`}>{proofStatus}</td>
+                                  <td className={`w-16 px-1.5 py-0.5 font-semibold ${hasListingDraft(item) ? "text-lime-800" : "text-[#8a5b10]"}`}>{listingStatus}</td>
+                                  <td className="w-10 px-1 py-0.5 text-center">
+                                    <button type="button" onClick={() => editItem(item)} className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent bg-transparent text-stone-500 hover:border-stone-200 hover:bg-white hover:text-[#8f3124]" title="Open full item workspace" aria-label={`Open ${item.name || "item"} workspace`}>
+                                      <Edit3 size={12} />
                                     </button>
                                   </td>
                                 </tr>
