@@ -381,6 +381,7 @@ function priceResearchLinks(item) {
     ["eBay DE sold/completed", `https://www.ebay.de/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1`],
     ["Google", `https://www.google.com/search?q=${query}`],
     ["Kleinanzeigen", `https://www.kleinanzeigen.de/s-suchanfrage.html?keywords=${query}`],
+    ["ChatGPT search", "https://chatgpt.com/"],
   ];
 }
 
@@ -872,6 +873,7 @@ export default function ResellerItApp() {
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
   const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("basic");
+  const [marketResearchOpen, setMarketResearchOpen] = useState(false);
 
   function persist(nextItems) {
     setItems(nextItems);
@@ -1579,8 +1581,8 @@ export default function ResellerItApp() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-3 lg:min-w-[520px]">
                       <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Purchase</p><p className="font-semibold">{money(form.purchasePrice)}</p></div>
-                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{money(form.chosenListingPrice || form.expectedSalePrice)}</p></div>
-                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Final sale</p><p className="font-semibold">{money(finalSaleValue(form))}</p></div>
+                      {isSoldStatus(form) && <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Sold</p><p className="font-semibold">{money(finalSaleValue(form))}</p></div>}
+                      <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Shipping</p><p className="font-semibold">{money(form.actualShippingCost || form.shippingCost)}</p></div>
                       <div className="rounded-2xl bg-lime-50 p-3 text-lime-900"><p className="text-xs text-lime-700">Profit</p><p className="font-semibold">{money(itemProfitValue(form))}</p></div>
                       <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Proof</p><p className="font-semibold">{needsProofRecord(form) ? "Missing" : "Recorded"}</p></div>
                       <div className="rounded-2xl bg-stone-50 p-3"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{hasListingDraft(form) ? "Ready" : "Draft"}</p></div>
@@ -1633,22 +1635,39 @@ export default function ResellerItApp() {
 
                 {activeWorkflowSection === "pricing" && (
                   <div className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <Input label="Research query" className="sm:col-span-2" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
-                      <Input label="Expected sale price EUR" value={form.expectedSalePrice} onChange={(e) => setForm({ ...form, expectedSalePrice: e.target.value })} />
-                      <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value, expectedSalePrice: e.target.value || form.expectedSalePrice })} />
-                      <Input label="Researched low EUR" value={form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, researchedLowPrice: e.target.value })} />
-                      <Input label="Researched mid EUR" value={form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, researchedMidPrice: e.target.value })} />
-                      <Input label="Researched high EUR" value={form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, researchedHighPrice: e.target.value })} />
-                      <Select label="eBay fee mode" value={form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE} onChange={(e) => setForm({ ...form, ebayFeeMode: e.target.value })}>{ebayFeeModes.map((mode) => <option key={mode}>{mode}</option>)}</Select>
-                      {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <Input label="Business fee percent" value={form.feePercent || ""} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} />}
-                      {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <Input label="Business fixed fee EUR" value={form.fixedFee || ""} onChange={(e) => setForm({ ...form, fixedFee: e.target.value })} />}
-                      {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Manual" && <Input label="Manual eBay fee EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value })} />}
-                      <Input label="Promoted listing fee EUR" value={form.promotedListingFee || ""} onChange={(e) => setForm({ ...form, promotedListingFee: e.target.value })} />
-                      <Input label="Other platform fees EUR" value={form.otherPlatformFees || ""} onChange={(e) => setForm({ ...form, otherPlatformFees: e.target.value })} />
+                    <div className="rounded-2xl border border-[#f0be45]/30 bg-[#f0be45]/10 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6511]">Core money</p>
+                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <Input label="Purchase price EUR" value={form.purchasePrice || ""} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
+                        {isSoldStatus(form) && <Input label="Sold price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />}
+                        <Input label="Shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value, shippingCost: e.target.value })} />
+                        <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
+                      </div>
+                      <p className="mt-3 rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Estimated/current profit: {money(itemProfitValue(form))}</p>
                     </div>
-                    <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Price research notes..." />
-                    <p className="rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Profit preview: {money(itemProfitValue(form))}</p>
+
+                    <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <h4 className="text-sm font-semibold text-neutral-950">Market Research (Optional)</h4>
+                          <p className="mt-1 text-xs text-neutral-500">Use only when you need comps or search links.</p>
+                        </div>
+                        <button type="button" onClick={() => setMarketResearchOpen(!marketResearchOpen)} className="rounded-xl border border-[#f0be45]/40 px-3 py-2 text-sm font-semibold text-[#72530b] hover:bg-[#f0be45]/15">{marketResearchOpen ? "Hide" : "Show"}</button>
+                      </div>
+                      {marketResearchOpen && (
+                        <div className="mt-3 space-y-3">
+                          <Input label="Research query" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
+                          <label className="block">
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research notes</span>
+                            <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                          </label>
+                          <div className="flex flex-wrap gap-2">
+                            {priceResearchLinks(form).map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>)}
+                            {priceResearchLinks(form).length === 0 && <p className="text-sm text-neutral-500">Enter an item name, eBay title, or research query to generate search links.</p>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1791,7 +1810,7 @@ export default function ResellerItApp() {
               <Select label="Classification" className="lg:col-span-2" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value, ebayFeeMode: e.target.value === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode })}>
                 {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
               </Select>
-              <Input label="Expected/listing price EUR" value={form.chosenListingPrice || form.expectedSalePrice} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value, expectedSalePrice: e.target.value })} />
+              <Input label="Purchase price EUR" value={form.purchasePrice || ""} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
               <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
                 {statusOptions.map((status) => <option key={status}>{status}</option>)}
                 {form.status && !statusOptions.includes(form.status) && <option>{form.status}</option>}
@@ -1898,8 +1917,7 @@ export default function ResellerItApp() {
               </Select>
             </FormSection>}
 
-            {activeAdvancedSection === "sale" && <FormSection title="eBay sale and fees">
-              <Input label="Expected sale price EUR" value={form.expectedSalePrice} onChange={(e) => setForm({ ...form, expectedSalePrice: e.target.value })} />
+            {activeAdvancedSection === "sale" && <FormSection title="Sale and shipping">
               <Input label="Sale date" type="date" value={form.saleDate} onChange={(e) => setForm({ ...form, saleDate: e.target.value })} />
               <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
               <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
@@ -1910,37 +1928,71 @@ export default function ResellerItApp() {
               <Input label="Tracking notes" className="sm:col-span-2" value={form.trackingNotes || ""} onChange={(e) => setForm({ ...form, trackingNotes: e.target.value })} />
             </FormSection>}
 
-            {activeAdvancedSection === "pricing" && <div className="rounded-2xl border border-neutral-200 bg-white p-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-neutral-950">Advanced fee settings</h3>
-                  <p className="mt-1 text-sm text-neutral-600">Most private Germany eBay sales start with zero standard selling fee. Add optional promotion or other platform fees only if they apply.</p>
+            {activeAdvancedSection === "pricing" && <div className="space-y-4">
+              <div className="rounded-2xl border border-[#f0be45]/30 bg-[#f0be45]/10 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6511]">Core money</p>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <Input label="Purchase price EUR" value={form.purchasePrice || ""} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
+                  {isSoldStatus(form) && <Input label="Sold price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />}
+                  <Input label="Shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value, shippingCost: e.target.value })} />
+                  <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
                 </div>
-                <button type="button" onClick={() => setAdvancedFeesOpen(!advancedFeesOpen)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
-                  {advancedFeesOpen ? "Hide" : "Show"}
-                </button>
+                <p className="mt-3 rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Estimated/current profit: {money(itemProfitValue(form))}</p>
               </div>
-              {advancedFeesOpen && (
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Select label="eBay fee mode" value={form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE} onChange={(e) => setForm({ ...form, ebayFeeMode: e.target.value })}>
-                    {ebayFeeModes.map((mode) => <option key={mode}>{mode}</option>)}
-                  </Select>
-                  {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && (
-                    <>
-                      <Input label="Business fee percent" value={form.feePercent || ""} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} />
-                      <Input label="Business fixed fee EUR" value={form.fixedFee || ""} onChange={(e) => setForm({ ...form, fixedFee: e.target.value })} />
-                      <Input label="Estimated eBay fee EUR" value={String(ebayBaseFee(form))} onChange={(e) => setForm({ ...form, estimatedEbayFee: e.target.value })} readOnly />
-                    </>
-                  )}
-                  {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Manual" && (
-                    <Input label="Manual eBay fee EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value })} />
-                  )}
-                  <Input label="Promoted listing fee EUR" value={form.promotedListingFee || ""} onChange={(e) => setForm({ ...form, promotedListingFee: e.target.value })} />
-                  <Input label="Other platform fees EUR" value={form.otherPlatformFees || ""} onChange={(e) => setForm({ ...form, otherPlatformFees: e.target.value })} />
+
+              <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-neutral-950">Fee details (Optional)</h3>
+                    <p className="mt-1 text-sm text-neutral-600">Use only when you need separate promoted, other, or business fee estimates.</p>
+                  </div>
+                  <button type="button" onClick={() => setAdvancedFeesOpen(!advancedFeesOpen)} className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">
+                    {advancedFeesOpen ? "Hide" : "Show"}
+                  </button>
                 </div>
-              )}
-              {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && <p className="mt-3 rounded-xl bg-neutral-50 p-3 text-sm text-neutral-600">Business fee calculations are estimates until reconciled with official eBay reports.</p>}
-              <p className="mt-3 rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Current final profit: {money(itemProfitValue(form))}</p>
+                {advancedFeesOpen && (
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <Select label="eBay fee mode" value={form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE} onChange={(e) => setForm({ ...form, ebayFeeMode: e.target.value })}>
+                      {ebayFeeModes.map((mode) => <option key={mode}>{mode}</option>)}
+                    </Select>
+                    {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && (
+                      <>
+                        <Input label="Business fee percent" value={form.feePercent || ""} onChange={(e) => setForm({ ...form, feePercent: e.target.value })} />
+                        <Input label="Business fixed fee EUR" value={form.fixedFee || ""} onChange={(e) => setForm({ ...form, fixedFee: e.target.value })} />
+                        <Input label="Estimated eBay fee EUR" value={String(ebayBaseFee(form))} onChange={(e) => setForm({ ...form, estimatedEbayFee: e.target.value })} readOnly />
+                      </>
+                    )}
+                    <Input label="Promoted listing fee EUR" value={form.promotedListingFee || ""} onChange={(e) => setForm({ ...form, promotedListingFee: e.target.value })} />
+                    <Input label="Other platform fees EUR" value={form.otherPlatformFees || ""} onChange={(e) => setForm({ ...form, otherPlatformFees: e.target.value })} />
+                  </div>
+                )}
+                {(form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE) === "Business Estimate" && advancedFeesOpen && <p className="mt-3 rounded-xl bg-neutral-50 p-3 text-sm text-neutral-600">Business fee calculations are estimates until reconciled with official eBay reports.</p>}
+              </div>
+
+              <div className="rounded-2xl border border-neutral-200 bg-white p-4">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-neutral-950">Market Research (Optional)</h3>
+                    <p className="mt-1 text-sm text-neutral-600">Search comps only when needed; core profit does not depend on this.</p>
+                  </div>
+                  <button type="button" onClick={() => setMarketResearchOpen(!marketResearchOpen)} className="rounded-xl border border-[#f0be45]/40 px-3 py-2 text-sm font-semibold text-[#72530b] hover:bg-[#f0be45]/15">{marketResearchOpen ? "Hide" : "Show"}</button>
+                </div>
+                {marketResearchOpen && (
+                  <div className="mt-3 space-y-3">
+                    <Input label="Research query" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} placeholder={form.ebayTitle || form.name || "Search phrase"} />
+                    <label className="block">
+                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research notes</span>
+                      <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Condition differences, sold comps, missing parts, bundle notes..." />
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      {priceResearchLinks(form).map(([label, href]) => (
+                        <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>
+                      ))}
+                      {priceResearchLinks(form).length === 0 && <p className="text-sm text-neutral-500">Enter an item name, eBay title, or research query to generate search links.</p>}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>}
 
             {activeAdvancedSection === "proof" && <>
@@ -1978,31 +2030,6 @@ export default function ResellerItApp() {
                   <p className="text-sm text-neutral-600">{form.proofImageName || "Attached image stored locally"}</p>
                 </div>
               )}
-            </div>
-            </>}
-
-            {activeAdvancedSection === "pricing" && <>
-            <FormSection title="Price research assistant">
-              <Input label="Research query" className="sm:col-span-2" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} placeholder={form.ebayTitle || form.name || "Search phrase"} />
-              <Input label="Researched low EUR" value={form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, researchedLowPrice: e.target.value })} />
-              <Input label="Researched mid EUR" value={form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, researchedMidPrice: e.target.value })} />
-              <Input label="Researched high EUR" value={form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, researchedHighPrice: e.target.value })} />
-              <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value, expectedSalePrice: e.target.value || form.expectedSalePrice })} />
-              <label className="block sm:col-span-2 lg:col-span-4">
-                <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Price research notes</span>
-                <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Condition differences, sold comps, missing parts, bundle notes..." />
-              </label>
-            </FormSection>
-
-            <div className="rounded-2xl border border-neutral-200 bg-white p-4">
-              <h3 className="text-sm font-semibold text-neutral-950">Research price</h3>
-              <p className="mt-1 text-sm text-neutral-600">Use sold/completed listings where possible; active listings are asking prices, not confirmed sale prices.</p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                {priceResearchLinks(form).map(([label, href]) => (
-                  <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>
-                ))}
-                {priceResearchLinks(form).length === 0 && <p className="text-sm text-neutral-500">Enter an item name, eBay title, or research query to generate search links.</p>}
-              </div>
             </div>
             </>}
 
