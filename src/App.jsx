@@ -1692,7 +1692,7 @@ export default function ResellerItApp() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">ResellIt Workspace</p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">{activeTitle}</h1>
               </div>
-              <p className="max-w-xl text-sm text-stone-600">Clean local workspace for stock, sales, finance, and tax-prep records.</p>
+              <p className="max-w-xl text-sm text-stone-600">{activeTab === "stock" ? "Master inventory ledger for all sourced, owned, listed, and sold stock." : "Clean local workspace for stock, sales, finance, and tax-prep records."}</p>
             </div>
           </div>
 
@@ -2387,32 +2387,6 @@ export default function ResellerItApp() {
                   </div>
                 </div>
 
-                <div className="relative mt-2 flex flex-wrap gap-2">
-                  {[
-                    ["search", Search, "Search", inventorySearch.trim()],
-                    ["group", ClipboardList, "Group", inventoryTimelineGrouping !== "Month"],
-                    ["classification", Package, "Classification", inventoryClassification !== "All classifications"],
-                    ["status", Info, "Status", inventoryStatus !== "All statuses"],
-                    ["date", ReceiptText, "Date", inventoryTimelineMonth],
-                    ["view", FileText, "View", stockViewMode === "Compact view"],
-                  ].map(([key, Icon, label, active]) => (
-                    <button key={key} type="button" onClick={() => setStockFilterMenu(stockFilterMenu === key ? "" : key)} className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-semibold transition ${active ? "border-[#b7412e]/35 bg-[#b7412e]/10 text-[#8f3124]" : "border-stone-200 bg-white text-stone-700 hover:border-[#b7412e]/25 hover:bg-[#fff6e6]"}`}>
-                      <Icon size={13} /> {label}
-                    </button>
-                  ))}
-                  {stockActiveFilterCount > 0 && <button type="button" onClick={() => { setInventorySearch(""); setInventoryTimelineGrouping("Month"); setInventoryClassification("All classifications"); setInventoryStatus("All statuses"); setInventoryTimelineMonth(""); setInventoryCategory("All categories"); setInventoryIssueFilter("All items"); setStockFilterMenu(""); }} className="rounded-full border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-600 hover:bg-stone-50">Clear filters</button>}
-
-                  {stockFilterMenu && (
-                    <div className="absolute left-0 top-10 z-20 w-72 rounded-xl border border-stone-200 bg-white p-3 shadow-[0_18px_42px_rgba(41,37,36,0.16)]">
-                      {stockFilterMenu === "search" && <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." />}
-                      {stockFilterMenu === "group" && <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}><option>Month</option><option>Week</option><option>Year</option><option>Ungrouped</option></Select>}
-                      {stockFilterMenu === "classification" && <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}><option>All classifications</option>{classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}</Select>}
-                      {stockFilterMenu === "status" && <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}><option>All statuses</option>{statusOptions.map((status) => <option key={status}>{status}</option>)}</Select>}
-                      {stockFilterMenu === "date" && <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} />}
-                      {stockFilterMenu === "view" && <Select label="View" value={stockViewMode} onChange={(e) => setStockViewMode(e.target.value)}><option>Compact view</option><option>Detailed view</option></Select>}
-                    </div>
-                  )}
-                </div>
               </div>
 
               <div className="p-1.5 sm:p-2">
@@ -2455,6 +2429,33 @@ export default function ResellerItApp() {
                       <button type="button" onClick={() => createQuickLedgerItem({ openEditor: true })} className="h-7 rounded bg-[#e06b2c] px-2 text-[11px] font-semibold text-[#24110e] hover:bg-[#f0be45]">Add & Edit</button>
                     </div>
                   </div>
+                </div>
+
+                <div className="relative mb-2 flex flex-wrap gap-1.5">
+                  {[
+                    ["search", Search, "Search", inventorySearch.trim()],
+                    ["group", ClipboardList, "Group", inventoryTimelineGrouping !== "Month"],
+                    ["classification", Package, "Type", inventoryClassification !== "All classifications"],
+                    ["status", Info, "Status", inventoryStatus !== "All statuses"],
+                    ["date", ReceiptText, "Date", inventoryTimelineMonth],
+                    ["view", FileText, "View", stockViewMode === "Compact view"],
+                  ].map(([key, Icon, label, active]) => (
+                    <button key={key} type="button" onClick={() => setStockFilterMenu(stockFilterMenu === key ? "" : key)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold transition ${active ? "border-[#b7412e]/30 bg-[#b7412e]/8 text-[#8f3124]" : "border-stone-200 bg-white text-stone-600 hover:border-[#b7412e]/20 hover:bg-[#fff6e6]"}`}>
+                      <Icon size={11} /> {label}
+                    </button>
+                  ))}
+                  {stockActiveFilterCount > 0 && <button type="button" onClick={() => { setInventorySearch(""); setInventoryTimelineGrouping("Month"); setInventoryClassification("All classifications"); setInventoryStatus("All statuses"); setInventoryTimelineMonth(""); setInventoryCategory("All categories"); setInventoryIssueFilter("All items"); setStockFilterMenu(""); }} className="rounded-full border border-stone-200 bg-white px-2 py-1 text-[11px] font-semibold text-stone-500 hover:bg-stone-50">Clear</button>}
+
+                  {stockFilterMenu && (
+                    <div className="absolute left-0 top-8 z-20 w-72 rounded-xl border border-stone-200 bg-white p-3 shadow-[0_18px_42px_rgba(41,37,36,0.16)]">
+                      {stockFilterMenu === "search" && <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." />}
+                      {stockFilterMenu === "group" && <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}><option>Month</option><option>Week</option><option>Year</option><option>Ungrouped</option></Select>}
+                      {stockFilterMenu === "classification" && <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}><option>All classifications</option>{classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}</Select>}
+                      {stockFilterMenu === "status" && <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}><option>All statuses</option>{statusOptions.map((status) => <option key={status}>{status}</option>)}</Select>}
+                      {stockFilterMenu === "date" && <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} />}
+                      {stockFilterMenu === "view" && <Select label="View" value={stockViewMode} onChange={(e) => setStockViewMode(e.target.value)}><option>Compact view</option><option>Detailed view</option></Select>}
+                    </div>
+                  )}
                 </div>
 
                 {stockTimelineItems.length === 0 && (
