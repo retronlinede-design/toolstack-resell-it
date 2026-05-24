@@ -19,6 +19,7 @@ const classificationOptions = [
 const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
 const listingLanguageOptions = ["German", "English"];
 const DEFAULT_LISTING_LANGUAGE = "German";
+const conditionGradeOptions = ["Neu", "Sehr gut", "Gut", "Akzeptabel", "Defekt / Ersatzteile", "Sonstiges"];
 const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
 const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Written Off"];
 const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Ready to Pack", "Packed", "Shipped", "Completed"];
@@ -493,16 +494,25 @@ function germanConditionGrade(grade) {
   return grade;
 }
 
-function generatedConditionText(item, { preferSaved = true } = {}) {
-  if (preferSaved && item.conditionText) return item.conditionText;
+function generatedConditionBaseText(item) {
   if (isGermanListing(item)) {
-    return [
-      germanConditionGrade(item.conditionGrade),
-      item.conditionNotes,
-      item.defectsNotes && `Mängel / Gebrauchsspuren: ${item.defectsNotes}`,
-    ].filter(Boolean).join("\n") || "Gebrauchter Zustand. Bitte die Fotos und Beschreibung beachten.";
+    return germanConditionGrade(item.conditionGrade) || "";
   }
-  return [item.conditionGrade, item.conditionNotes || item.notes, item.defectsNotes && `Defects / wear: ${item.defectsNotes}`].filter(Boolean).join("\n") || "Please review the description for condition details.";
+  return item.conditionGrade || "";
+}
+
+function conditionDetailLines(item) {
+  const labels = listingLabels(item);
+  return [
+    item.conditionNotes,
+    item.defectsNotes && `${labels.defects}: ${item.defectsNotes}`,
+  ].filter(Boolean);
+}
+
+function generatedConditionText(item) {
+  const manualCondition = String(item.conditionText || "").trim();
+  const baseCondition = manualCondition || generatedConditionBaseText(item);
+  return [baseCondition, ...conditionDetailLines(item)].filter(Boolean).join("\n") || (isGermanListing(item) ? "Bitte Zustand selbst prüfen und Beschreibung beachten." : "Please review the description for condition details.");
 }
 
 function privateSellerNote(item) {
@@ -1396,10 +1406,11 @@ export default function ResellerItApp() {
 
   function generateCurrentListingDraft() {
     const draft = generateListingDraft(form, { preferSaved: false });
+    const hasManualCondition = Boolean(String(form.conditionText || "").trim());
     setForm({
       ...form,
       listingTitle: draft.title,
-      conditionText: draft.condition,
+      conditionText: hasManualCondition ? form.conditionText : generatedConditionBaseText(form),
       descriptionText: draft.description,
       htmlDescription: draft.htmlDescription,
     });
@@ -1417,6 +1428,8 @@ export default function ResellerItApp() {
   const activeTitle = activeModule?.[1] || "Dashboard";
   const formListingLabels = listingLabels(form);
   const formListingSectionHeadings = listingSectionHeadings(form);
+  const conditionDescriptionLabel = isGermanListing(form) ? "Zustandsbeschreibung" : "Condition description";
+  const conditionDefectsLabel = isGermanListing(form) ? "Mängel / Gebrauchsspuren" : "Defects / wear";
 
   return (
     <div className="min-h-screen bg-[#24120f] p-3 text-stone-900 sm:p-4 md:p-5">
@@ -1671,16 +1684,34 @@ export default function ResellerItApp() {
                           </label>
                         </div>
                       </div>
-                      <Input label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })} />
+                      <div className="rounded-2xl border border-orange-200 bg-white p-3 lg:col-span-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingLabels.condition}</p>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                          <Select label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}>
+                            <option value="">Select condition</option>
+                            {conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}
+                            {form.conditionGrade && !conditionGradeOptions.includes(form.conditionGrade) && <option>{form.conditionGrade}</option>}
+                          </Select>
+                          <label className="block sm:col-span-2">
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDescriptionLabel}</span>
+                            <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                            <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
+                          </label>
+                          <label className="block sm:col-span-2">
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDefectsLabel}</span>
+                            <textarea value={form.defectsNotes || form.conditionNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value, conditionNotes: "" })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                            <span className="mt-1 block text-xs leading-5 text-stone-500">Scratches, wear, missing parts, battery condition, etc.</span>
+                          </label>
+                        </div>
+                      </div>
                       <Input label="eBay title legacy field" value={form.ebayTitle || ""} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value })} />
                       <Input label="Listing title" value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} />
-                      <label className="block"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition</span><textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                       <label className="block"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span><textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                       <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span><textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyTitle}</button>
-                      <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), form.conditionText || generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyCondition}</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyCondition}</button>
                       <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText || generateListingDraft(form).description)} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyDescription}</button>
                       <button type="button" onClick={() => copyText("HTML description", form.htmlDescription || generateHtmlDescription(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyHtmlDescription}</button>
                     </div>
@@ -2023,11 +2054,27 @@ export default function ResellerItApp() {
                     <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyTitle}</button>
                   </div>
                 </label>
-                <label className="block">
-                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition</span>
-                  <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), form.conditionText || generatedConditionText(form))} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyCondition}</button>
-                </label>
+                <div className="rounded-2xl border border-orange-200 bg-white p-3 lg:col-span-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingLabels.condition}</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <Select label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}>
+                      <option value="">Select condition</option>
+                      {conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}
+                      {form.conditionGrade && !conditionGradeOptions.includes(form.conditionGrade) && <option>{form.conditionGrade}</option>}
+                    </Select>
+                    <label className="block sm:col-span-2">
+                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDescriptionLabel}</span>
+                      <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                      <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
+                    </label>
+                    <label className="block sm:col-span-2">
+                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDefectsLabel}</span>
+                      <textarea value={form.defectsNotes || form.conditionNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value, conditionNotes: "" })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                      <span className="mt-1 block text-xs leading-5 text-stone-500">Scratches, wear, missing parts, battery condition, etc.</span>
+                    </label>
+                    <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100 sm:w-fit">{formListingLabels.copyCondition}</button>
+                  </div>
+                </div>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span>
                   <textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
@@ -2055,14 +2102,8 @@ export default function ResellerItApp() {
               <div className="mt-4 rounded-2xl bg-neutral-50 p-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Editable source fields</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <Input label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })} placeholder="New, very good, used..." />
-                  <Input label="Defects / wear" value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} placeholder="Scratches, missing parts..." />
                   <Input label="Shipping notes" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} placeholder="Tracked DHL, pickup possible..." />
                   <Input label="Research notes" value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} />
-                  <label className="block sm:col-span-2 lg:col-span-4">
-                    <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition notes</span>
-                    <textarea value={form.conditionNotes || ""} onChange={(e) => setForm({ ...form, conditionNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Functional test, cosmetic condition, known issues..." />
-                  </label>
                 </div>
               </div>
             </div>}
