@@ -92,7 +92,6 @@ const modules = [
   ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12"],
 ];
 const stockSections = [["needsAttention", "Needs Attention"], ["inventory", "Active Inventory"], ["readyToList", "Ready to List"], ["listingStudio", "Listing Studio"]];
-const salesSections = [["awaitingShipment", "Awaiting Shipment"], ["tracking", "Shipped / Tracking"], ["completed", "Completed Sales"], ["issues", "Returns / Issues"]];
 const financeSections = [["thisMonth", "This Month"], ["taxRecords", "Tax Records"], ["reconciliation", "Reconciliation"], ["yearEnd", "Year-End / EÜR"]];
 const stockSectionDetails = {
   needsAttention: ["Needs Attention", "Items missing information, proof, pricing, or listing preparation."],
@@ -873,7 +872,6 @@ export default function ResellerItApp() {
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [stockSection, setStockSection] = useState("needsAttention");
-  const [salesSection, setSalesSection] = useState("awaitingShipment");
   const [financeSection, setFinanceSection] = useState("thisMonth");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
   const [expandedProofId, setExpandedProofId] = useState(null);
@@ -1327,6 +1325,20 @@ export default function ResellerItApp() {
         return counts;
       }, {}),
     };
+  }, [items]);
+
+  const shippingTrackerGroups = useMemo(() => {
+    const shipmentItems = items.filter(isSoldStatus);
+    return [
+      ["Needs Packing", shipmentItems.filter((item) => ["Sold", "Ready to Pack"].includes(itemStatus(item)))],
+      ["Packed", shipmentItems.filter((item) => itemStatus(item) === "Packed")],
+      ["Shipped / Tracking", shipmentItems.filter((item) => {
+        const status = itemStatus(item);
+        return status === "Shipped" || (Boolean(item.trackingNumber || item.shippedDate) && !["Sold", "Ready to Pack", "Packed", "Completed", "Returned", "Written Off"].includes(status));
+      })],
+      ["Completed", shipmentItems.filter((item) => itemStatus(item) === "Completed")],
+      ["Returned / Problem", shipmentItems.filter((item) => itemStatus(item) === "Returned" || itemStatus(item) === "Written Off")],
+    ];
   }, [items]);
 
   const sectionSummaries = useMemo(() => {
@@ -2319,16 +2331,6 @@ export default function ResellerItApp() {
           </div>
         )}
 
-        {activeTab === "sales" && (
-          <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {salesSections.map(([key, label]) => (
-                <button key={key} type="button" onClick={() => setSalesSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 ${salesSection === key ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20 hover:shadow-sm"}`}>{label}</button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {activeTab === "finance" && (
           <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
             <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
@@ -2337,15 +2339,6 @@ export default function ResellerItApp() {
               ))}
             </div>
           </div>
-        )}
-
-        {activeTab === "sales" && (
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard icon={Truck} label="Awaiting shipment" value={sectionSummaries.sales.awaitingShipment} accentClass="bg-[#e06b2c]" />
-            <StatCard icon={Package} label="Packed / shipped today" value={sectionSummaries.sales.packedOrShippedToday} accentClass="bg-[#e06b2c]" />
-            <StatCard icon={FileText} label="Returns / issues" value={sectionSummaries.sales.returnsIssues} accentClass="bg-[#e06b2c]" />
-            <StatCard icon={ShoppingCart} label="Recent completed sales" value={sectionSummaries.sales.recentCompleted} accentClass="bg-[#e06b2c]" />
-          </section>
         )}
 
         {activeTab === "finance" && (
@@ -2357,7 +2350,7 @@ export default function ResellerItApp() {
           </section>
         )}
 
-        {(activeTab === "sales" || (activeTab === "finance" && financeSection === "taxRecords")) && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        {(activeTab === "finance" && financeSection === "taxRecords") && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
           <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
               <option>All classifications</option>
@@ -3155,124 +3148,71 @@ export default function ResellerItApp() {
 
           {activeTab === "sales" && (
             <div className="grid gap-4">
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <h2 className="text-lg font-semibold text-neutral-950">{salesSections.find(([key]) => key === salesSection)?.[1] || "Sales & Shipping"}</h2>
-                <p className="mt-1 text-sm text-neutral-600">Sold-item workflow for packing, DHL tracking, completion, returns, and monthly reconciliation checks.</p>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <StatCard icon={ShoppingCart} label="Monthly sales" value={money(monthlySummary.salesTotal)} />
-                  <StatCard icon={Truck} label="Items awaiting shipment" value={salesWorkflow.awaitingShipment.length} />
-                  <StatCard icon={Euro} label="Fees booked" value={money(monthlySummary.feesTotal)} />
-                  <StatCard icon={FileText} label="Recent completed sales" value={salesWorkflow.completedSales.length} />
+              <div className="rounded-3xl border border-[#e06b2c]/20 bg-white p-5 shadow-sm">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <div className="mb-2 h-1 w-14 rounded-full bg-[#e06b2c]" />
+                    <h2 className="text-xl font-semibold text-neutral-950">Shipping Process Tracker</h2>
+                    <p className="mt-1 text-sm text-neutral-600">Track sold items from packing to shipment completion.</p>
+                  </div>
+                  <p className="rounded-xl border border-[#e06b2c]/20 bg-[#fff7ec] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#9c481b]">{salesWorkflow.items.length} shipment items</p>
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
-                {shippingWorkflowStatuses.map((status) => (
-                  <div key={status} className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-                    <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass({ status })}`}>{status}</span>
-                    <p className="mt-3 text-2xl font-semibold text-neutral-950">{salesWorkflow.counts[status] || 0}</p>
-                  </div>
+              <div className="grid gap-4">
+                {shippingTrackerGroups.map(([groupLabel, groupItems]) => (
+                  <section key={groupLabel} className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-sm">
+                    <div className="flex flex-col gap-1 border-b border-[#eadfce] pb-3 sm:flex-row sm:items-center sm:justify-between">
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8a3915]">{groupLabel}</h3>
+                      <span className="text-xs font-semibold text-neutral-500">{groupItems.length} items</span>
+                    </div>
+                    <div className="mt-3 grid gap-3">
+                      {groupItems.length === 0 && <p className="rounded-2xl border border-dashed border-[#eadfce] bg-white/70 p-4 text-sm text-neutral-500">No items in this shipping step.</p>}
+                      {groupItems.map((item) => (
+                        <article key={item.id} className="rounded-2xl border border-[#eadfce] bg-white p-3 shadow-[0_8px_20px_rgba(0,0,0,0.04)]">
+                          <div className="grid gap-3 xl:grid-cols-[1fr_1.7fr_auto] xl:items-start">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <h4 className="text-sm font-semibold text-neutral-950">{item.name || "Untitled item"}</h4>
+                                <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
+                              </div>
+                              <p className="mt-1 text-xs text-neutral-500">Sold {item.saleDate || "date not set"}</p>
+                            </div>
+
+                            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                              <label className="block">
+                                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Carrier</span>
+                                <input value={item.carrier || ""} onChange={(event) => updateItemField(item.id, "carrier", event.target.value)} placeholder="DHL" className="h-8 w-full rounded-lg border border-neutral-200 bg-white px-2 text-xs outline-none focus:border-[#e06b2c] focus:ring-2 focus:ring-[#e06b2c]/10" />
+                              </label>
+                              <label className="block">
+                                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Tracking</span>
+                                <input value={item.trackingNumber || ""} onChange={(event) => updateItemField(item.id, "trackingNumber", event.target.value)} className="h-8 w-full rounded-lg border border-neutral-200 bg-white px-2 text-xs outline-none focus:border-[#e06b2c] focus:ring-2 focus:ring-[#e06b2c]/10" />
+                              </label>
+                              <label className="block">
+                                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Shipped date</span>
+                                <input type="date" value={item.shippedDate || ""} onChange={(event) => updateItemField(item.id, "shippedDate", event.target.value)} className="h-8 w-full rounded-lg border border-neutral-200 bg-white px-2 text-xs outline-none focus:border-[#e06b2c] focus:ring-2 focus:ring-[#e06b2c]/10" />
+                              </label>
+                              <label className="block">
+                                <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Tracking notes</span>
+                                <input value={item.trackingNotes || ""} onChange={(event) => updateItemField(item.id, "trackingNotes", event.target.value)} placeholder="Pickup, delay, issue..." className="h-8 w-full rounded-lg border border-neutral-200 bg-white px-2 text-xs outline-none focus:border-[#e06b2c] focus:ring-2 focus:ring-[#e06b2c]/10" />
+                              </label>
+                            </div>
+
+                            <div className="flex flex-wrap gap-1.5 xl:justify-end">
+                              <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Packed")} className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-[#f0be45]/15">Mark Packed</button>
+                              <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Shipped")} className="rounded-lg bg-[#e06b2c] px-2.5 py-1.5 text-[11px] font-semibold text-[#24110e] hover:bg-[#f0be45]">Mark Shipped</button>
+                              <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Completed")} className="rounded-lg border border-lime-200 bg-lime-50 px-2.5 py-1.5 text-[11px] font-semibold text-lime-800 hover:bg-lime-100">Mark Completed</button>
+                              <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Returned")} className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 text-[11px] font-semibold text-red-700 hover:bg-red-100">Mark Returned</button>
+                              <button type="button" onClick={() => copyText("tracking number", item.trackingNumber || "")} disabled={!item.trackingNumber} className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-50">Copy tracking</button>
+                              <a href={dhlTrackingUrl(item.trackingNumber)} target="_blank" rel="noreferrer" className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${item.trackingNumber ? "bg-[#fff7ec] text-[#8a3915] hover:bg-[#f0be45]/30" : "pointer-events-none bg-neutral-100 text-neutral-400"}`}>Open DHL</a>
+                            </div>
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
                 ))}
               </div>
-
-              {salesSection === "awaitingShipment" && <div className="grid gap-4">
-                <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                    <div>
-                      <h3 className="text-sm font-semibold text-neutral-950">Items awaiting shipment</h3>
-                      <p className="mt-1 text-sm text-neutral-600">Move sold items through packing and shipping. Shipped defaults to DHL if no carrier is set.</p>
-                    </div>
-                    <p className="rounded-2xl bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-800">{salesWorkflow.awaitingShipment.length} open</p>
-                  </div>
-                  <div className="mt-4 grid gap-3">
-                    {salesWorkflow.awaitingShipment.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No sold items are waiting for shipment.</p>}
-                    {salesWorkflow.awaitingShipment.map((item) => (
-                      <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
-                        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h4 className="font-semibold text-neutral-950">{item.name}</h4>
-                              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
-                              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-neutral-700">{money(finalSaleValue(item))}</span>
-                            </div>
-                            <p className="mt-1 text-sm text-neutral-600">{item.category || "No category"} / sold {item.saleDate || "date not set"}</p>
-                          </div>
-                          <div className="flex flex-wrap gap-2">
-                            <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Packed")} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-[#f0be45]/20">Mark Packed</button>
-                            <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Shipped")} className="rounded-xl bg-[#e06b2c] px-3 py-2 text-xs font-semibold text-[#24110e] hover:bg-[#f0be45]">Mark Shipped</button>
-                            <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Completed")} className="rounded-xl border border-lime-200 bg-lime-50 px-3 py-2 text-xs font-semibold text-lime-800 hover:bg-lime-100">Mark Completed</button>
-                            <button type="button" onClick={() => updateItemShipmentStatus(item.id, "Returned")} className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100">Mark Returned</button>
-                            <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-white">Edit</button>
-                          </div>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                </div>
-              </div>}
-
-              {(salesSection === "completed" || salesSection === "issues") && (
-                <div className="grid gap-4">
-                  {salesSection === "completed" && (
-                  <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                    <h3 className="text-sm font-semibold text-neutral-950">Recent completed sales</h3>
-                    <div className="mt-3 grid gap-2">
-                      {salesWorkflow.completedSales.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No completed sales yet.</p>}
-                      {salesWorkflow.completedSales.map((item) => (
-                        <div key={item.id} className="rounded-2xl bg-neutral-50 p-3">
-                          <p className="font-semibold text-neutral-950">{item.name}</p>
-                          <p className="mt-1 text-sm text-neutral-600">{money(finalSaleValue(item))} / {item.saleDate || item.shippedDate || "no date"}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  )}
-                  {salesSection === "issues" && (
-                  <div className="rounded-3xl border border-red-100 bg-white p-5 shadow-sm">
-                    <h3 className="text-sm font-semibold text-neutral-950">Return/problem items</h3>
-                    <div className="mt-3 grid gap-2">
-                      {salesWorkflow.problemItems.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No returned or written-off sold items.</p>}
-                      {salesWorkflow.problemItems.map((item) => (
-                        <div key={item.id} className="rounded-2xl bg-red-50 p-3">
-                          <p className="font-semibold text-red-900">{item.name}</p>
-                          <p className="mt-1 text-sm text-red-700">{itemStatus(item)} / {item.trackingNotes || item.notes || "No problem note recorded"}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  )}
-                </div>
-              )}
-
-              {salesSection === "tracking" && <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-neutral-950">Tracking</h3>
-                <p className="mt-1 text-sm text-neutral-600">DHL is the default carrier. Tracking links open DHL Sendungsverfolgung in a new tab.</p>
-                <div className="mt-4 grid gap-3">
-                  {salesWorkflow.shippedItems.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No shipped or tracked items yet.</p>}
-                  {salesWorkflow.shippedItems.map((item) => (
-                    <article key={item.id} className="premium-card rounded-2xl border border-neutral-200 bg-neutral-50/70 p-4">
-                      <div className="grid gap-3 lg:grid-cols-[1.1fr_1fr_auto] lg:items-center">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h4 className="font-semibold text-neutral-950">{item.name}</h4>
-                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
-                          </div>
-                          {item.trackingNotes && <p className="mt-1 text-sm text-neutral-600">{item.trackingNotes}</p>}
-                        </div>
-                        <div className="grid gap-2 text-sm sm:grid-cols-3">
-                          <p><span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Carrier</span>{item.carrier || "DHL"}</p>
-                          <p><span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Tracking</span>{item.trackingNumber || "-"}</p>
-                          <p><span className="block text-xs font-semibold uppercase tracking-wide text-neutral-500">Shipped</span>{item.shippedDate || "-"}</p>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          <button type="button" onClick={() => copyText("tracking number", item.trackingNumber || "")} disabled={!item.trackingNumber} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-xs font-semibold text-neutral-700 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50">Copy tracking number</button>
-                          <a href={dhlTrackingUrl(item.trackingNumber)} target="_blank" rel="noreferrer" className={`rounded-xl px-3 py-2 text-xs font-semibold ${item.trackingNumber ? "bg-[#e06b2c] text-[#24110e] hover:bg-[#f0be45]" : "pointer-events-none bg-neutral-200 text-neutral-500"}`}>Open DHL tracking</a>
-                        </div>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              </div>}
             </div>
           )}
 
@@ -3523,7 +3463,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab !== "stock" && filtered.map((item) => {
+          {activeTab !== "stock" && activeTab !== "sales" && filtered.map((item) => {
             const itemProfit = itemProfitValue(item);
             const classification = itemClassification(item);
             const proofExpanded = expandedProofId === item.id;
