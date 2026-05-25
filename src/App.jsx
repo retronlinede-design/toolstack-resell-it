@@ -1613,7 +1613,7 @@ export default function ResellerItApp() {
 
   return (
     <div className="min-h-screen bg-[#24120f] p-3 text-stone-900 sm:p-4 md:p-5">
-      <div className="mx-auto grid max-w-[1680px] gap-4 lg:grid-cols-[300px_minmax(0,1fr)]">
+      <div className="mx-auto grid max-w-[1680px] gap-4 lg:grid-cols-[272px_minmax(0,1fr)]">
         <aside className="overflow-hidden rounded-[2rem] border border-[#5a3028] bg-[#351c17] shadow-[0_20px_60px_rgba(0,0,0,0.28)] lg:sticky lg:top-5 lg:max-h-[calc(100vh-2.5rem)] lg:overflow-auto">
           <div className="flex h-3">
             <div className="flex-1 bg-[#b7412e]" />
@@ -1621,15 +1621,15 @@ export default function ResellerItApp() {
             <div className="flex-1 bg-[#f0be45]" />
             <div className="flex-1 bg-[#1f9d99]" />
           </div>
-          <div className="space-y-4 p-4 md:p-5">
-          <div className="space-y-4">
+          <div className="space-y-4 p-4 md:p-5 lg:p-4">
+          <div className="space-y-3.5">
             <div>
-              <div className="bg-transparent px-1 pt-1">
-                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-24 w-full object-contain sm:max-h-28 lg:max-h-32" />
+              <div className="bg-transparent px-1 pt-1 lg:px-0">
+                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-24 w-full object-contain sm:max-h-28 lg:max-h-28" />
               </div>
               <p className="-mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f0be45] sm:text-xs">THE COMPLETE RESELLER SYSTEM.</p>
             </div>
-            <nav className="space-y-2">
+            <nav className="space-y-1.5">
               <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === "dashboard" ? "border-[#f0be45]/60 bg-white/8 shadow-[0_8px_22px_rgba(240,190,69,0.12)]" : "border-[#5a3028] bg-[#45251f] hover:border-[#f0be45]/35 hover:bg-white/7"}`}>
                 <div className="flex h-1.5">
                   <div className="flex-1 bg-[#b7412e]" />
@@ -1637,7 +1637,7 @@ export default function ResellerItApp() {
                   <div className="flex-1 bg-[#f0be45]" />
                   <div className="flex-1 bg-[#1f9d99]" />
                 </div>
-                <div className="px-4 py-3">
+                <div className="px-4 py-3 lg:px-3.5 lg:py-2.5">
                   <p className="text-[11px] font-semibold uppercase tracking-wide text-[#f0be45]">Home</p>
                   <p className="mt-0.5 text-base font-semibold text-[#fff7e8]">Dashboard</p>
                 </div>
@@ -1646,7 +1646,7 @@ export default function ResellerItApp() {
                 {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
                   <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
-                    <div className="px-3 py-2.5">
+                    <div className="px-3 py-2.5 lg:px-2.5 lg:py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
                       <p className="mt-0.5 text-sm font-semibold">{label}</p>
                     </div>
