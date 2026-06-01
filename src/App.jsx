@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Plus, Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
+import { Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
 import resellItLogo from "./assets/resellitlogo2.png";
 
-const STORAGE_KEY = "toolstack.resellerit.v1";
+const STORAGE_KEY = "toolstack.resellit.v1";
+const OLD_STORAGE_KEY = "toolstack.resellerit.v1";
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
-const STOCK_VIEW_KEY = "toolstack.resellit.stockView.v1";
 const CURRENT_DATE = new Date().toISOString().slice(0, 10);
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const CURRENT_YEAR = new Date().getFullYear().toString();
+const DISABLED_LEGACY_UI = false;
 const ebayMappingHints = ["order date", "item title", "sale price", "fees", "shipping", "refund", "payout"];
 const DEFAULT_CLASSIFICATION = "Unsure / Review Later";
 const DEFAULT_EBAY_FEE_MODE = "Private Germany";
@@ -18,50 +19,23 @@ const classificationOptions = [
   DEFAULT_CLASSIFICATION,
 ];
 const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
+const buyerPlatformOptions = [
+  ["ebay", "eBay"],
+  ["kleinanzeigen", "Kleinanzeigen"],
+  ["private", "Private"],
+  ["facebook", "Facebook"],
+  ["vinted", "Vinted"],
+  ["other", "Other"],
+];
 const listingLanguageOptions = ["German", "English"];
 const DEFAULT_LISTING_LANGUAGE = "German";
 const conditionGradeOptions = ["Neu", "Sehr gut", "Gut", "Akzeptabel", "Defekt / Ersatzteile", "Sonstiges"];
 const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
-const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Written Off"];
-const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Ready to Pack", "Packed", "Shipped", "Completed"];
-const shippingWorkflowStatuses = ["Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned"];
+const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded", "Written Off"];
+const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Refunded"];
+const shippingWorkflowStatuses = ["Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded"];
 const legacyStatusLabels = { "Written off": "Written Off", "Kept private": "Completed" };
 const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
-const itemTemplates = [
-  ["Private personal item", {
-    classification: "Private Sale / Personal Collection",
-    sourceType: "Private seller",
-    status: "Draft",
-    hasReceipt: "No",
-    receiptType: "Eigenbeleg needed",
-    proofType: "Private seller note",
-    ebayFeeMode: DEFAULT_EBAY_FEE_MODE,
-  }],
-  ["Flea-market stock", {
-    classification: "Business Stock / Resale Inventory",
-    sourceType: "Flea market",
-    status: "Sourced",
-    hasReceipt: "No",
-    receiptType: "Eigenbeleg needed",
-    proofType: "Eigenbeleg",
-  }],
-  ["Second-hand shop stock", {
-    classification: "Business Stock / Resale Inventory",
-    sourceType: "Second-hand shop",
-    status: "Sourced",
-    hasReceipt: "Yes",
-    receiptType: "Shop receipt",
-    proofType: "Shop receipt",
-  }],
-  ["Legacy stock", {
-    classification: "Legacy Stock / Previous Business",
-    sourceType: "Other",
-    status: "Draft",
-    hasReceipt: "No",
-    receiptType: "Eigenbeleg needed",
-    proofType: "Eigenbeleg",
-  }],
-];
 const classificationHelp = [
   ["Private Sale / Personal Collection", "Originally owned personal item."],
   ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
@@ -87,11 +61,10 @@ const advancedFormSections = [
 
 const modules = [
   ["stock", "Stock Control", "bg-[#b7412e]", "text-[#b7412e]", "text-[#fff7e8]", "border-[#b7412e]/45 bg-[#b7412e]/18", "hover:border-[#b7412e]/40 hover:bg-[#b7412e]/12"],
-  ["sales", "Shipping", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#fff7e8]", "border-[#e06b2c]/45 bg-[#e06b2c]/18", "hover:border-[#e06b2c]/40 hover:bg-[#e06b2c]/12"],
+  ["sales", "Sales & Shipping", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#fff7e8]", "border-[#e06b2c]/45 bg-[#e06b2c]/18", "hover:border-[#e06b2c]/40 hover:bg-[#e06b2c]/12"],
   ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#fff7e8]", "border-[#f0be45]/45 bg-[#f0be45]/16", "hover:border-[#f0be45]/45 hover:bg-[#f0be45]/12"],
   ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12"],
 ];
-const stockSections = [["needsAttention", "Needs Attention"], ["inventory", "Active Inventory"], ["readyToList", "Ready to List"], ["listingStudio", "Listing Studio"]];
 const financeSections = [["thisMonth", "This Month"], ["taxRecords", "Tax Records"], ["reconciliation", "Reconciliation"], ["yearEnd", "Year-End / EÜR"]];
 const stockSectionDetails = {
   needsAttention: ["Needs Attention", "Items missing information, proof, pricing, or listing preparation."],
@@ -124,12 +97,18 @@ const emptyItem = {
   saleDate: "",
   salePrice: "",
   finalSalePrice: "",
+  buyerPlatform: "ebay",
   shippingChargedToBuyer: "",
   actualShippingCost: "",
+  packagingCost: "",
   carrier: "DHL",
   trackingNumber: "",
   shippedDate: "",
   trackingNotes: "",
+  refundAmount: "",
+  refundDate: "",
+  returnPostageCost: "",
+  refundReason: "",
   ebayFees: "",
   ebayFeeMode: DEFAULT_EBAY_FEE_MODE,
   feePercent: "",
@@ -249,11 +228,6 @@ function inYear(date, year = CURRENT_YEAR) {
   return String(date || "").startsWith(year);
 }
 
-function formatShortDate(date) {
-  if (!date) return "No date";
-  return new Date(`${date}T00:00:00`).toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-}
-
 function timelineGroupLabel(date, grouping) {
   if (grouping === "Ungrouped") return "All items";
   if (!date) return "No purchase date";
@@ -273,6 +247,21 @@ function itemClassification(item) {
   return item.classification || DEFAULT_CLASSIFICATION;
 }
 
+function buyerPlatformLabel(value) {
+  return buyerPlatformOptions.find(([key]) => key === value)?.[1] || "eBay";
+}
+
+function normalizeItem(item) {
+  const next = { ...emptyItem, ...item };
+  if (!buyerPlatformOptions.some(([key]) => key === next.buyerPlatform)) next.buyerPlatform = "ebay";
+  if (!statusOptions.includes(next.status) && legacyStatusLabels[next.status]) next.status = legacyStatusLabels[next.status];
+  return next;
+}
+
+function normalizeItems(items) {
+  return Array.isArray(items) ? items.map(normalizeItem) : [];
+}
+
 function finalSaleValue(item) {
   return number(item.finalSalePrice || item.salePrice);
 }
@@ -283,6 +272,14 @@ function shippingChargedValue(item) {
 
 function actualShippingValue(item) {
   return number(item.actualShippingCost || item.shippingCost);
+}
+
+function packagingCostValue(item) {
+  return number(item.packagingCost);
+}
+
+function refundValue(item) {
+  return number(item.refundAmount) + number(item.returnPostageCost);
 }
 
 function ebayBaseFee(item) {
@@ -300,20 +297,7 @@ function platformFees(item) {
 }
 
 function itemProfitValue(item) {
-  return finalSaleValue(item) + shippingChargedValue(item) - number(item.purchasePrice) - actualShippingValue(item) - platformFees(item);
-}
-
-function hasProofRecord(item) {
-  return Boolean(
-    item.proofStoredExternally === "Yes" ||
-    item.proofFileName ||
-    item.proofFolderLocation ||
-    item.proofImageDataUrl ||
-    item.proofNotes ||
-    item.proofAmount ||
-    item.receiptType ||
-    item.proofType
-  );
+  return finalSaleValue(item) + shippingChargedValue(item) - number(item.purchasePrice) - platformFees(item) - actualShippingValue(item) - packagingCostValue(item) - refundValue(item);
 }
 
 function needsProofRecord(item) {
@@ -341,11 +325,12 @@ function statusBadgeClass(item) {
   const status = itemStatus(item);
   if (status === "Completed") return "bg-lime-100 text-lime-800 border-lime-200";
   if (status === "Sold") return "bg-[#e06b2c]/15 text-[#8a3915] border-[#e06b2c]/25";
+  if (status === "Paid") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
   if (status === "Ready to Pack") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
   if (status === "Packed") return "bg-[#e06b2c]/20 text-[#8a3915] border-[#e06b2c]/30";
   if (status === "Shipped") return "bg-[#1f9d99]/15 text-[#0f5f5b] border-[#1f9d99]/25";
   if (status === "Ready to List" || status === "Listed") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
-  if (status === "Returned" || status === "Written Off") return "bg-red-50 text-red-700 border-red-200";
+  if (status === "Returned" || status === "Refunded" || status === "Written Off") return "bg-red-50 text-red-700 border-red-200";
   return "bg-stone-100 text-stone-700 border-stone-200";
 }
 
@@ -372,7 +357,7 @@ function hasListingPreviewInput(item) {
 }
 
 function isSoldStatus(item) {
-  return ["Sold", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned"].includes(itemStatus(item)) || Boolean(item.finalSalePrice || item.salePrice || item.saleDate);
+  return ["Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded"].includes(itemStatus(item)) || Boolean(item.finalSalePrice || item.salePrice || item.saleDate);
 }
 
 function dhlTrackingUrl(trackingNumber) {
@@ -413,10 +398,6 @@ function listingResearchLinks(item) {
     ["Search Kleinanzeigen", query ? `https://www.kleinanzeigen.de/s-suchanfrage.html?keywords=${query}` : "https://www.kleinanzeigen.de/"],
     ["Open ChatGPT", "https://chatgpt.com/"],
   ];
-}
-
-function listingPrice(item) {
-  return item.chosenListingPrice || item.expectedSalePrice || "";
 }
 
 function escapeHtml(value) {
@@ -686,20 +667,47 @@ function generateListingDraft(item, { preferSaved = true } = {}) {
 
 function loadInitialItems() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return demoItems;
+    let raw = localStorage.getItem(STORAGE_KEY);
+    let shouldMigrateOldData = false;
+    if (!raw) {
+      const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
+      if (oldRaw) {
+        raw = oldRaw;
+        shouldMigrateOldData = true;
+      }
+    }
+    if (!raw) return normalizeItems(demoItems);
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed.items) ? parsed.items : demoItems;
+    const normalizedItems = Array.isArray(parsed.items) ? normalizeItems(parsed.items) : normalizeItems(demoItems);
+    if (shouldMigrateOldData) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        ...parsed,
+        version: 1,
+        items: normalizedItems,
+        expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+        updatedAt: new Date().toISOString(),
+      }));
+    }
+    return normalizedItems;
   } catch {
-    return demoItems;
+    return normalizeItems(demoItems);
   }
 }
 
 function loadInitialExpenses() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = localStorage.getItem(STORAGE_KEY);
+    let shouldMigrateOldData = false;
+    if (!raw) {
+      const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
+      if (oldRaw) {
+        raw = oldRaw;
+        shouldMigrateOldData = true;
+      }
+    }
     if (!raw) return [];
     const parsed = JSON.parse(raw);
+    if (shouldMigrateOldData) localStorage.setItem(STORAGE_KEY, raw);
     return Array.isArray(parsed.expenses) ? parsed.expenses : [];
   } catch {
     return [];
@@ -886,7 +894,7 @@ export default function ResellerItApp() {
   const [inventorySort, setInventorySort] = useState("Newest purchase date");
   const [inventoryTimelineGrouping, setInventoryTimelineGrouping] = useState("Month");
   const [inventoryTimelineMonth, setInventoryTimelineMonth] = useState("");
-  const [stockViewMode, setStockViewMode] = useState(() => localStorage.getItem(STOCK_VIEW_KEY) || "Detailed view");
+  const [stockViewMode, setStockViewMode] = useState("Detailed view");
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [stockFilterMenu, setStockFilterMenu] = useState("");
@@ -917,26 +925,24 @@ export default function ResellerItApp() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [editingId, itemFormOpen]);
 
-  useEffect(() => {
-    localStorage.setItem(STOCK_VIEW_KEY, stockViewMode);
-  }, [stockViewMode]);
-
   function persist(nextItems) {
-    setItems(nextItems);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: nextItems, expenses, updatedAt: new Date().toISOString() }));
+    const normalizedItems = normalizeItems(nextItems);
+    setItems(normalizedItems);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: normalizedItems, expenses, updatedAt: new Date().toISOString() }));
   }
 
   function persistAll(nextItems, nextExpenses) {
-    setItems(nextItems);
+    const normalizedItems = normalizeItems(nextItems);
+    setItems(normalizedItems);
     setExpenses(nextExpenses);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: nextItems, expenses: nextExpenses, updatedAt: new Date().toISOString() }));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: normalizedItems, expenses: nextExpenses, updatedAt: new Date().toISOString() }));
   }
 
   function persistExpenses(nextExpenses) {
     persistAll(items, nextExpenses);
   }
 
-  function saveCurrentItem({ keepAdding = false } = {}) {
+  function saveCurrentItem() {
     if (!form.name.trim()) return;
     const clean = {
       ...form,
@@ -961,14 +967,6 @@ export default function ResellerItApp() {
   function saveItem(e) {
     e.preventDefault();
     saveCurrentItem();
-  }
-
-  function applyItemTemplate(template) {
-    setForm({
-      ...form,
-      ...template,
-      ebayFeeMode: template.classification === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode,
-    });
   }
 
   function updateQuickProofStatus(value) {
@@ -1053,9 +1051,8 @@ export default function ResellerItApp() {
     if (section === "readyToList") setInventoryStatus("Ready to List");
   }
 
-  function openSalesQueue(section) {
+  function openSalesQueue() {
     setActiveTab("sales");
-    setSalesSection(section);
   }
 
   function openFinanceQueue(section) {
@@ -1119,16 +1116,6 @@ export default function ResellerItApp() {
         };
       }
       return { ...item, listingTitle: "", conditionText: "", descriptionText: "", htmlDescription: "" };
-    }));
-  }
-
-  function updateItemShipmentStatus(id, status) {
-    const today = new Date().toISOString().slice(0, 10);
-    persist(items.map((item) => {
-      if (item.id !== id) return item;
-      const updates = { status, carrier: item.carrier || "DHL" };
-      if (status === "Shipped" && !item.shippedDate) updates.shippedDate = today;
-      return { ...item, ...updates };
     }));
   }
 
@@ -1276,7 +1263,7 @@ export default function ResellerItApp() {
     const salesTotal = items.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const feesTotal = items.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
     const profit = items.reduce((sum, item) => sum + itemProfitValue(item), 0);
-    const sold = items.filter((item) => item.status === "Sold").length;
+    const sold = items.filter(isSoldStatus).length;
     const eigenbeleg = items.filter((item) => item.hasReceipt === "No").length;
     return { purchaseTotal, salesTotal, feesTotal, profit, sold, eigenbeleg };
   }, [items]);
@@ -1307,7 +1294,7 @@ export default function ResellerItApp() {
   const todayWorkflow = useMemo(() => ({
     toResearch: items.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
     readyToList: items.filter((item) => itemStatus(item) === "Ready to List"),
-    soldNotShipped: items.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))),
+    soldNotShipped: items.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatus(item))),
     missingProof: items.filter(needsProofRecord),
     needsListing: items.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
   }), [items]);
@@ -1316,10 +1303,10 @@ export default function ResellerItApp() {
     const salesItems = items.filter(isSoldStatus);
     return {
       items: salesItems,
-      awaitingShipment: salesItems.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))),
+      awaitingShipment: salesItems.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatus(item))),
       shippedItems: salesItems.filter((item) => itemStatus(item) === "Shipped" || item.trackingNumber || item.shippedDate),
       completedSales: salesItems.filter((item) => itemStatus(item) === "Completed").slice(0, 6),
-      problemItems: salesItems.filter((item) => itemStatus(item) === "Returned" || item.status === "Written Off"),
+      problemItems: salesItems.filter((item) => itemStatus(item) === "Returned" || itemStatus(item) === "Refunded" || item.status === "Written Off"),
       counts: shippingWorkflowStatuses.reduce((counts, status) => {
         counts[status] = salesItems.filter((item) => itemStatus(item) === status).length;
         return counts;
@@ -1330,22 +1317,21 @@ export default function ResellerItApp() {
   const shippingTrackerGroups = useMemo(() => {
     const shipmentItems = items.filter(isSoldStatus);
     return [
-      ["Sold not shipped", shipmentItems.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item)))],
+      ["Sold not shipped", shipmentItems.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatus(item)))],
       ["Shipped / Tracking", shipmentItems.filter((item) => {
         const status = itemStatus(item);
-        return status === "Shipped" || (Boolean(item.trackingNumber || item.shippedDate) && !["Sold", "Ready to Pack", "Packed", "Completed", "Returned", "Written Off"].includes(status));
+        return status === "Shipped" || (Boolean(item.trackingNumber || item.shippedDate) && !["Sold", "Paid", "Ready to Pack", "Packed", "Completed", "Returned", "Refunded", "Written Off"].includes(status));
       })],
-      ["Returned / Problem", shipmentItems.filter((item) => itemStatus(item) === "Returned" || itemStatus(item) === "Written Off")],
+      ["Returned / Problem", shipmentItems.filter((item) => itemStatus(item) === "Returned" || itemStatus(item) === "Refunded" || itemStatus(item) === "Written Off")],
     ];
   }, [items]);
 
   const sectionSummaries = useMemo(() => {
     const monthlyExpenses = expenses.filter((expense) => inMonth(expense.date));
     const monthlySales = items.filter((item) => inMonth(item.saleDate));
-    const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
     const revenue = monthlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const fees = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
-    const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - monthlyPurchases.filter((item) => !inMonth(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0);
     const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
     const packedOrShippedToday = items.filter((item) => (
       itemStatus(item) === "Packed" || (itemStatus(item) === "Shipped" && item.shippedDate === CURRENT_DATE)
@@ -1358,9 +1344,9 @@ export default function ResellerItApp() {
         recentSourcing: items.filter((item) => inMonth(item.purchaseDate)).length,
       },
       sales: {
-        awaitingShipment: items.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))).length,
+        awaitingShipment: items.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatus(item))).length,
         packedOrShippedToday: packedOrShippedToday.length,
-        returnsIssues: items.filter((item) => itemStatus(item) === "Returned" || itemStatus(item) === "Written Off").length,
+        returnsIssues: items.filter((item) => itemStatus(item) === "Returned" || itemStatus(item) === "Refunded" || itemStatus(item) === "Written Off").length,
         recentCompleted: items.filter((item) => itemStatus(item) === "Completed").slice(0, 6).length,
       },
       finance: {
@@ -1468,7 +1454,7 @@ export default function ResellerItApp() {
     const purchaseTotal = monthlyPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
     const salesTotal = monthlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const feesTotal = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
-    const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - monthlyPurchases.filter((item) => !inMonth(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0);
     return { purchaseTotal, salesTotal, feesTotal, profit };
   }, [items]);
 
@@ -1480,7 +1466,7 @@ export default function ResellerItApp() {
     const salesTotal = yearlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const feesTotal = yearlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
     const expenseTotal = yearlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
-    const profit = yearlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - yearlyPurchases.filter((item) => !inYear(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0) - expenseTotal;
+    const profit = yearlySales.reduce((sum, item) => sum + itemProfitValue(item), 0) - expenseTotal;
     return { purchaseTotal, salesTotal, feesTotal, expenseTotal, profit };
   }, [expenses, items]);
 
@@ -1491,11 +1477,11 @@ export default function ResellerItApp() {
     const purchaseTotal = yearlyBusinessPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
     const salesTotal = yearlyBusinessSales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const feesTotal = yearlyBusinessSales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
-    const profit = yearlyBusinessSales.reduce((sum, item) => sum + itemProfitValue(item), 0) - yearlyBusinessPurchases.filter((item) => !inYear(item.saleDate)).reduce((sum, item) => sum + number(item.purchasePrice), 0);
+    const profit = yearlyBusinessSales.reduce((sum, item) => sum + itemProfitValue(item), 0);
     return { purchaseTotal, salesTotal, feesTotal, profit, soldCount: yearlyBusinessSales.length };
   }, [items]);
 
-  const monthlyClosing = useMemo(() => {
+  const monthlyClosing = (() => {
     const purchasedItems = items.filter((item) => inMonth(item.purchaseDate, closingMonth));
     const soldItems = items.filter((item) => inMonth(item.saleDate, closingMonth));
     const monthlyExpenses = expenses.filter((expense) => inMonth(expense.date, closingMonth));
@@ -1508,9 +1494,11 @@ export default function ResellerItApp() {
     const purchaseTotal = purchasedItems.reduce((sum, item) => sum + number(item.purchasePrice), 0);
     const shippingCharged = soldItems.reduce((sum, item) => sum + shippingChargedValue(item), 0);
     const actualShippingCosts = soldItems.reduce((sum, item) => sum + actualShippingValue(item), 0);
+    const packagingCosts = soldItems.reduce((sum, item) => sum + packagingCostValue(item), 0);
     const platformFeeTotal = soldItems.reduce((sum, item) => sum + platformFees(item), 0);
+    const refundTotal = soldItems.reduce((sum, item) => sum + refundValue(item), 0);
     const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
-    const profitEstimate = salesTotal + shippingCharged - purchaseTotal - actualShippingCosts - platformFeeTotal - expenseTotal;
+    const profitEstimate = soldItems.reduce((sum, item) => sum + itemProfitValue(item), 0) - expenseTotal;
     const missingProofItems = activityItems.filter(needsProofRecord);
     const reviewItems = activityItems.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION);
 
@@ -1520,7 +1508,9 @@ export default function ResellerItApp() {
       purchaseTotal,
       shippingCharged,
       actualShippingCosts,
+      packagingCosts,
       platformFeeTotal,
+      refundTotal,
       expenseTotal,
       profitEstimate,
       classificationBreakdown,
@@ -1531,14 +1521,14 @@ export default function ResellerItApp() {
       activityCount: activityItems.length,
       expenseCount: monthlyExpenses.length,
     };
-  }, [closingMonth, expenses, items]);
+  })();
 
   const workflowQueues = useMemo(() => ({
     needsProof: items.filter(needsProofRecord),
     needsResearch: items.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
     needsListing: items.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
     readyToList: items.filter((item) => itemStatus(item) === "Ready to List"),
-    needsShipping: items.filter((item) => ["Sold", "Ready to Pack", "Packed"].includes(itemStatus(item))),
+    needsShipping: items.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatus(item))),
     needsTaxReview: items.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION),
   }), [items]);
 
@@ -1562,13 +1552,14 @@ export default function ResellerItApp() {
   ), [filteredExpenses]);
 
   const filtered = useMemo(() => {
-    let nextItems = [];
-    if (activeTab === "dashboard") nextItems = [];
-    else if (activeTab === "stock" && stockSection === "needsAttention") nextItems = items.filter((item) => needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
-    else if (activeTab === "stock" && stockSection === "readyToList") nextItems = items.filter((item) => itemStatus(item) === "Ready to List");
-    else if (activeTab === "sales") nextItems = items.filter((item) => ["Sold", "Shipped", "Completed", "Returned"].includes(itemStatus(item)) || isSoldStatus(item));
-    else if (activeTab === "finance" && financeSection === "taxRecords") nextItems = items.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
-    else nextItems = items;
+    const nextItems = (() => {
+      if (activeTab === "dashboard") return [];
+      if (activeTab === "stock" && stockSection === "needsAttention") return items.filter((item) => needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
+      if (activeTab === "stock" && stockSection === "readyToList") return items.filter((item) => itemStatus(item) === "Ready to List");
+      if (activeTab === "sales") return items.filter((item) => ["Sold", "Paid", "Shipped", "Completed", "Returned", "Refunded"].includes(itemStatus(item)) || isSoldStatus(item));
+      if (activeTab === "finance" && financeSection === "taxRecords") return items.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
+      return items;
+    })();
 
     if (classificationFilter === "All classifications") return nextItems;
     return nextItems.filter((item) => itemClassification(item) === classificationFilter);
@@ -1660,7 +1651,7 @@ export default function ResellerItApp() {
               <div className="grid gap-2">
                 <button type="button" onClick={openNewItemEditor} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add item</button>
                 <button type="button" onClick={() => openStockQueue("needsAttention")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Open Stock Control</button>
-                <button type="button" onClick={() => openSalesQueue("awaitingShipment")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales & shipping queue</button>
+                <button type="button" onClick={openSalesQueue} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales & shipping queue</button>
               </div>
             </div>
 
@@ -1810,6 +1801,7 @@ export default function ResellerItApp() {
                         <Input label="Purchase price EUR" value={form.purchasePrice || ""} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
                         {isSoldStatus(form) && <Input label="Sold price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />}
                         <Input label="Shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value, shippingCost: e.target.value })} />
+                        <Input label="Packaging cost EUR" value={form.packagingCost || ""} onChange={(e) => setForm({ ...form, packagingCost: e.target.value })} />
                         <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
                       </div>
                       <p className="mt-3 rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Estimated/current profit: {money(itemProfitValue(form))}</p>
@@ -1946,10 +1938,18 @@ export default function ResellerItApp() {
                   <div className="space-y-4">
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <Input label="Sale date" type="date" value={form.saleDate} onChange={(e) => setForm({ ...form, saleDate: e.target.value })} />
+                      <Select label="Buyer platform" value={form.buyerPlatform || "ebay"} onChange={(e) => setForm({ ...form, buyerPlatform: e.target.value })}>
+                        {buyerPlatformOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                      </Select>
                       <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
                       <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
                       <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
+                      <Input label="Packaging cost EUR" value={form.packagingCost || ""} onChange={(e) => setForm({ ...form, packagingCost: e.target.value })} />
                       <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
+                      <Input label="Refund amount EUR" value={form.refundAmount || ""} onChange={(e) => setForm({ ...form, refundAmount: e.target.value })} />
+                      <Input label="Refund date" type="date" value={form.refundDate || ""} onChange={(e) => setForm({ ...form, refundDate: e.target.value })} />
+                      <Input label="Return postage cost EUR" value={form.returnPostageCost || ""} onChange={(e) => setForm({ ...form, returnPostageCost: e.target.value })} />
+                      <Input label="Refund reason" className="sm:col-span-2" value={form.refundReason || ""} onChange={(e) => setForm({ ...form, refundReason: e.target.value })} />
                       <Input label="Carrier" value={form.carrier || "DHL"} onChange={(e) => setForm({ ...form, carrier: e.target.value })} />
                       <Input label="Tracking number" value={form.trackingNumber || ""} onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })} />
                       <Input label="Shipped date" type="date" value={form.shippedDate || ""} onChange={(e) => setForm({ ...form, shippedDate: e.target.value })} />
@@ -1974,61 +1974,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {false && !editingId && <div className="space-y-3">
-            {!editingId && (
-              <div className="rounded-2xl border border-[#eadfce] bg-white/80 p-3">
-                <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Item templates</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {itemTemplates.map(([label, template]) => (
-                    <button key={label} type="button" onClick={() => applyItemTemplate(template)} className="rounded-xl border border-stone-200 bg-[#fffdf8] px-3 py-2 text-sm font-semibold text-stone-700 transition hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15">
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-              <Input label="Item name" className="sm:col-span-2" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="e.g. Sony CD Player" />
-              <Select label="Classification" className="lg:col-span-2" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value, ebayFeeMode: e.target.value === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode })}>
-                {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
-              </Select>
-              <Input label="Purchase price EUR" value={form.purchasePrice || ""} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
-              <Select label="Status" value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                {statusOptions.map((status) => <option key={status}>{status}</option>)}
-                {form.status && !statusOptions.includes(form.status) && <option>{form.status}</option>}
-              </Select>
-              <Input label="Purchase/source note" className="sm:col-span-2 lg:col-span-3" value={form.sourceName} onChange={(e) => setForm({ ...form, sourceName: e.target.value })} placeholder="Private collection, flea market seller, shop name..." />
-              <Select label="Proof status" className="sm:col-span-2 lg:col-span-3" value={quickProofStatus(form)} onChange={(e) => updateQuickProofStatus(e.target.value)}>
-                <option>Proof available</option>
-                <option>External proof recorded</option>
-                <option>Eigenbeleg needed</option>
-                <option>Missing proof</option>
-              </Select>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-white/60 p-2">
-              <span className="px-1 text-xs font-semibold text-stone-500">Status</span>
-              {["Draft", "Sourced", "Ready to List", "Listed"].map((status) => (
-                <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition ${form.status === status ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 text-[#8a3915]" : "border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20"}`}>
-                  {status}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex flex-col gap-2 rounded-2xl border border-[#eadfce] bg-white/70 p-2 sm:flex-row sm:flex-wrap sm:items-center">
-              <button type="submit" className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#e06b2c] px-3 py-2 text-xs font-semibold text-[#24110e] shadow-[0_8px_18px_rgba(224,107,44,0.18)] transition hover:bg-[#f0be45] sm:w-auto">
-                <Plus size={16} /> {editingId ? "Save Changes" : "Add Item"}
-              </button>
-              {!editingId && (
-                <button type="button" onClick={() => saveCurrentItem({ keepAdding: true })} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-800 transition hover:border-[#f0be45]/50 hover:bg-[#f0be45]/20 sm:w-auto">
-                  <Plus size={16} /> Save + Add another
-                </button>
-              )}
-              <p className="px-1 text-xs text-stone-500 sm:ml-auto">Advanced sections stay below this action bar.</p>
-            </div>
-          </div>}
-
-          {false && !editingId && itemFormOpen && <div className="mt-6 space-y-4 border-t border-[#eadfce] pt-5">
+          {DISABLED_LEGACY_UI && !editingId && itemFormOpen && <div className="mt-6 space-y-4 border-t border-[#eadfce] pt-5">
             <div className="premium-panel rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
@@ -2102,9 +2048,17 @@ export default function ResellerItApp() {
 
             {activeAdvancedSection === "sale" && <FormSection title="Sale and shipping">
               <Input label="Sale date" type="date" value={form.saleDate} onChange={(e) => setForm({ ...form, saleDate: e.target.value })} />
+              <Select label="Buyer platform" value={form.buyerPlatform || "ebay"} onChange={(e) => setForm({ ...form, buyerPlatform: e.target.value })}>
+                {buyerPlatformOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              </Select>
               <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
               <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
               <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
+              <Input label="Packaging cost EUR" value={form.packagingCost || ""} onChange={(e) => setForm({ ...form, packagingCost: e.target.value })} />
+              <Input label="Refund amount EUR" value={form.refundAmount || ""} onChange={(e) => setForm({ ...form, refundAmount: e.target.value })} />
+              <Input label="Refund date" type="date" value={form.refundDate || ""} onChange={(e) => setForm({ ...form, refundDate: e.target.value })} />
+              <Input label="Return postage cost EUR" value={form.returnPostageCost || ""} onChange={(e) => setForm({ ...form, returnPostageCost: e.target.value })} />
+              <Input label="Refund reason" className="sm:col-span-2" value={form.refundReason || ""} onChange={(e) => setForm({ ...form, refundReason: e.target.value })} />
               <Input label="Carrier" value={form.carrier || "DHL"} onChange={(e) => setForm({ ...form, carrier: e.target.value })} />
               <Input label="Tracking number" value={form.trackingNumber || ""} onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })} />
               <Input label="Shipped date" type="date" value={form.shippedDate || ""} onChange={(e) => setForm({ ...form, shippedDate: e.target.value })} />
@@ -2118,6 +2072,7 @@ export default function ResellerItApp() {
                   <Input label="Purchase price EUR" value={form.purchasePrice || ""} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
                   {isSoldStatus(form) && <Input label="Sold price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />}
                   <Input label="Shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value, shippingCost: e.target.value })} />
+                  <Input label="Packaging cost EUR" value={form.packagingCost || ""} onChange={(e) => setForm({ ...form, packagingCost: e.target.value })} />
                   <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
                 </div>
                 <p className="mt-3 rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Estimated/current profit: {money(itemProfitValue(form))}</p>
@@ -2543,7 +2498,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {false && activeTab === "stock" && ["needsAttention", "inventory", "readyToList"].includes(stockSection) && (
+          {DISABLED_LEGACY_UI && activeTab === "stock" && ["needsAttention", "inventory", "readyToList"].includes(stockSection) && (
             <div className="grid gap-5">
               <SectionHeader title={stockSectionDetails[stockSection][0]} subtitle={stockSectionDetails[stockSection][1]} count={stockSectionItems.length} />
 
@@ -2662,7 +2617,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {false && activeTab === "stock" && stockSection === "listingStudio" && (
+          {DISABLED_LEGACY_UI && activeTab === "stock" && stockSection === "listingStudio" && (
             <div className="grid gap-5">
               <SectionHeader title={stockSectionDetails.listingStudio[0]} subtitle={stockSectionDetails.listingStudio[1]} count={items.length} />
 
@@ -2789,14 +2744,14 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {false && activeTab === "dashboard" && (
+          {DISABLED_LEGACY_UI && activeTab === "dashboard" && (
             <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <h2 className="text-lg font-semibold text-neutral-950">Monthly reseller dashboard</h2>
                 <p className="mt-1 text-sm text-neutral-600">Working view for the current month. Use it to compare eBay sales against purchases, fees, shipping, and missing receipt records before preparing your monthly bookkeeping pack.</p>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                   <StatCard icon={ShoppingCart} label="Sales" value={money(monthlySummary.salesTotal)} />
-                  <StatCard icon={ReceiptText} label="Purchases" value={money(monthlySummary.purchaseTotal)} />
+                  <StatCard icon={ReceiptText} label="Inventory cash spent" value={money(monthlySummary.purchaseTotal)} />
                   <StatCard icon={Euro} label="Fees + shipping" value={money(monthlySummary.feesTotal)} />
                   <StatCard icon={Package} label="Inventory items" value={items.length} sub={`${summary.sold} sold total`} />
                 </div>
@@ -3150,8 +3105,8 @@ export default function ResellerItApp() {
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
                   <div>
                     <div className="mb-2 h-1 w-14 rounded-full bg-[#e06b2c]" />
-                    <h2 className="text-xl font-semibold text-neutral-950">Shipping</h2>
-                    <p className="mt-1 text-sm text-neutral-600">Light review of shipped, unshipped, and problem orders.</p>
+                    <h2 className="text-xl font-semibold text-neutral-950">Sold Items / Sales & Shipping</h2>
+                    <p className="mt-1 text-sm text-neutral-600">Review sold item bookkeeping, shipping, refunds, and problem orders.</p>
                   </div>
                   <p className="rounded-xl border border-[#e06b2c]/20 bg-[#fff7ec] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#9c481b]">{salesWorkflow.items.length} sold records</p>
                 </div>
@@ -3169,23 +3124,31 @@ export default function ResellerItApp() {
                       {groupItems.length === 0 && <p className="p-4 text-sm text-neutral-500">No items to review.</p>}
                       {groupItems.map((item) => (
                         <article key={item.id} className="p-3">
-                          <div className="grid gap-3 lg:grid-cols-[1.1fr_1.4fr_auto] lg:items-center">
+                          <div className="grid gap-3 lg:grid-cols-[1fr_2fr_auto] lg:items-start">
                             <div>
                               <div className="flex flex-wrap items-center gap-2">
                                 <h4 className="text-sm font-semibold text-neutral-950">{item.name || "Untitled item"}</h4>
                                 <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
                               </div>
                               <p className="mt-1 text-xs text-neutral-500">Sold {item.saleDate || "date not set"}</p>
+                              <p className="mt-1 text-xs font-semibold text-neutral-600">{buyerPlatformLabel(item.buyerPlatform)}</p>
                             </div>
 
-                            <div className="grid gap-2 text-xs text-neutral-700 sm:grid-cols-4">
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Carrier</span>{item.carrier || "DHL"}</p>
+                            <div className="grid gap-2 text-xs text-neutral-700 sm:grid-cols-3 xl:grid-cols-5">
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Sale price</span>{money(finalSaleValue(item))}</p>
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Purchase cost</span>{money(item.purchasePrice)}</p>
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Platform fees</span>{money(platformFees(item))}</p>
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Buyer shipping</span>{money(shippingChargedValue(item))}</p>
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Actual shipping</span>{money(actualShippingValue(item))}</p>
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Packaging</span>{money(packagingCostValue(item))}</p>
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Refund</span>{refundValue(item) ? money(refundValue(item)) : "-"}</p>
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Net profit</span><strong className={itemProfitValue(item) >= 0 ? "text-lime-800" : "text-red-700"}>{money(itemProfitValue(item))}</strong></p>
                               <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Tracking</span>{item.trackingNumber || "-"}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Shipped</span>{item.shippedDate || "-"}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Notes</span>{item.trackingNotes || "-"}</p>
+                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Notes</span>{item.trackingNotes || item.notes || item.refundReason || "-"}</p>
                             </div>
 
-                            <div className="flex justify-start lg:justify-end">
+                            <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                              <button type="button" onClick={() => editItem(item)} className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
                               <a href={dhlTrackingUrl(item.trackingNumber)} target="_blank" rel="noreferrer" className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${item.trackingNumber ? "bg-[#fff7ec] text-[#8a3915] hover:bg-[#f0be45]/30" : "pointer-events-none bg-neutral-100 text-neutral-400"}`}>Open DHL</a>
                             </div>
                           </div>
@@ -3236,12 +3199,14 @@ export default function ResellerItApp() {
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <StatCard icon={ShoppingCart} label="Sales total" value={money(monthlyClosing.salesTotal)} sub={`${monthlyClosing.soldCount} sold items`} />
-                  <StatCard icon={ReceiptText} label="Purchase total" value={money(monthlyClosing.purchaseTotal)} sub={`${monthlyClosing.purchasedCount} purchased items`} />
+                  <StatCard icon={ReceiptText} label="Inventory cash spent" value={money(monthlyClosing.purchaseTotal)} sub={`${monthlyClosing.purchasedCount} purchased items`} />
                   <StatCard icon={Euro} label="Shipping charged" value={money(monthlyClosing.shippingCharged)} />
                   <StatCard icon={Package} label="Actual shipping costs" value={money(monthlyClosing.actualShippingCosts)} />
+                  <StatCard icon={Package} label="Packaging costs" value={money(monthlyClosing.packagingCosts)} />
+                  <StatCard icon={Euro} label="Refunds / returns" value={money(monthlyClosing.refundTotal)} />
                   <StatCard icon={FileText} label="Platform fees" value={money(monthlyClosing.platformFeeTotal)} sub="eBay/import matching" />
                   <StatCard icon={ReceiptText} label="Expenses" value={money(monthlyClosing.expenseTotal)} sub={`${monthlyClosing.expenseCount} expense records`} />
-                  <StatCard icon={Euro} label="Profit estimate" value={money(monthlyClosing.profitEstimate)} sub="sales + shipping charged - purchases - shipping costs - platform fees - expenses" />
+                  <StatCard icon={Euro} label="Profit estimate" value={money(monthlyClosing.profitEstimate)} sub="sold item profit - expenses" />
                   <StatCard icon={ReceiptText} label="Missing proof" value={monthlyClosing.missingProofItems.length} />
                   <StatCard icon={FileText} label="Review later" value={monthlyClosing.reviewItems.length} sub="Unsure / Review Later" />
                 </div>
@@ -3382,7 +3347,7 @@ export default function ResellerItApp() {
                   <p className="text-sm text-neutral-600">Year-to-date support overview for German reseller self-reporting. This is tax support, not legal or tax advice.</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <StatCard icon={ReceiptText} label={`Purchases ${CURRENT_YEAR}`} value={money(yearlySummary.purchaseTotal)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={ReceiptText} label={`Inventory cash spent ${CURRENT_YEAR}`} value={money(yearlySummary.purchaseTotal)} accentClass="bg-[#f0be45]" />
                   <StatCard icon={ShoppingCart} label={`Gross sales ${CURRENT_YEAR}`} value={money(yearlySummary.salesTotal)} accentClass="bg-[#f0be45]" />
                   <StatCard icon={Euro} label="Fees + shipping" value={money(yearlySummary.feesTotal)} accentClass="bg-[#f0be45]" />
                   <StatCard icon={ReceiptText} label="Expenses" value={money(yearlySummary.expenseTotal)} accentClass="bg-[#f0be45]" />
@@ -3397,7 +3362,7 @@ export default function ResellerItApp() {
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <StatCard icon={ShoppingCart} label="Business sales" value={money(yearlyBusinessSummary.salesTotal)} sub={`${yearlyBusinessSummary.soldCount} sold items`} />
-                  <StatCard icon={ReceiptText} label="Business purchases" value={money(yearlyBusinessSummary.purchaseTotal)} />
+                  <StatCard icon={ReceiptText} label="Business inventory cash spent" value={money(yearlyBusinessSummary.purchaseTotal)} />
                   <StatCard icon={Euro} label="Business fees + shipping" value={money(yearlyBusinessSummary.feesTotal)} />
                   <StatCard icon={ReceiptText} label="All expense records" value={money(yearlySummary.expenseTotal)} sub="Expense records are not classification-split" />
                   <StatCard icon={Euro} label="Business item profit" value={money(yearlyBusinessSummary.profit)} />
