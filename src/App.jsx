@@ -1466,6 +1466,24 @@ export default function ResellerItApp() {
     setActiveWorkflowSection("source");
   }
 
+  function openNewItemListingHelp() {
+    setForm({
+      ...emptyItem,
+      purchaseDate: CURRENT_DATE,
+      status: "Draft",
+      classification: "Private Sale / Personal Collection",
+      carrier: "DHL",
+      language: "de",
+      listingLanguage: "German",
+      hasReceipt: "No",
+      proofStoredExternally: "No",
+    });
+    setEditingId(null);
+    setAdvancedFeesOpen(false);
+    setItemFormOpen(true);
+    setActiveWorkflowSection("listing");
+  }
+
   function createQuickLedgerItem({ openEditor = false } = {}) {
     if (!quickAddItem.name.trim()) return;
     const newItem = {
@@ -3294,6 +3312,25 @@ export default function ResellerItApp() {
 
           {activeTab === "dashboard" && (
             <div className="grid gap-4">
+              <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.06)]">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#e06b2c]">Dashboard Quick Actions</p>
+                    <h2 className="mt-1 text-lg font-semibold text-stone-950">Start common workflows</h2>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    <button type="button" onClick={openNewItemEditor} className="rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#e06b2c]/35 hover:bg-[#fff6e6]">Add New Item</button>
+                    <button type="button" onClick={exportJson} className="rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#f0be45]/50 hover:bg-[#f0be45]/10">Backup / Export</button>
+                    <label className="cursor-pointer rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#f0be45]/50 hover:bg-[#f0be45]/10">
+                      Import Backup
+                      <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
+                    </label>
+                    <button type="button" onClick={openSalesQueue} className="rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#e06b2c]/35 hover:bg-[#fff6e6]">Sales & Shipping Queue</button>
+                    <button type="button" onClick={openNewItemListingHelp} className="rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#1f9d99]/35 hover:bg-[#1f9d99]/10">eBay Listing Help / Research</button>
+                  </div>
+                </div>
+              </section>
+
               <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.06)]">
                 <div className="mb-4 h-1 w-24 rounded-full bg-gradient-to-r from-[#b7412e] via-[#f0be45] to-[#1f9d99]" />
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
