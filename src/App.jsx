@@ -830,6 +830,56 @@ function listingCompleteness(item) {
   };
 }
 
+function listingPack(item) {
+  const draft = generateListingDraft(item);
+  return {
+    title: item.ebayTitle || item.listingTitle || draft.title,
+    price: item.chosenListingPrice || "",
+    condition: item.conditionText || draft.condition,
+    plainDescription: item.generatedPlainDescription || item.descriptionText || draft.description,
+    htmlDescription: item.generatedHtmlDescription || item.htmlDescription || draft.htmlDescription,
+    shippingNotes: item.shippingNotes || "",
+  };
+}
+
+function listingWarnings(item) {
+  const pack = listingPack(item);
+  const checklist = normalizeBooleanRecord(item.photoChecklist, defaultPhotoChecklist);
+  const defectFlags = normalizeBooleanRecord(item.defectDisclosure, defaultDefectDisclosure);
+  return [
+    !pack.title && "Title is empty",
+    pack.title.length > 80 && "Title is over 80 characters",
+    !pack.price && "Price is missing",
+    !pack.condition && "Condition text is empty",
+    !(item.defectsNotes || Object.values(defectFlags).some(Boolean)) && "Defects have not been reviewed",
+    !Object.values(checklist).every(Boolean) && "Photo checklist is incomplete",
+    !pack.shippingNotes && "Shipping notes are empty",
+    !(pack.plainDescription || pack.htmlDescription) && "Description is empty",
+  ].filter(Boolean);
+}
+
+function hasLanguageMismatch(item) {
+  const pack = listingPack(item);
+  const text = `${pack.condition}\n${pack.plainDescription}\n${pack.shippingNotes}`.toLowerCase();
+  if (!text.trim()) return false;
+  if (normalizeListingLanguageValue(item) === "de") {
+    return /\b(item|condition|shipping|included|description|private sale|no warranty)\b/.test(text);
+  }
+  return /\b(zustand|versand|lieferumfang|beschreibung|privatverkauf|hinweise)\b/.test(text);
+}
+
+function listingReadiness(item) {
+  const warnings = listingWarnings(item);
+  const checklist = normalizeBooleanRecord(item.photoChecklist, defaultPhotoChecklist);
+  const photosIncomplete = !Object.values(checklist).every(Boolean);
+  const coreWarnings = warnings.filter((warning) => warning !== "Photo checklist is incomplete");
+  if (!listingPack(item).title && !listingPack(item).plainDescription && !listingPack(item).htmlDescription) return "Draft";
+  if (coreWarnings.length) return "Draft";
+  if (photosIncomplete) return "Needs Photos";
+  if (hasLanguageMismatch(item)) return "Needs Translation";
+  return "Ready for eBay";
+}
+
 function loadInitialItems() {
   try {
     let raw = localStorage.getItem(STORAGE_KEY);
@@ -1066,6 +1116,63 @@ function ListingCompleteness({ item }) {
         {checks.map(([label, done]) => (
           <div key={label} className={`rounded-xl border px-3 py-2 text-xs font-semibold ${done ? "border-lime-200 bg-lime-50 text-lime-800" : "border-neutral-200 bg-white text-neutral-500"}`}>
             {done ? "OK" : "Missing"}: {label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ListingReadinessBadge({ item }) {
+  const readiness = listingReadiness(item);
+  const className = {
+    Draft: "border-neutral-200 bg-neutral-100 text-neutral-700",
+    "Needs Photos": "border-[#f0be45]/40 bg-[#f0be45]/20 text-[#72530b]",
+    "Needs Translation": "border-orange-200 bg-orange-50 text-orange-900",
+    "Ready for eBay": "border-lime-200 bg-lime-50 text-lime-800",
+  }[readiness];
+  return <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${className}`}>{readiness}</span>;
+}
+
+function ListingWarningsPanel({ item }) {
+  const warnings = listingWarnings(item);
+  if (!warnings.length) {
+    return <div className="rounded-2xl border border-lime-200 bg-lime-50 p-3 text-sm font-semibold text-lime-800">No listing warnings.</div>;
+  }
+  return (
+    <div className="rounded-2xl border border-orange-200 bg-orange-50 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-orange-900">Listing warnings</p>
+      <ul className="mt-2 grid gap-1.5 text-sm text-orange-950 sm:grid-cols-2">
+        {warnings.map((warning) => <li key={warning}>- {warning}</li>)}
+      </ul>
+    </div>
+  );
+}
+
+function CopyAllForEbayPanel({ item, onCopy }) {
+  const pack = listingPack(item);
+  const rows = [
+    ["Title", pack.title],
+    ["Price", pack.price ? money(pack.price) : ""],
+    ["Condition", pack.condition],
+    ["Plain Description", pack.plainDescription],
+    ["HTML Description", pack.htmlDescription],
+    ["Shipping Notes", pack.shippingNotes],
+  ];
+  return (
+    <div className="rounded-2xl border border-stone-200 bg-white p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-stone-950">Copy All for eBay</p>
+        <ListingReadinessBadge item={item} />
+      </div>
+      <div className="mt-3 grid gap-2">
+        {rows.map(([label, value]) => (
+          <div key={label} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
+              <button type="button" onClick={() => onCopy(label.toLowerCase(), value)} className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100">Copy</button>
+            </div>
+            <p className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words text-sm text-neutral-800">{value || "Missing"}</p>
           </div>
         ))}
       </div>
@@ -1838,6 +1945,24 @@ export default function ResellerItApp() {
     });
   }
 
+  function generateFullListingPack() {
+    const shippingNotes = form.shippingNotes || (isGermanListing(form) ? "Versicherter Versand mit Sendungsverfolgung. Abholung nach Absprache moeglich." : "Tracked shipping. Local pickup possible by arrangement.");
+    const packSource = { ...form, shippingNotes, conditionText: generatedConditionBaseText(form) };
+    const draft = generateListingDraft(packSource, { preferSaved: false });
+    const condition = generatedConditionText(packSource);
+    setForm({
+      ...form,
+      listingTitle: draft.title,
+      ebayTitle: draft.title,
+      conditionText: condition,
+      descriptionText: draft.description,
+      htmlDescription: draft.htmlDescription,
+      generatedPlainDescription: draft.description,
+      generatedHtmlDescription: draft.htmlDescription,
+      shippingNotes,
+    });
+  }
+
   async function copyText(label, text) {
     try {
       await navigator.clipboard.writeText(text || "");
@@ -2111,10 +2236,13 @@ export default function ResellerItApp() {
                 {activeWorkflowSection === "listing" && (
                   <div className="space-y-4">
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate output</button>
+                      <button type="button" onClick={generateFullListingPack} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate Full Listing Pack</button>
                       <button type="button" onClick={() => setMarketResearchOpen(!marketResearchOpen)} className="rounded-xl border border-[#f0be45]/40 px-3 py-2 text-sm font-semibold text-[#72530b] hover:bg-[#f0be45]/15">{marketResearchOpen ? "Hide market research" : "Market research"}</button>
+                      <ListingReadinessBadge item={form} />
                     </div>
                     <ListingCompleteness item={form} />
+                    <ListingWarningsPanel item={form} />
+                    <CopyAllForEbayPanel item={form} onCopy={copyText} />
                     {marketResearchOpen && (
                       <div className="rounded-2xl border border-neutral-200 bg-white p-3">
                         <Input label="Research query" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
