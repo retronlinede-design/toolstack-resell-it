@@ -35,6 +35,7 @@ const languageOptions = [
 ];
 const DEFAULT_LANGUAGE = "de";
 const testedStatusOptions = ["Not specified", "Tested working", "Partially tested", "Not tested", "Defective / repair needed"];
+const researchConfidenceOptions = ["low", "medium", "high"];
 const photoChecklistItems = [
   ["front", "Front photo"],
   ["back", "Back photo"],
@@ -191,6 +192,16 @@ const emptyItem = {
   priceResearchLow: "",
   priceResearchMid: "",
   priceResearchHigh: "",
+  researchBrand: "",
+  researchModel: "",
+  researchReference: "",
+  researchYear: "",
+  researchEAN: "",
+  researchSerial: "",
+  researchNotes: "",
+  suggestedListingPrice: "",
+  minimumAcceptPrice: "",
+  researchConfidence: "low",
   notes: "",
 };
 
@@ -328,6 +339,12 @@ function normalizeItem(item) {
   next.researchedLowPrice = next.researchedLowPrice || next.priceResearchLow || "";
   next.researchedMidPrice = next.researchedMidPrice || next.priceResearchMid || "";
   next.researchedHighPrice = next.researchedHighPrice || next.priceResearchHigh || "";
+  next.researchBrand = next.researchBrand || next.brand || "";
+  next.researchModel = next.researchModel || next.model || "";
+  next.researchNotes = next.researchNotes || next.priceResearchNotes || "";
+  next.suggestedListingPrice = next.suggestedListingPrice || next.chosenListingPrice || "";
+  next.minimumAcceptPrice = next.minimumAcceptPrice || "";
+  next.researchConfidence = researchConfidenceOptions.includes(next.researchConfidence) ? next.researchConfidence : "low";
   next.generatedPlainDescription = next.generatedPlainDescription || next.descriptionText || "";
   next.generatedHtmlDescription = next.generatedHtmlDescription || next.htmlDescription || "";
   next.descriptionText = next.descriptionText || next.generatedPlainDescription || "";
@@ -456,6 +473,42 @@ function externallyStoredProof(item) {
 
 function priceResearchQuery(item) {
   return (item.researchQuery || item.ebayTitle || item.name || "").trim();
+}
+
+function itemResearchQuery(item) {
+  return [
+    item.researchBrand || item.brand,
+    item.researchModel || item.model,
+    item.researchReference,
+    item.name,
+  ].map(compactWhitespace).filter(Boolean).join(" ");
+}
+
+function openExternalResearchUrl(url) {
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function researchLinks(item) {
+  const query = encodeURIComponent(itemResearchQuery(item));
+  const manualsQuery = encodeURIComponent([itemResearchQuery(item), "manual OR bedienungsanleitung"].filter(Boolean).join(" "));
+  return [
+    ["eBay Sold Listings", query ? `https://www.ebay.de/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1` : "https://www.ebay.de/sch/i.html?LH_Complete=1&LH_Sold=1"],
+    ["eBay Active Listings", query ? `https://www.ebay.de/sch/i.html?_nkw=${query}` : "https://www.ebay.de/"],
+    ["Google Search", query ? `https://www.google.com/search?q=${query}` : "https://www.google.com/"],
+    ["Google Images", query ? `https://www.google.com/search?tbm=isch&q=${query}` : "https://www.google.com/imghp"],
+    ["YouTube", query ? `https://www.youtube.com/results?search_query=${query}` : "https://www.youtube.com/"],
+    ["Manuals Search", manualsQuery ? `https://www.google.com/search?q=${manualsQuery}` : "https://www.google.com/"],
+    ["Google Lens", "https://lens.google.com/"],
+  ];
+}
+
+function researchWarnings(item) {
+  const hasFields = Boolean(itemResearchQuery(item) || item.researchYear || item.researchEAN || item.researchSerial || item.researchNotes);
+  return [
+    !hasFields && "No research fields are filled",
+    !item.suggestedListingPrice && "Suggested price is missing",
+    (item.researchConfidence || "low") === "low" && "Research confidence is low",
+  ].filter(Boolean);
 }
 
 function priceResearchLinks(item) {
@@ -1174,6 +1227,65 @@ function CopyAllForEbayPanel({ item, onCopy }) {
             </div>
             <p className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words text-sm text-neutral-800">{value || "Missing"}</p>
           </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ResearchPanel({ item, onChange, onCopy }) {
+  const warnings = researchWarnings(item);
+  const query = itemResearchQuery(item);
+  return (
+    <div className="rounded-2xl border border-[#f0be45]/30 bg-[#fffdf8] p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6511]">Research Panel</p>
+          <p className="mt-1 text-sm text-stone-600">Research links open external sites. Paste useful findings into Research Notes.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => onCopy("research query", query)} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy Research Query</button>
+          <button type="button" onClick={() => onCopy("research notes", item.researchNotes || "")} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy Research Notes</button>
+        </div>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-orange-900">Research warnings</p>
+          <ul className="mt-2 grid gap-1.5 text-sm text-orange-950 sm:grid-cols-3">
+            {warnings.map((warning) => <li key={warning}>- {warning}</li>)}
+          </ul>
+        </div>
+      )}
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Input label="Research brand" value={item.researchBrand || ""} onChange={(e) => onChange({ ...item, researchBrand: e.target.value })} />
+        <Input label="Research model" value={item.researchModel || ""} onChange={(e) => onChange({ ...item, researchModel: e.target.value })} />
+        <Input label="Reference" value={item.researchReference || ""} onChange={(e) => onChange({ ...item, researchReference: e.target.value })} />
+        <Input label="Year" value={item.researchYear || ""} onChange={(e) => onChange({ ...item, researchYear: e.target.value })} />
+        <Input label="EAN" value={item.researchEAN || ""} onChange={(e) => onChange({ ...item, researchEAN: e.target.value })} />
+        <Input label="Serial" value={item.researchSerial || ""} onChange={(e) => onChange({ ...item, researchSerial: e.target.value })} />
+        <Input label="Suggested listing price EUR" value={item.suggestedListingPrice || ""} onChange={(e) => onChange({ ...item, suggestedListingPrice: e.target.value })} />
+        <Input label="Minimum accept price EUR" value={item.minimumAcceptPrice || ""} onChange={(e) => onChange({ ...item, minimumAcceptPrice: e.target.value })} />
+      </div>
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <Input label="Price research low EUR" value={item.priceResearchLow || item.researchedLowPrice || ""} onChange={(e) => onChange({ ...item, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
+        <Input label="Price research mid EUR" value={item.priceResearchMid || item.researchedMidPrice || ""} onChange={(e) => onChange({ ...item, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
+        <Input label="Price research high EUR" value={item.priceResearchHigh || item.researchedHighPrice || ""} onChange={(e) => onChange({ ...item, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
+        <Select label="Research confidence" value={item.researchConfidence || "low"} onChange={(e) => onChange({ ...item, researchConfidence: e.target.value })}>
+          {researchConfidenceOptions.map((confidence) => <option key={confidence}>{confidence}</option>)}
+        </Select>
+      </div>
+
+      <label className="mt-3 block">
+        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research Notes</span>
+        <textarea value={item.researchNotes || ""} onChange={(e) => onChange({ ...item, researchNotes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+      </label>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {researchLinks(item).map(([label, href]) => (
+          <button key={label} type="button" onClick={() => openExternalResearchUrl(href)} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</button>
         ))}
       </div>
     </div>
@@ -2237,30 +2349,12 @@ export default function ResellerItApp() {
                   <div className="space-y-4">
                     <div className="flex flex-wrap gap-2">
                       <button type="button" onClick={generateFullListingPack} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate Full Listing Pack</button>
-                      <button type="button" onClick={() => setMarketResearchOpen(!marketResearchOpen)} className="rounded-xl border border-[#f0be45]/40 px-3 py-2 text-sm font-semibold text-[#72530b] hover:bg-[#f0be45]/15">{marketResearchOpen ? "Hide market research" : "Market research"}</button>
                       <ListingReadinessBadge item={form} />
                     </div>
                     <ListingCompleteness item={form} />
                     <ListingWarningsPanel item={form} />
                     <CopyAllForEbayPanel item={form} onCopy={copyText} />
-                    {marketResearchOpen && (
-                      <div className="rounded-2xl border border-neutral-200 bg-white p-3">
-                        <Input label="Research query" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                          <Input label="Research low EUR" value={form.priceResearchLow || form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
-                          <Input label="Research mid EUR" value={form.priceResearchMid || form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
-                          <Input label="Research high EUR" value={form.priceResearchHigh || form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
-                          <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
-                        </div>
-                        <label className="mt-3 block">
-                          <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research notes</span>
-                          <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                        </label>
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {listingResearchLinks(form).map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>)}
-                        </div>
-                      </div>
-                    )}
+                    <ResearchPanel item={form} onChange={setForm} onCopy={copyText} />
                     <div className="grid gap-3 lg:grid-cols-2">
                       <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
                         {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
