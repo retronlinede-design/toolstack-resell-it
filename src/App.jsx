@@ -1466,24 +1466,6 @@ export default function ResellerItApp() {
     setActiveWorkflowSection("source");
   }
 
-  function openNewItemListingHelp() {
-    setForm({
-      ...emptyItem,
-      purchaseDate: CURRENT_DATE,
-      status: "Draft",
-      classification: "Private Sale / Personal Collection",
-      carrier: "DHL",
-      language: "de",
-      listingLanguage: "German",
-      hasReceipt: "No",
-      proofStoredExternally: "No",
-    });
-    setEditingId(null);
-    setAdvancedFeesOpen(false);
-    setItemFormOpen(true);
-    setActiveWorkflowSection("listing");
-  }
-
   function createQuickLedgerItem({ openEditor = false } = {}) {
     if (!quickAddItem.name.trim()) return;
     const newItem = {
@@ -3326,9 +3308,9 @@ export default function ResellerItApp() {
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">New Item</span>
                     <span className="mt-2 block text-sm leading-5 text-stone-600">Add stock or create a new eBay listing.</span>
                   </button>
-                  <button type="button" onClick={openNewItemListingHelp} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Research & Listing</span>
-                    <span className="mt-2 block text-sm leading-5 text-stone-600">Open listing help, pricing research, and HTML pack.</span>
+                  <button type="button" onClick={() => openStockQueue("needsAttention", "All items", "Draft")} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Draft Listings</span>
+                    <span className="mt-2 block text-sm leading-5 text-stone-600">Continue unfinished listings, research, photos and translations.</span>
                   </button>
                   <button type="button" onClick={openSalesQueue} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Sales Queue</span>
