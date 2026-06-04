@@ -3322,28 +3322,23 @@ export default function ResellerItApp() {
                   <span className="w-fit rounded-full border border-[#3f2b24]/20 bg-[#fffaf0] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6d493d]">ResellIt Ops</span>
                 </div>
                 <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
-                  <button type="button" onClick={openNewItemEditor} className="group min-h-36 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">01</span>
+                  <button type="button" onClick={openNewItemEditor} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">New Item</span>
                     <span className="mt-2 block text-sm leading-5 text-stone-600">Add stock or create a new eBay listing.</span>
                   </button>
-                  <button type="button" onClick={openNewItemListingHelp} className="group min-h-36 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">02</span>
+                  <button type="button" onClick={openNewItemListingHelp} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Research & Listing</span>
                     <span className="mt-2 block text-sm leading-5 text-stone-600">Open listing help, pricing research, and HTML pack.</span>
                   </button>
-                  <button type="button" onClick={openSalesQueue} className="group min-h-36 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">03</span>
+                  <button type="button" onClick={openSalesQueue} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Sales Queue</span>
                     <span className="mt-2 block text-sm leading-5 text-stone-600">Check sold items, shipping, tracking, and status.</span>
                   </button>
-                  <button type="button" onClick={exportJson} className="group min-h-36 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">04</span>
+                  <button type="button" onClick={exportJson} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Backup</span>
                     <span className="mt-2 block text-sm leading-5 text-stone-600">Export your ResellIt database.</span>
                   </button>
-                  <label className="group min-h-36 cursor-pointer rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">05</span>
+                  <label className="group min-h-28 cursor-pointer rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Import</span>
                     <span className="mt-2 block text-sm leading-5 text-stone-600">Restore a backup file.</span>
                     <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
