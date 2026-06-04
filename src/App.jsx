@@ -673,21 +673,23 @@ function listingSectionHeadings(item) {
 }
 
 function htmlParagraphs(lines) {
-  return lines.map((line) => `<p>${escapeHtml(line).replaceAll("\n", "<br>")}</p>`).join("\n");
+  return lines.map((line) => `      <p style="margin:0 0 8px;">${escapeHtml(line).replaceAll("\n", "<br>")}</p>`).join("\n");
 }
 
 function htmlBulletList(lines) {
   return [
-    "<ul>",
-    ...lines.map((line) => `<li>${escapeHtml(line)}</li>`),
-    "</ul>",
+    '      <ul style="margin:0;padding-left:18px;">',
+    ...lines.map((line) => `        <li style="margin:0 0 5px;">${escapeHtml(line)}</li>`),
+    "      </ul>",
   ].join("\n");
 }
 
-function htmlSection(heading, contentHtml) {
+function htmlRetroSection(heading, colour, contentHtml) {
   return [
-    `<p><strong>${escapeHtml(heading)}</strong></p>`,
+    `    <div style="border-left:5px solid ${colour};background:#fffdf5;margin:0 0 12px;padding:12px 12px 10px;border-radius:4px;">`,
+    `      <h3 style="margin:0 0 8px;font-size:15px;letter-spacing:.04em;color:#2b211d;font-weight:700;">${escapeHtml(heading)}</h3>`,
     contentHtml,
+    "    </div>",
   ].join("\n");
 }
 
@@ -745,13 +747,21 @@ function generateHtmlDescription(item, { preferSaved = true } = {}) {
   const includedLines = included.length ? included : [isGermanListing(item) ? "Lieferumfang wie beschrieben." : "Included as described."];
 
   return [
-    `<h2>${escapeHtml(generatedListingTitle(item))}</h2>`,
-    htmlSection(headings.article, htmlParagraphs(articleLines)),
-    productLines.length ? htmlSection(headings.productDescription, htmlParagraphs(productLines)) : "",
-    htmlSection(headings.condition, htmlParagraphs([condition])),
-    htmlSection(headings.included, htmlBulletList(includedLines)),
-    htmlSection(headings.shipping, htmlParagraphs(shippingLines)),
-    htmlSection(headings.notes, htmlParagraphs(notesLines)),
+    '<div style="background:#2b1b14;padding:14px 10px;margin:0 auto;max-width:720px;">',
+    '  <div style="max-width:700px;margin:0 auto;background:#fff8e8;color:#2b211d;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;border:1px solid #d8c4a4;border-radius:6px;overflow:hidden;">',
+    '    <div style="height:6px;background:#2f9d9a;border-bottom:3px solid #e0b947;"></div>',
+    '    <div style="height:3px;background:#d9783b;border-bottom:3px solid #b7412e;"></div>',
+    '    <div style="padding:16px;">',
+    `      <h2 style="margin:0 0 14px;font-size:22px;line-height:1.25;color:#2b211d;font-weight:700;">${escapeHtml(generatedListingTitle(item))}</h2>`,
+    htmlRetroSection(headings.article, "#2f9d9a", htmlParagraphs(articleLines)),
+    productLines.length ? htmlRetroSection(headings.productDescription, "#e0b947", htmlParagraphs(productLines)) : "",
+    htmlRetroSection(headings.condition, "#e0b947", htmlParagraphs([condition])),
+    htmlRetroSection(headings.included, "#d9783b", htmlBulletList(includedLines)),
+    htmlRetroSection(headings.shipping, "#b7412e", htmlParagraphs(shippingLines)),
+    htmlRetroSection(headings.notes, "#2f9d9a", htmlParagraphs(notesLines)),
+    "    </div>",
+    "  </div>",
+    "</div>",
   ].filter(Boolean).join("\n");
 }
 
