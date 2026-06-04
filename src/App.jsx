@@ -27,9 +27,37 @@ const buyerPlatformOptions = [
   ["vinted", "Vinted"],
   ["other", "Other"],
 ];
-const listingLanguageOptions = ["German", "English"];
 const DEFAULT_LISTING_LANGUAGE = "German";
 const conditionGradeOptions = ["Neu", "Sehr gut", "Gut", "Akzeptabel", "Defekt / Ersatzteile", "Sonstiges"];
+const languageOptions = [
+  ["de", "German"],
+  ["en", "English"],
+];
+const DEFAULT_LANGUAGE = "de";
+const testedStatusOptions = ["Not specified", "Tested working", "Partially tested", "Not tested", "Defective / repair needed"];
+const photoChecklistItems = [
+  ["front", "Front photo"],
+  ["back", "Back photo"],
+  ["sides", "Side photos"],
+  ["topBottom", "Top/bottom photo"],
+  ["serialModel", "Serial/model number photo"],
+  ["defects", "Defects photo"],
+  ["accessories", "Accessories photo"],
+  ["packaging", "Packaging photo"],
+];
+const defectDisclosureItems = [
+  ["scratches", "scratches"],
+  ["dents", "dents"],
+  ["cracks", "cracks"],
+  ["discoloration", "discoloration"],
+  ["missingParts", "missing parts"],
+  ["notTested", "not tested"],
+  ["partiallyWorking", "partially working"],
+  ["repairNeeded", "repair needed"],
+  ["other", "other"],
+];
+const defaultPhotoChecklist = Object.fromEntries(photoChecklistItems.map(([key]) => [key, false]));
+const defaultDefectDisclosure = Object.fromEntries(defectDisclosureItems.map(([key]) => [key, false]));
 const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
 const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded", "Written Off"];
 const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Refunded"];
@@ -135,11 +163,13 @@ const emptyItem = {
   chosenListingPrice: "",
   priceResearchNotes: "",
   priceResearchUpdatedAt: "",
+  language: DEFAULT_LANGUAGE,
   listingLanguage: DEFAULT_LISTING_LANGUAGE,
   listingTitle: "",
   brand: "",
   model: "",
   sizeSpecs: "",
+  measurements: "",
   colour: "",
   productDescriptionText: "",
   compatibilityInfo: "",
@@ -147,11 +177,20 @@ const emptyItem = {
   conditionGrade: "",
   conditionText: "",
   conditionNotes: "",
+  defectDisclosure: defaultDefectDisclosure,
   descriptionText: "",
   htmlDescription: "",
+  generatedPlainDescription: "",
+  generatedHtmlDescription: "",
   includedItems: "",
+  includedAccessories: "",
   defectsNotes: "",
+  testedStatus: "Not specified",
   shippingNotes: "",
+  photoChecklist: defaultPhotoChecklist,
+  priceResearchLow: "",
+  priceResearchMid: "",
+  priceResearchHigh: "",
   notes: "",
 };
 
@@ -247,12 +286,55 @@ function itemClassification(item) {
   return item.classification || DEFAULT_CLASSIFICATION;
 }
 
+function normalizeListingLanguageValue(item) {
+  const rawLanguage = String(item?.language || "").trim().toLowerCase();
+  if (rawLanguage === "en" || rawLanguage === "english") return "en";
+  if (rawLanguage === "de" || rawLanguage === "german" || rawLanguage === "deutsch") return "de";
+  const legacyLanguage = String(item?.listingLanguage || "").trim().toLowerCase();
+  if (legacyLanguage === "english" || legacyLanguage === "en") return "en";
+  return DEFAULT_LANGUAGE;
+}
+
+function languageLabel(value) {
+  return value === "en" ? "English" : "German";
+}
+
+function normalizeBooleanRecord(value, defaults) {
+  if (Array.isArray(value)) {
+    return {
+      ...defaults,
+      ...Object.fromEntries(value.map((key) => [key, true])),
+    };
+  }
+  if (!value || typeof value !== "object") return { ...defaults };
+  return Object.fromEntries(Object.keys(defaults).map((key) => [key, Boolean(value[key])]));
+}
+
 function buyerPlatformLabel(value) {
   return buyerPlatformOptions.find(([key]) => key === value)?.[1] || "eBay";
 }
 
 function normalizeItem(item) {
   const next = { ...emptyItem, ...item };
+  next.language = normalizeListingLanguageValue(next);
+  next.listingLanguage = languageLabel(next.language);
+  next.measurements = next.measurements || next.sizeSpecs || "";
+  next.sizeSpecs = next.sizeSpecs || next.measurements || "";
+  next.includedAccessories = next.includedAccessories || next.includedItems || "";
+  next.includedItems = next.includedItems || next.includedAccessories || "";
+  next.priceResearchLow = next.priceResearchLow || next.researchedLowPrice || "";
+  next.priceResearchMid = next.priceResearchMid || next.researchedMidPrice || "";
+  next.priceResearchHigh = next.priceResearchHigh || next.researchedHighPrice || "";
+  next.researchedLowPrice = next.researchedLowPrice || next.priceResearchLow || "";
+  next.researchedMidPrice = next.researchedMidPrice || next.priceResearchMid || "";
+  next.researchedHighPrice = next.researchedHighPrice || next.priceResearchHigh || "";
+  next.generatedPlainDescription = next.generatedPlainDescription || next.descriptionText || "";
+  next.generatedHtmlDescription = next.generatedHtmlDescription || next.htmlDescription || "";
+  next.descriptionText = next.descriptionText || next.generatedPlainDescription || "";
+  next.htmlDescription = next.htmlDescription || next.generatedHtmlDescription || "";
+  next.photoChecklist = normalizeBooleanRecord(next.photoChecklist, defaultPhotoChecklist);
+  next.defectDisclosure = normalizeBooleanRecord(next.defectDisclosure, defaultDefectDisclosure);
+  next.testedStatus = next.testedStatus || "Not specified";
   if (!buyerPlatformOptions.some(([key]) => key === next.buyerPlatform)) next.buyerPlatform = "ebay";
   if (!statusOptions.includes(next.status) && legacyStatusLabels[next.status]) next.status = legacyStatusLabels[next.status];
   return next;
@@ -345,15 +427,15 @@ function expectedListingValue(item) {
 }
 
 function hasPriceResearch(item) {
-  return Boolean(item.researchQuery || item.researchedLowPrice || item.researchedMidPrice || item.researchedHighPrice || item.chosenListingPrice || item.priceResearchNotes);
+  return Boolean(item.researchQuery || item.priceResearchLow || item.priceResearchMid || item.priceResearchHigh || item.researchedLowPrice || item.researchedMidPrice || item.researchedHighPrice || item.chosenListingPrice || item.priceResearchNotes);
 }
 
 function hasListingDraft(item) {
-  return Boolean(item.listingTitle || item.conditionText || item.descriptionText || item.htmlDescription);
+  return Boolean(item.listingTitle || item.ebayTitle || item.conditionText || item.generatedPlainDescription || item.descriptionText || item.generatedHtmlDescription || item.htmlDescription);
 }
 
 function hasListingPreviewInput(item) {
-  return Boolean(item.htmlDescription || item.descriptionText || generatedListingTitle(item) || item.conditionGrade || item.conditionNotes || item.defectsNotes || item.includedItems || item.shippingNotes || item.notes || item.productDescriptionText || item.compatibilityInfo || item.keyFeatures);
+  return Boolean(item.generatedHtmlDescription || item.htmlDescription || item.generatedPlainDescription || item.descriptionText || generatedListingTitle(item) || item.conditionGrade || item.conditionNotes || item.defectsNotes || item.includedAccessories || item.includedItems || item.shippingNotes || item.notes || item.productDescriptionText || item.compatibilityInfo || item.keyFeatures);
 }
 
 function isSoldStatus(item) {
@@ -417,7 +499,7 @@ function bulletLines(value) {
 }
 
 function listingLanguage(item) {
-  return listingLanguageOptions.includes(item?.listingLanguage) ? item.listingLanguage : DEFAULT_LISTING_LANGUAGE;
+  return languageLabel(normalizeListingLanguageValue(item));
 }
 
 function isGermanListing(item) {
@@ -478,8 +560,41 @@ function listingLabels(item) {
     };
 }
 
+function compactWhitespace(value) {
+  return String(value || "").replace(/\s+/g, " ").trim();
+}
+
+function truncateTitle(value, limit = 80) {
+  const clean = compactWhitespace(value);
+  if (clean.length <= limit) return clean;
+  const words = clean.split(" ");
+  const kept = [];
+  for (const word of words) {
+    const candidate = [...kept, word].join(" ");
+    if (candidate.length > limit) break;
+    kept.push(word);
+  }
+  return kept.join(" ") || clean.slice(0, limit).trim();
+}
+
 function generatedListingTitle(item) {
-  return item.listingTitle || item.ebayTitle || [item.brand, item.model, item.name, item.sizeSpecs, item.colour].filter(Boolean).join(" - ") || item.name;
+  const manualTitle = compactWhitespace(item.ebayTitle || item.listingTitle);
+  if (manualTitle) return truncateTitle(manualTitle);
+
+  const features = bulletLines(item.keyFeatures).slice(0, 2);
+  const condition = isGermanListing(item)
+    ? germanConditionGrade(item.conditionGrade)
+    : item.conditionGrade;
+  const parts = [
+    item.brand,
+    item.model,
+    item.name,
+    item.category,
+    ...features,
+    condition,
+  ].map(compactWhitespace).filter(Boolean);
+  const deduped = parts.filter((part, index) => parts.findIndex((candidate) => candidate.toLowerCase() === part.toLowerCase()) === index);
+  return truncateTitle(deduped.join(" "));
 }
 
 function germanConditionGrade(grade) {
@@ -502,9 +617,38 @@ function generatedConditionBaseText(item) {
   return item.conditionGrade || "";
 }
 
+function selectedDefectLabels(item) {
+  const flags = normalizeBooleanRecord(item.defectDisclosure, defaultDefectDisclosure);
+  return defectDisclosureItems
+    .filter(([key]) => flags[key])
+    .map(([, label]) => label);
+}
+
+function generatedDefectDisclosureText(item) {
+  const selected = selectedDefectLabels(item);
+  if (!selected.length) return "";
+  if (isGermanListing(item)) {
+    const translations = {
+      scratches: "Kratzer",
+      dents: "Dellen",
+      cracks: "Risse",
+      discoloration: "Verfarbungen",
+      "missing parts": "fehlende Teile",
+      "not tested": "nicht getestet",
+      "partially working": "teilweise funktionsfaehig",
+      "repair needed": "reparaturbeduerftig",
+      other: "sonstige Maengel",
+    };
+    return `Gepruefte Maengel: ${selected.map((label) => translations[label] || label).join(", ")}.`;
+  }
+  return `Reviewed defects: ${selected.join(", ")}.`;
+}
+
 function conditionDetailLines(item) {
   const labels = listingLabels(item);
   return [
+    item.testedStatus && item.testedStatus !== "Not specified" && `${isGermanListing(item) ? "Teststatus" : "Tested status"}: ${item.testedStatus}`,
+    generatedDefectDisclosureText(item),
     item.conditionNotes,
     item.defectsNotes && `${labels.defects}: ${item.defectsNotes}`,
   ].filter(Boolean);
@@ -529,23 +673,21 @@ function listingSectionHeadings(item) {
 }
 
 function htmlParagraphs(lines) {
-  return lines.map((line) => `      <p style="margin:0 0 8px;">${escapeHtml(line).replaceAll("\n", "<br>")}</p>`).join("\n");
+  return lines.map((line) => `<p>${escapeHtml(line).replaceAll("\n", "<br>")}</p>`).join("\n");
 }
 
 function htmlBulletList(lines) {
   return [
-    '      <ul style="margin:0;padding-left:18px;">',
-    ...lines.map((line) => `        <li style="margin:0 0 5px;">${escapeHtml(line)}</li>`),
-    "      </ul>",
+    "<ul>",
+    ...lines.map((line) => `<li>${escapeHtml(line)}</li>`),
+    "</ul>",
   ].join("\n");
 }
 
-function htmlRetroSection(heading, colour, contentHtml) {
+function htmlSection(heading, contentHtml) {
   return [
-    `    <div style="border-left:5px solid ${colour};background:#fffdf5;margin:0 0 12px;padding:12px 12px 10px;border-radius:4px;">`,
-    `      <h3 style="margin:0 0 8px;font-size:15px;letter-spacing:.04em;color:#2b211d;font-weight:700;">${escapeHtml(heading)}</h3>`,
+    `<p><strong>${escapeHtml(heading)}</strong></p>`,
     contentHtml,
-    "    </div>",
   ].join("\n");
 }
 
@@ -559,7 +701,7 @@ function productDescriptionLines(item) {
     ? `${identity || item.name || "Der Artikel"} gehört zur Kategorie ${item.category}.`
     : `${identity || item.name || "This item"} is in the ${item.category} category.`);
   const specs = [
-    item.sizeSpecs && `${labels.sizeSpecs}: ${item.sizeSpecs}`,
+    (item.measurements || item.sizeSpecs) && `${labels.sizeSpecs}: ${item.measurements || item.sizeSpecs}`,
     item.colour && `${labels.colour}: ${item.colour}`,
   ].filter(Boolean);
   const modelLine = item.model && item.brand && (isGermanListing(item)
@@ -587,13 +729,13 @@ function generateHtmlDescription(item, { preferSaved = true } = {}) {
     [labels.brand, item.brand],
     [labels.model, item.model],
     [labels.category, item.category],
-    [labels.sizeSpecs, item.sizeSpecs],
+    [labels.sizeSpecs, item.measurements || item.sizeSpecs],
     [labels.colour, item.colour],
   ].map((entry) => Array.isArray(entry) ? entry : ["", entry])
     .filter(([, value]) => value)
     .map(([label, value]) => label ? `${label}: ${value}` : value);
   const productLines = productDescriptionLines(item);
-  const included = bulletLines(item.includedItems);
+  const included = bulletLines(item.includedAccessories || item.includedItems);
   const shippingLines = [item.shippingNotes || (isGermanListing(item) ? "Versand nach Vereinbarung." : "Shipping by arrangement.")];
   const notes = [
     item.notes,
@@ -603,21 +745,13 @@ function generateHtmlDescription(item, { preferSaved = true } = {}) {
   const includedLines = included.length ? included : [isGermanListing(item) ? "Lieferumfang wie beschrieben." : "Included as described."];
 
   return [
-    '<div style="background:#2b1b14;padding:14px 10px;margin:0 auto;max-width:720px;">',
-    '  <div style="max-width:700px;margin:0 auto;background:#fff8e8;color:#2b211d;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;border:1px solid #d8c4a4;border-radius:6px;overflow:hidden;">',
-    '    <div style="height:6px;background:#2f9d9a;border-bottom:3px solid #e0b947;"></div>',
-    '    <div style="height:3px;background:#d9783b;border-bottom:3px solid #b7412e;"></div>',
-    '    <div style="padding:16px;">',
-    `      <h2 style="margin:0 0 14px;font-size:22px;line-height:1.25;color:#2b211d;font-weight:700;">${escapeHtml(generatedListingTitle(item))}</h2>`,
-    htmlRetroSection(headings.article, "#2f9d9a", htmlParagraphs(articleLines)),
-    productLines.length ? htmlRetroSection(headings.productDescription, "#e0b947", htmlParagraphs(productLines)) : "",
-    htmlRetroSection(headings.condition, "#e0b947", htmlParagraphs([condition])),
-    htmlRetroSection(headings.included, "#d9783b", htmlBulletList(includedLines)),
-    htmlRetroSection(headings.shipping, "#b7412e", htmlParagraphs(shippingLines)),
-    htmlRetroSection(headings.notes, "#2f9d9a", htmlParagraphs(notesLines)),
-    "    </div>",
-    "  </div>",
-    "</div>",
+    `<h2>${escapeHtml(generatedListingTitle(item))}</h2>`,
+    htmlSection(headings.article, htmlParagraphs(articleLines)),
+    productLines.length ? htmlSection(headings.productDescription, htmlParagraphs(productLines)) : "",
+    htmlSection(headings.condition, htmlParagraphs([condition])),
+    htmlSection(headings.included, htmlBulletList(includedLines)),
+    htmlSection(headings.shipping, htmlParagraphs(shippingLines)),
+    htmlSection(headings.notes, htmlParagraphs(notesLines)),
   ].filter(Boolean).join("\n");
 }
 
@@ -630,11 +764,11 @@ function generatedPlainDescription(item, condition) {
     item.brand && `${labels.brand}: ${item.brand}`,
     item.model && `${labels.model}: ${item.model}`,
     item.category && `${labels.category}: ${item.category}`,
-    item.sizeSpecs && `${labels.sizeSpecs}: ${item.sizeSpecs}`,
+    (item.measurements || item.sizeSpecs) && `${labels.sizeSpecs}: ${item.measurements || item.sizeSpecs}`,
     item.colour && `${labels.colour}: ${item.colour}`,
   ].filter(Boolean);
   const productLines = productDescriptionLines(item);
-  const includedLines = bulletLines(item.includedItems);
+  const includedLines = bulletLines(item.includedAccessories || item.includedItems);
   const notesLines = [
     item.notes,
     itemClassification(item) === "Private Sale / Personal Collection" && privateSellerNote(item),
@@ -655,13 +789,34 @@ function generateListingDraft(item, { preferSaved = true } = {}) {
   const title = generatedListingTitle(item);
   const condition = generatedConditionText(item, { preferSaved });
   const generatedDescription = generatedPlainDescription(item, condition);
-  const description = preferSaved ? item.descriptionText || generatedDescription : generatedDescription;
+  const description = preferSaved ? item.generatedPlainDescription || item.descriptionText || generatedDescription : generatedDescription;
+  const htmlDescription = generateHtmlDescription(item, { preferSaved });
 
   return {
     title,
     condition,
     description,
-    htmlDescription: preferSaved ? item.htmlDescription || generateHtmlDescription(item, { preferSaved }) : generateHtmlDescription(item, { preferSaved }),
+    htmlDescription: preferSaved ? item.generatedHtmlDescription || item.htmlDescription || htmlDescription : htmlDescription,
+  };
+}
+
+function listingCompleteness(item) {
+  const draft = generateListingDraft(item);
+  const checklist = normalizeBooleanRecord(item.photoChecklist, defaultPhotoChecklist);
+  const defectFlags = normalizeBooleanRecord(item.defectDisclosure, defaultDefectDisclosure);
+  const checks = [
+    ["Title complete", Boolean(draft.title && draft.title.length <= 80)],
+    ["Price selected", Boolean(item.chosenListingPrice)],
+    ["Condition filled", Boolean(item.conditionGrade || item.conditionText)],
+    ["Defects reviewed", Boolean(item.defectsNotes || Object.values(defectFlags).some(Boolean))],
+    ["Photos checked", Object.values(checklist).every(Boolean)],
+    ["Shipping notes filled", Boolean(String(item.shippingNotes || "").trim())],
+    ["Description generated", Boolean(item.generatedPlainDescription || item.descriptionText || item.generatedHtmlDescription || item.htmlDescription)],
+  ];
+  const completeCount = checks.filter(([, done]) => done).length;
+  return {
+    checks,
+    percent: Math.round((completeCount / checks.length) * 100),
   };
 }
 
@@ -865,6 +1020,49 @@ function FormSection({ title, children }) {
   );
 }
 
+function ChecklistGrid({ title, items: checklistItems, value, onChange }) {
+  return (
+    <div className="rounded-2xl border border-neutral-200 bg-white p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{title}</p>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {checklistItems.map(([key, label]) => (
+          <label key={key} className="flex min-h-10 items-center gap-2 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm font-medium text-neutral-800">
+            <input
+              type="checkbox"
+              checked={Boolean(value?.[key])}
+              onChange={(event) => onChange({ ...value, [key]: event.target.checked })}
+              className="h-4 w-4 accent-[#e06b2c]"
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ListingCompleteness({ item }) {
+  const { checks, percent } = listingCompleteness(item);
+  return (
+    <div className="rounded-2xl border border-[#f0be45]/35 bg-[#f0be45]/10 p-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-stone-950">Listing completeness</p>
+        <p className="rounded-xl bg-white px-3 py-1 text-sm font-semibold text-[#72530b]">{percent}%</p>
+      </div>
+      <div className="mt-2 h-2 overflow-hidden rounded-full bg-white">
+        <div className="h-full rounded-full bg-[#e06b2c]" style={{ width: `${percent}%` }} />
+      </div>
+      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        {checks.map(([label, done]) => (
+          <div key={label} className={`rounded-xl border px-3 py-2 text-xs font-semibold ${done ? "border-lime-200 bg-lime-50 text-lime-800" : "border-neutral-200 bg-white text-neutral-500"}`}>
+            {done ? "OK" : "Missing"}: {label}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ResellerItApp() {
   const [items, setItems] = useState(loadInitialItems);
   const [expenses, setExpenses] = useState(loadInitialExpenses);
@@ -944,14 +1142,28 @@ export default function ResellerItApp() {
 
   function saveCurrentItem() {
     if (!form.name.trim()) return;
+    const cleanLanguage = normalizeListingLanguageValue(form);
     const clean = {
       ...form,
       name: form.name.trim(),
       classification: form.classification || DEFAULT_CLASSIFICATION,
       ebayFeeMode: form.ebayFeeMode || DEFAULT_EBAY_FEE_MODE,
-      listingLanguage: listingLanguage(form),
+      language: cleanLanguage,
+      listingLanguage: languageLabel(cleanLanguage),
+      sizeSpecs: form.sizeSpecs || form.measurements || "",
+      measurements: form.measurements || form.sizeSpecs || "",
+      includedItems: form.includedItems || form.includedAccessories || "",
+      includedAccessories: form.includedAccessories || form.includedItems || "",
+      researchedLowPrice: form.researchedLowPrice || form.priceResearchLow || "",
+      researchedMidPrice: form.researchedMidPrice || form.priceResearchMid || "",
+      researchedHighPrice: form.researchedHighPrice || form.priceResearchHigh || "",
+      priceResearchLow: form.priceResearchLow || form.researchedLowPrice || "",
+      priceResearchMid: form.priceResearchMid || form.researchedMidPrice || "",
+      priceResearchHigh: form.priceResearchHigh || form.researchedHighPrice || "",
+      photoChecklist: normalizeBooleanRecord(form.photoChecklist, defaultPhotoChecklist),
+      defectDisclosure: normalizeBooleanRecord(form.defectDisclosure, defaultDefectDisclosure),
       estimatedEbayFee: form.ebayFeeMode === "Business Estimate" ? String(ebayBaseFee(form)) : form.estimatedEbayFee,
-      priceResearchUpdatedAt: form.researchQuery || form.researchedLowPrice || form.researchedMidPrice || form.researchedHighPrice || form.chosenListingPrice || form.priceResearchNotes
+      priceResearchUpdatedAt: form.researchQuery || form.priceResearchLow || form.priceResearchMid || form.priceResearchHigh || form.researchedLowPrice || form.researchedMidPrice || form.researchedHighPrice || form.chosenListingPrice || form.priceResearchNotes
         ? new Date().toISOString()
         : form.priceResearchUpdatedAt,
     };
@@ -982,7 +1194,7 @@ export default function ResellerItApp() {
   }
 
   function editItem(item) {
-    setForm({ ...emptyItem, ...item });
+    setForm(normalizeItem(item));
     setEditingId(item.id);
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
@@ -996,6 +1208,7 @@ export default function ResellerItApp() {
       status: "Draft",
       classification: "Private Sale / Personal Collection",
       carrier: "DHL",
+      language: "de",
       listingLanguage: "German",
       hasReceipt: "No",
       proofStoredExternally: "No",
@@ -1022,9 +1235,12 @@ export default function ResellerItApp() {
       proofType: "",
       proofStoredExternally: "No",
       listingTitle: "",
+      ebayTitle: "",
       conditionText: "",
       descriptionText: "",
       htmlDescription: "",
+      generatedPlainDescription: "",
+      generatedHtmlDescription: "",
     };
     persist([newItem, ...items]);
     setQuickAddItem({
@@ -1110,12 +1326,15 @@ export default function ResellerItApp() {
         return {
           ...item,
           listingTitle: item.listingTitle || draft.title,
+          ebayTitle: item.ebayTitle || draft.title,
           conditionText: item.conditionText || draft.condition,
           descriptionText: item.descriptionText || draft.description,
           htmlDescription: item.htmlDescription || draft.htmlDescription,
+          generatedPlainDescription: item.generatedPlainDescription || draft.description,
+          generatedHtmlDescription: item.generatedHtmlDescription || draft.htmlDescription,
         };
       }
-      return { ...item, listingTitle: "", conditionText: "", descriptionText: "", htmlDescription: "" };
+      return { ...item, listingTitle: "", conditionText: "", descriptionText: "", htmlDescription: "", generatedPlainDescription: "", generatedHtmlDescription: "" };
     }));
   }
 
@@ -1422,6 +1641,7 @@ export default function ResellerItApp() {
   const activeWorkflowIndex = Math.max(0, workflowSections.findIndex(([key]) => key === activeWorkflowSection));
   const previousWorkflowStep = workflowSections[activeWorkflowIndex - 1];
   const nextWorkflowStep = workflowSections[activeWorkflowIndex + 1];
+  const activeItemFormMode = activeWorkflowSection === "listing" ? "listing" : "inventory";
 
   const stockSectionItems = useMemo(() => {
     if (stockSection === "needsAttention") {
@@ -1581,9 +1801,12 @@ export default function ResellerItApp() {
     setForm({
       ...form,
       listingTitle: draft.title,
+      ebayTitle: draft.title,
       conditionText: hasManualCondition ? form.conditionText : generatedConditionBaseText(form),
       descriptionText: draft.description,
       htmlDescription: draft.htmlDescription,
+      generatedPlainDescription: draft.description,
+      generatedHtmlDescription: draft.htmlDescription,
     });
   }
 
@@ -1747,6 +1970,17 @@ export default function ResellerItApp() {
                 </div>
               </div>
 
+              <div className="grid gap-2 rounded-3xl border border-stone-200 bg-white p-2 shadow-sm sm:grid-cols-2">
+                <button type="button" onClick={() => setActiveWorkflowSection(activeWorkflowSection === "listing" ? "source" : activeWorkflowSection)} className={`rounded-2xl px-4 py-3 text-left transition ${activeItemFormMode === "inventory" ? "bg-stone-900 text-amber-50" : "border border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100"}`}>
+                  <p className="text-sm font-semibold">Inventory details</p>
+                  <p className="mt-1 text-xs opacity-80">Source, price, proof, sale, and internal notes.</p>
+                </button>
+                <button type="button" onClick={() => setActiveWorkflowSection("listing")} className={`rounded-2xl px-4 py-3 text-left transition ${activeItemFormMode === "listing" ? "bg-[#e06b2c] text-[#24110e]" : "border border-orange-200 bg-orange-50 text-orange-900 hover:bg-orange-100"}`}>
+                  <p className="text-sm font-semibold">eBay Listing Help</p>
+                  <p className="mt-1 text-xs opacity-80">Title, condition, photos, pricing notes, and copy-ready descriptions.</p>
+                </button>
+              </div>
+
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                 {workflowSections.map(([key, label, Icon, description]) => (
                   <button key={key} type="button" onClick={() => setActiveWorkflowSection(key)} className={`group rounded-2xl border p-4 text-left shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-[0_14px_30px_rgba(41,37,36,0.1)] ${activeWorkflowSection === key ? "border-[#e06b2c]/60 bg-[#e06b2c]/20 ring-2 ring-[#e06b2c]/15" : "border-stone-200 bg-white hover:border-[#f0be45]/50 hover:bg-[#f0be45]/15"}`}>
@@ -1838,9 +2072,16 @@ export default function ResellerItApp() {
                       <button type="button" onClick={generateCurrentListingDraft} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate output</button>
                       <button type="button" onClick={() => setMarketResearchOpen(!marketResearchOpen)} className="rounded-xl border border-[#f0be45]/40 px-3 py-2 text-sm font-semibold text-[#72530b] hover:bg-[#f0be45]/15">{marketResearchOpen ? "Hide market research" : "Market research"}</button>
                     </div>
+                    <ListingCompleteness item={form} />
                     {marketResearchOpen && (
                       <div className="rounded-2xl border border-neutral-200 bg-white p-3">
                         <Input label="Research query" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <Input label="Research low EUR" value={form.priceResearchLow || form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
+                          <Input label="Research mid EUR" value={form.priceResearchMid || form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
+                          <Input label="Research high EUR" value={form.priceResearchHigh || form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
+                          <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
+                        </div>
                         <label className="mt-3 block">
                           <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research notes</span>
                           <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
@@ -1851,8 +2092,8 @@ export default function ResellerItApp() {
                       </div>
                     )}
                     <div className="grid gap-3 lg:grid-cols-2">
-                      <Select label="Listing language" value={listingLanguage(form)} onChange={(e) => setForm({ ...form, listingLanguage: e.target.value })}>
-                        {listingLanguageOptions.map((language) => <option key={language}>{language}</option>)}
+                      <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
+                        {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                       </Select>
                       <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
@@ -1860,7 +2101,7 @@ export default function ResellerItApp() {
                         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                           <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
                           <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-                          <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
+                          <Input label="Measurements" value={form.measurements || form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, measurements: e.target.value, sizeSpecs: e.target.value })} />
                           <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
                           <label className="block sm:col-span-2 lg:col-span-4">
                             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Product Description / About Text</span>
@@ -1884,11 +2125,22 @@ export default function ResellerItApp() {
                             {conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}
                             {form.conditionGrade && !conditionGradeOptions.includes(form.conditionGrade) && <option>{form.conditionGrade}</option>}
                           </Select>
+                          <Select label="Tested status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>
+                            {testedStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                          </Select>
                           <label className="block sm:col-span-2">
                             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDescriptionLabel}</span>
                             <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                             <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
                           </label>
+                          <div className="sm:col-span-2">
+                            <ChecklistGrid
+                              title="Defect disclosure"
+                              items={defectDisclosureItems}
+                              value={normalizeBooleanRecord(form.defectDisclosure, defaultDefectDisclosure)}
+                              onChange={(defectDisclosure) => setForm({ ...form, defectDisclosure })}
+                            />
+                          </div>
                           <label className="block sm:col-span-2">
                             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDefectsLabel}</span>
                             <textarea value={form.defectsNotes || form.conditionNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value, conditionNotes: "" })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
@@ -1896,19 +2148,35 @@ export default function ResellerItApp() {
                           </label>
                         </div>
                       </div>
-                      <Input label="eBay title legacy field" value={form.ebayTitle || ""} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value })} />
-                      <Input label="Listing title" value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} />
-                      <Input label="Included items" className="lg:col-span-2" value={form.includedItems || ""} onChange={(e) => setForm({ ...form, includedItems: e.target.value })} />
-                      <label className="block"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span><textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
-                      <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span><textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                      <label className="block lg:col-span-2">
+                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">eBay title</span>
+                        <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                        <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
+                      </label>
+                      <Input label="Included accessories" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
+                      <label className="block"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span><textarea value={form.generatedPlainDescription || form.descriptionText || ""} onChange={(e) => setForm({ ...form, generatedPlainDescription: e.target.value, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                      <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span><textarea value={form.generatedHtmlDescription || form.htmlDescription || ""} onChange={(e) => setForm({ ...form, generatedHtmlDescription: e.target.value, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                      <div className="lg:col-span-2">
+                        <ChecklistGrid
+                          title="Photo checklist"
+                          items={photoChecklistItems}
+                          value={normalizeBooleanRecord(form.photoChecklist, defaultPhotoChecklist)}
+                          onChange={(photoChecklist) => setForm({ ...form, photoChecklist })}
+                        />
+                      </div>
+                      <label className="block lg:col-span-2">
+                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Shipping notes</span>
+                        <textarea value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Tracked DHL, pickup possible, combined shipping..." />
+                      </label>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyTitle}</button>
-                      <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyCondition}</button>
-                      <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText || generateListingDraft(form).description)} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyDescription}</button>
-                      <button type="button" onClick={() => copyText("HTML description", form.htmlDescription || generateHtmlDescription(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyHtmlDescription}</button>
+                      <button type="button" onClick={() => copyText("title", form.ebayTitle || form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Title</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Condition Text</button>
+                      <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Plain Description</button>
+                      <button type="button" onClick={() => copyText("HTML description", form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy HTML Description</button>
+                      <button type="button" onClick={() => copyText("shipping notes", form.shippingNotes || "")} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Shipping Notes</button>
                     </div>
-                    {hasListingPreviewInput(form) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: form.htmlDescription || generateHtmlDescription(form) }} /></div>}
+                    {hasListingPreviewInput(form) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form) }} /></div>}
                   </div>
                 )}
 
@@ -2185,10 +2453,13 @@ export default function ResellerItApp() {
                   <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>
                 ))}
               </div>
+              <div className="mt-4">
+                <ListingCompleteness item={form} />
+              </div>
 
               <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                <Select label="Listing language" value={listingLanguage(form)} onChange={(e) => setForm({ ...form, listingLanguage: e.target.value })}>
-                  {listingLanguageOptions.map((language) => <option key={language}>{language}</option>)}
+                <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
+                  {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                 </Select>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
@@ -2196,7 +2467,7 @@ export default function ResellerItApp() {
                   <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                     <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
                     <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-                    <Input label="Size / specs" value={form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, sizeSpecs: e.target.value })} />
+                    <Input label="Measurements" value={form.measurements || form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, measurements: e.target.value, sizeSpecs: e.target.value })} />
                     <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
                     <label className="block sm:col-span-2 lg:col-span-4">
                       <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Product Description / About Text</span>
@@ -2215,9 +2486,10 @@ export default function ResellerItApp() {
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">eBay title</span>
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <input value={form.listingTitle || ""} onChange={(e) => setForm({ ...form, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                    <button type="button" onClick={() => copyText(formListingLabels.title.toLowerCase(), form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyTitle}</button>
+                    <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                    <button type="button" onClick={() => copyText("title", form.ebayTitle || form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Title</button>
                   </div>
+                  <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
                 </label>
                 <div className="rounded-2xl border border-orange-200 bg-white p-3 lg:col-span-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingLabels.condition}</p>
@@ -2227,38 +2499,57 @@ export default function ResellerItApp() {
                       {conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}
                       {form.conditionGrade && !conditionGradeOptions.includes(form.conditionGrade) && <option>{form.conditionGrade}</option>}
                     </Select>
+                    <Select label="Tested status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>
+                      {testedStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                    </Select>
                     <label className="block sm:col-span-2">
                       <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDescriptionLabel}</span>
                       <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                       <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
                     </label>
+                    <div className="sm:col-span-2">
+                      <ChecklistGrid
+                        title="Defect disclosure"
+                        items={defectDisclosureItems}
+                        value={normalizeBooleanRecord(form.defectDisclosure, defaultDefectDisclosure)}
+                        onChange={(defectDisclosure) => setForm({ ...form, defectDisclosure })}
+                      />
+                    </div>
                     <label className="block sm:col-span-2">
                       <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDefectsLabel}</span>
                       <textarea value={form.defectsNotes || form.conditionNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value, conditionNotes: "" })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                       <span className="mt-1 block text-xs leading-5 text-stone-500">Scratches, wear, missing parts, battery condition, etc.</span>
                     </label>
-                    <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100 sm:w-fit">{formListingLabels.copyCondition}</button>
+                    <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100 sm:w-fit">Copy Condition Text</button>
                   </div>
                 </div>
                 <label className="block">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Plain description</span>
-                  <textarea value={form.descriptionText || ""} onChange={(e) => setForm({ ...form, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.descriptionText || generateListingDraft(form).description)} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyDescription}</button>
+                  <textarea value={form.generatedPlainDescription || form.descriptionText || ""} onChange={(e) => setForm({ ...form, generatedPlainDescription: e.target.value, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                  <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Plain Description</button>
                 </label>
                 <label className="block lg:col-span-2">
-                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">What is included</span>
-                  <input value={form.includedItems || ""} onChange={(e) => setForm({ ...form, includedItems: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Item, charger, manual..." />
+                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Included accessories</span>
+                  <input value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Item, charger, manual..." />
                 </label>
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 block text-xs font-semibold text-neutral-600">HTML description</span>
-                  <textarea value={form.htmlDescription || ""} onChange={(e) => setForm({ ...form, htmlDescription: e.target.value })} className="min-h-32 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                  <button type="button" onClick={() => copyText("HTML description", form.htmlDescription || generateHtmlDescription(form))} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">{formListingLabels.copyHtmlDescription}</button>
+                  <textarea value={form.generatedHtmlDescription || form.htmlDescription || ""} onChange={(e) => setForm({ ...form, generatedHtmlDescription: e.target.value, htmlDescription: e.target.value })} className="min-h-32 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                  <button type="button" onClick={() => copyText("HTML description", form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form))} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy HTML Description</button>
                 </label>
+                <div className="lg:col-span-2">
+                  <ChecklistGrid
+                    title="Photo checklist"
+                    items={photoChecklistItems}
+                    value={normalizeBooleanRecord(form.photoChecklist, defaultPhotoChecklist)}
+                    onChange={(photoChecklist) => setForm({ ...form, photoChecklist })}
+                  />
+                </div>
                 {hasListingPreviewInput(form) && (
                   <div className="lg:col-span-2">
                     <p className="mb-1.5 text-xs font-semibold text-neutral-600">{formListingLabels.preview}</p>
                     <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-                      <div dangerouslySetInnerHTML={{ __html: form.htmlDescription || generateHtmlDescription(form) }} />
+                      <div dangerouslySetInnerHTML={{ __html: form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form) }} />
                     </div>
                   </div>
                 )}
@@ -2268,8 +2559,13 @@ export default function ResellerItApp() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Editable source fields</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Input label="Shipping notes" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} placeholder="Tracked DHL, pickup possible..." />
+                  <Input label="Research low EUR" value={form.priceResearchLow || form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
+                  <Input label="Research mid EUR" value={form.priceResearchMid || form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
+                  <Input label="Research high EUR" value={form.priceResearchHigh || form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
+                  <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
                   <Input label="Research notes" value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} />
                 </div>
+                <button type="button" onClick={() => copyText("shipping notes", form.shippingNotes || "")} className="mt-3 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Shipping Notes</button>
               </div>
             </div>}
 
@@ -3466,9 +3762,9 @@ export default function ResellerItApp() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Price research</p>
                       <p className="mt-1 text-sm text-neutral-600">Use sold/completed listings where possible; active listings are asking prices, not confirmed sale prices.</p>
                       <div className="mt-3 grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Low</p><p className="font-semibold">{money(item.researchedLowPrice)}</p></div>
-                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Mid</p><p className="font-semibold">{money(item.researchedMidPrice)}</p></div>
-                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">High</p><p className="font-semibold">{money(item.researchedHighPrice)}</p></div>
+                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Low</p><p className="font-semibold">{money(item.priceResearchLow || item.researchedLowPrice)}</p></div>
+                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">Mid</p><p className="font-semibold">{money(item.priceResearchMid || item.researchedMidPrice)}</p></div>
+                        <div className="rounded-xl bg-neutral-50 p-3"><p className="text-xs text-neutral-500">High</p><p className="font-semibold">{money(item.priceResearchHigh || item.researchedHighPrice)}</p></div>
                         <div className="rounded-xl bg-stone-100 p-3 text-stone-900"><p className="text-xs text-stone-500">Chosen</p><p className="font-semibold">{money(item.chosenListingPrice || item.expectedSalePrice)}</p></div>
                       </div>
                       {item.priceResearchNotes && <p className="mt-3 text-sm text-neutral-600">{item.priceResearchNotes}</p>}
@@ -3500,7 +3796,7 @@ export default function ResellerItApp() {
                     <div className="mt-4 grid gap-3 lg:grid-cols-2">
                       <div className="rounded-xl bg-neutral-50 p-3">
                         <p className="text-xs font-semibold text-neutral-500">{itemListingLabels.included}</p>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{item.includedItems || itemListingLabels.notSpecified}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{item.includedAccessories || item.includedItems || itemListingLabels.notSpecified}</p>
                       </div>
                       <div className="rounded-xl bg-neutral-50 p-3">
                         <p className="text-xs font-semibold text-neutral-500">Source fields</p>
