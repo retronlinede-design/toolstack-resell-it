@@ -1173,37 +1173,6 @@ function ListingWarningsPanel({ item }) {
   );
 }
 
-function CopyAllForEbayPanel({ item, onCopy }) {
-  const pack = listingPack(item);
-  const rows = [
-    ["Title", pack.title],
-    ["Price", pack.price ? money(pack.price) : ""],
-    ["Condition", pack.condition],
-    ["Plain Description", pack.plainDescription],
-    ["HTML Description", pack.htmlDescription],
-    ["Shipping Notes", pack.shippingNotes],
-  ];
-  return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm font-semibold text-stone-950">Copy All for eBay</p>
-        <ListingReadinessBadge item={item} />
-      </div>
-      <div className="mt-3 grid gap-2">
-        {rows.map(([label, value]) => (
-          <div key={label} className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">{label}</p>
-              <button type="button" onClick={() => onCopy(label.toLowerCase(), value)} className="rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-neutral-800 hover:bg-neutral-100">Copy</button>
-            </div>
-            <p className="mt-2 max-h-28 overflow-auto whitespace-pre-wrap break-words text-sm text-neutral-800">{value || "Missing"}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function ResearchPanel({ item, onChange, onCopy, onOpenGoogleSearch, onResearchQueryChange, onUseEbayTitle }) {
   const warnings = researchWarnings(item);
   const query = String(item.researchQuery || "").trim();
@@ -2352,7 +2321,6 @@ export default function ResellerItApp() {
                     </div>
                     <ListingCompleteness item={form} />
                     <ListingWarningsPanel item={form} />
-                    <CopyAllForEbayPanel item={form} onCopy={copyText} />
                     <ResearchPanel
                       item={form}
                       onChange={setForm}
