@@ -3312,28 +3312,42 @@ export default function ResellerItApp() {
 
           {activeTab === "dashboard" && (
             <div className="grid gap-4">
-              <section className="overflow-hidden rounded-3xl border border-[#d8c7aa] bg-[#fffaf0] shadow-[0_16px_36px_rgba(41,37,36,0.09)]">
-                <div className="flex h-1.5">
-                  <div className="flex-1 bg-[#b7412e]" />
-                  <div className="flex-1 bg-[#e06b2c]" />
-                  <div className="flex-1 bg-[#f0be45]" />
-                  <div className="flex-1 bg-[#1f9d99]" />
-                </div>
-                <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
+              <section className="overflow-hidden rounded-3xl border border-[#3f2b24]/50 bg-[#fff8ea] shadow-[0_18px_38px_rgba(41,37,36,0.11)]">
+                <div className="h-1 bg-[#3f2b24]" />
+                <div className="flex flex-col gap-2 border-b border-[#dfcfb8] bg-[#f8edda] px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
                   <div>
-                    <div className="mb-2 inline-flex rounded-full border border-[#e06b2c]/25 bg-[#e06b2c]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8f3d18]">Dashboard Quick Actions</div>
-                    <h2 className="text-xl font-semibold text-stone-950">Start Common Workflows</h2>
+                    <h2 className="text-xl font-semibold text-stone-950">Dealer Control Panel</h2>
+                    <p className="mt-1 text-sm text-stone-600">Start, research, backup, import, and manage sales from one place.</p>
                   </div>
-                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                    <button type="button" onClick={openNewItemEditor} className="min-h-12 rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#e06b2c]/45 hover:bg-[#fff6e6] hover:shadow-[0_10px_22px_rgba(224,107,44,0.12)]">Add New Item</button>
-                    <button type="button" onClick={exportJson} className="min-h-12 rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#f0be45]/60 hover:bg-[#fff8dc] hover:shadow-[0_10px_22px_rgba(240,190,69,0.12)]">Backup / Export</button>
-                    <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#f0be45]/60 hover:bg-[#fff8dc] hover:shadow-[0_10px_22px_rgba(240,190,69,0.12)]">
-                      Import Backup
-                      <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
-                    </label>
-                    <button type="button" onClick={openSalesQueue} className="min-h-12 rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#e06b2c]/45 hover:bg-[#fff6e6] hover:shadow-[0_10px_22px_rgba(224,107,44,0.12)]">Sales & Shipping Queue</button>
-                    <button type="button" onClick={openNewItemListingHelp} className="min-h-12 rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#1f9d99]/45 hover:bg-[#eefafa] hover:shadow-[0_10px_22px_rgba(31,157,153,0.12)]">eBay Listing Help / Research</button>
-                  </div>
+                  <span className="w-fit rounded-full border border-[#3f2b24]/20 bg-[#fffaf0] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6d493d]">ResellIt Ops</span>
+                </div>
+                <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
+                  <button type="button" onClick={openNewItemEditor} className="group min-h-36 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
+                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">01</span>
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">New Item</span>
+                    <span className="mt-2 block text-sm leading-5 text-stone-600">Add stock or create a new eBay listing.</span>
+                  </button>
+                  <button type="button" onClick={openNewItemListingHelp} className="group min-h-36 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
+                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">02</span>
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Research & Listing</span>
+                    <span className="mt-2 block text-sm leading-5 text-stone-600">Open listing help, pricing research, and HTML pack.</span>
+                  </button>
+                  <button type="button" onClick={openSalesQueue} className="group min-h-36 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
+                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">03</span>
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Sales Queue</span>
+                    <span className="mt-2 block text-sm leading-5 text-stone-600">Check sold items, shipping, tracking, and status.</span>
+                  </button>
+                  <button type="button" onClick={exportJson} className="group min-h-36 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
+                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">04</span>
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Backup</span>
+                    <span className="mt-2 block text-sm leading-5 text-stone-600">Export your ResellIt database.</span>
+                  </button>
+                  <label className="group min-h-36 cursor-pointer rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
+                    <span className="mb-4 inline-flex h-7 min-w-7 items-center justify-center rounded-lg border border-[#d6c5aa] bg-[#f4ead8] px-2 text-[10px] font-bold uppercase tracking-wide text-[#6d493d]">05</span>
+                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Import</span>
+                    <span className="mt-2 block text-sm leading-5 text-stone-600">Restore a backup file.</span>
+                    <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
+                  </label>
                 </div>
               </section>
 
