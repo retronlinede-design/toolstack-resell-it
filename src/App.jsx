@@ -3312,21 +3312,27 @@ export default function ResellerItApp() {
 
           {activeTab === "dashboard" && (
             <div className="grid gap-4">
-              <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.06)]">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <section className="overflow-hidden rounded-3xl border border-[#d8c7aa] bg-[#fffaf0] shadow-[0_16px_36px_rgba(41,37,36,0.09)]">
+                <div className="flex h-1.5">
+                  <div className="flex-1 bg-[#b7412e]" />
+                  <div className="flex-1 bg-[#e06b2c]" />
+                  <div className="flex-1 bg-[#f0be45]" />
+                  <div className="flex-1 bg-[#1f9d99]" />
+                </div>
+                <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#e06b2c]">Dashboard Quick Actions</p>
-                    <h2 className="mt-1 text-lg font-semibold text-stone-950">Start common workflows</h2>
+                    <div className="mb-2 inline-flex rounded-full border border-[#e06b2c]/25 bg-[#e06b2c]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8f3d18]">Dashboard Quick Actions</div>
+                    <h2 className="text-xl font-semibold text-stone-950">Start Common Workflows</h2>
                   </div>
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                    <button type="button" onClick={openNewItemEditor} className="rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#e06b2c]/35 hover:bg-[#fff6e6]">Add New Item</button>
-                    <button type="button" onClick={exportJson} className="rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#f0be45]/50 hover:bg-[#f0be45]/10">Backup / Export</button>
-                    <label className="cursor-pointer rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#f0be45]/50 hover:bg-[#f0be45]/10">
+                    <button type="button" onClick={openNewItemEditor} className="min-h-12 rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#e06b2c]/45 hover:bg-[#fff6e6] hover:shadow-[0_10px_22px_rgba(224,107,44,0.12)]">Add New Item</button>
+                    <button type="button" onClick={exportJson} className="min-h-12 rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#f0be45]/60 hover:bg-[#fff8dc] hover:shadow-[0_10px_22px_rgba(240,190,69,0.12)]">Backup / Export</button>
+                    <label className="flex min-h-12 cursor-pointer items-center justify-center rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#f0be45]/60 hover:bg-[#fff8dc] hover:shadow-[0_10px_22px_rgba(240,190,69,0.12)]">
                       Import Backup
                       <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
                     </label>
-                    <button type="button" onClick={openSalesQueue} className="rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#e06b2c]/35 hover:bg-[#fff6e6]">Sales & Shipping Queue</button>
-                    <button type="button" onClick={openNewItemListingHelp} className="rounded-2xl border border-stone-200 bg-[#fffdf8] px-3 py-3 text-left text-sm font-semibold text-stone-800 transition hover:border-[#1f9d99]/35 hover:bg-[#1f9d99]/10">eBay Listing Help / Research</button>
+                    <button type="button" onClick={openSalesQueue} className="min-h-12 rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#e06b2c]/45 hover:bg-[#fff6e6] hover:shadow-[0_10px_22px_rgba(224,107,44,0.12)]">Sales & Shipping Queue</button>
+                    <button type="button" onClick={openNewItemListingHelp} className="min-h-12 rounded-xl border border-[#d8c7aa] bg-white px-3 py-3 text-center text-[11px] font-bold uppercase tracking-[0.12em] text-stone-800 shadow-[0_5px_14px_rgba(41,37,36,0.045)] transition hover:-translate-y-0.5 hover:border-[#1f9d99]/45 hover:bg-[#eefafa] hover:shadow-[0_10px_22px_rgba(31,157,153,0.12)]">eBay Listing Help / Research</button>
                   </div>
                 </div>
               </section>
