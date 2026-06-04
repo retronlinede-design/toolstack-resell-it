@@ -475,39 +475,10 @@ function priceResearchQuery(item) {
   return (item.researchQuery || item.ebayTitle || item.name || "").trim();
 }
 
-function itemResearchQuery(item) {
-  return [
-    item.researchBrand || item.brand,
-    item.researchModel || item.model,
-    item.researchReference,
-    item.name,
-  ].map(compactWhitespace).filter(Boolean).join(" ");
-}
-
-function openExternalResearchUrl(url) {
-  window.open(url, "_blank", "noopener,noreferrer");
-}
-
-function researchLinks(item) {
-  const query = encodeURIComponent(itemResearchQuery(item));
-  const manualsQuery = encodeURIComponent([itemResearchQuery(item), "manual OR bedienungsanleitung"].filter(Boolean).join(" "));
-  return [
-    ["eBay Sold Listings", query ? `https://www.ebay.de/sch/i.html?_nkw=${query}&LH_Complete=1&LH_Sold=1` : "https://www.ebay.de/sch/i.html?LH_Complete=1&LH_Sold=1"],
-    ["eBay Active Listings", query ? `https://www.ebay.de/sch/i.html?_nkw=${query}` : "https://www.ebay.de/"],
-    ["Google Search", query ? `https://www.google.com/search?q=${query}` : "https://www.google.com/"],
-    ["Google Images", query ? `https://www.google.com/search?tbm=isch&q=${query}` : "https://www.google.com/imghp"],
-    ["YouTube", query ? `https://www.youtube.com/results?search_query=${query}` : "https://www.youtube.com/"],
-    ["Manuals Search", manualsQuery ? `https://www.google.com/search?q=${manualsQuery}` : "https://www.google.com/"],
-    ["Google Lens", "https://lens.google.com/"],
-  ];
-}
-
 function researchWarnings(item) {
-  const hasFields = Boolean(itemResearchQuery(item) || item.researchYear || item.researchEAN || item.researchSerial || item.researchNotes);
   return [
-    !hasFields && "No research fields are filled",
+    !String(item.researchQuery || "").trim() && "Search query is empty",
     !item.suggestedListingPrice && "Suggested price is missing",
-    (item.researchConfidence || "low") === "low" && "Research confidence is low",
   ].filter(Boolean);
 }
 
@@ -1233,15 +1204,15 @@ function CopyAllForEbayPanel({ item, onCopy }) {
   );
 }
 
-function ResearchPanel({ item, onChange, onCopy }) {
+function ResearchPanel({ item, onChange, onCopy, onOpenGoogleSearch, onResearchQueryChange, onUseEbayTitle }) {
   const warnings = researchWarnings(item);
-  const query = itemResearchQuery(item);
+  const query = String(item.researchQuery || "").trim();
   return (
     <div className="rounded-2xl border border-[#f0be45]/30 bg-[#fffdf8] p-3">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6511]">Research Panel</p>
-          <p className="mt-1 text-sm text-stone-600">Research links open external sites. Paste useful findings into Research Notes.</p>
+          <p className="mt-1 text-sm text-stone-600">Use the eBay title as a simple Google search query. Paste useful findings into Research Notes.</p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" onClick={() => onCopy("research query", query)} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy Research Query</button>
@@ -1258,36 +1229,23 @@ function ResearchPanel({ item, onChange, onCopy }) {
         </div>
       )}
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Input label="Research brand" value={item.researchBrand || ""} onChange={(e) => onChange({ ...item, researchBrand: e.target.value })} />
-        <Input label="Research model" value={item.researchModel || ""} onChange={(e) => onChange({ ...item, researchModel: e.target.value })} />
-        <Input label="Reference" value={item.researchReference || ""} onChange={(e) => onChange({ ...item, researchReference: e.target.value })} />
-        <Input label="Year" value={item.researchYear || ""} onChange={(e) => onChange({ ...item, researchYear: e.target.value })} />
-        <Input label="EAN" value={item.researchEAN || ""} onChange={(e) => onChange({ ...item, researchEAN: e.target.value })} />
-        <Input label="Serial" value={item.researchSerial || ""} onChange={(e) => onChange({ ...item, researchSerial: e.target.value })} />
-        <Input label="Suggested listing price EUR" value={item.suggestedListingPrice || ""} onChange={(e) => onChange({ ...item, suggestedListingPrice: e.target.value })} />
-        <Input label="Minimum accept price EUR" value={item.minimumAcceptPrice || ""} onChange={(e) => onChange({ ...item, minimumAcceptPrice: e.target.value })} />
+      <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
+        <Input label="Search Query" value={item.researchQuery || ""} onChange={(e) => onResearchQueryChange(e.target.value)} />
+        <button type="button" onClick={onUseEbayTitle} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Use eBay Title</button>
+        <button type="button" onClick={onOpenGoogleSearch} className="rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-amber-50 hover:bg-[#3f2b24]">Open Google Search</button>
       </div>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Input label="Price research low EUR" value={item.priceResearchLow || item.researchedLowPrice || ""} onChange={(e) => onChange({ ...item, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
         <Input label="Price research mid EUR" value={item.priceResearchMid || item.researchedMidPrice || ""} onChange={(e) => onChange({ ...item, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
         <Input label="Price research high EUR" value={item.priceResearchHigh || item.researchedHighPrice || ""} onChange={(e) => onChange({ ...item, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
-        <Select label="Research confidence" value={item.researchConfidence || "low"} onChange={(e) => onChange({ ...item, researchConfidence: e.target.value })}>
-          {researchConfidenceOptions.map((confidence) => <option key={confidence}>{confidence}</option>)}
-        </Select>
+        <Input label="Suggested listing price EUR" value={item.suggestedListingPrice || ""} onChange={(e) => onChange({ ...item, suggestedListingPrice: e.target.value })} />
       </div>
 
       <label className="mt-3 block">
         <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research Notes</span>
         <textarea value={item.researchNotes || ""} onChange={(e) => onChange({ ...item, researchNotes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
       </label>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {researchLinks(item).map(([label, href]) => (
-          <button key={label} type="button" onClick={() => openExternalResearchUrl(href)} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</button>
-        ))}
-      </div>
     </div>
   );
 }
@@ -1343,6 +1301,7 @@ export default function ResellerItApp() {
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("source");
   const [marketResearchOpen, setMarketResearchOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
+  const [searchQueryManuallyEdited, setSearchQueryManuallyEdited] = useState(false);
   const [quickAddItem, setQuickAddItem] = useState({
     purchaseDate: CURRENT_DATE,
     name: "",
@@ -1357,6 +1316,7 @@ export default function ResellerItApp() {
       if (event.key === "Escape") {
         setEditingId(null);
         setForm(emptyItem);
+        setSearchQueryManuallyEdited(false);
         setItemFormOpen(false);
       }
     }
@@ -1419,6 +1379,7 @@ export default function ResellerItApp() {
       : [{ id: crypto.randomUUID(), ...clean }, ...items];
     persist(next);
     setForm(emptyItem);
+    setSearchQueryManuallyEdited(false);
     setEditingId(null);
     setItemFormOpen(false);
   }
@@ -1441,7 +1402,10 @@ export default function ResellerItApp() {
   }
 
   function editItem(item) {
-    setForm(normalizeItem(item));
+    const normalized = normalizeItem(item);
+    const title = normalized.ebayTitle || normalized.listingTitle || "";
+    setForm({ ...normalized, researchQuery: normalized.researchQuery || title });
+    setSearchQueryManuallyEdited(Boolean(normalized.researchQuery && normalized.researchQuery !== title));
     setEditingId(item.id);
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
@@ -1462,6 +1426,7 @@ export default function ResellerItApp() {
     });
     setEditingId(null);
     setAdvancedFeesOpen(false);
+    setSearchQueryManuallyEdited(false);
     setItemFormOpen(true);
     setActiveWorkflowSection("source");
   }
@@ -1503,6 +1468,7 @@ export default function ResellerItApp() {
   function closeItemEditor() {
     setEditingId(null);
     setForm(emptyItem);
+    setSearchQueryManuallyEdited(false);
     setItemFormOpen(false);
   }
 
@@ -2045,10 +2011,12 @@ export default function ResellerItApp() {
   function generateCurrentListingDraft() {
     const draft = generateListingDraft(form, { preferSaved: false });
     const hasManualCondition = Boolean(String(form.conditionText || "").trim());
+    const syncedResearchQuery = searchQueryManuallyEdited ? form.researchQuery : draft.title;
     setForm({
       ...form,
       listingTitle: draft.title,
       ebayTitle: draft.title,
+      researchQuery: syncedResearchQuery,
       conditionText: hasManualCondition ? form.conditionText : generatedConditionBaseText(form),
       descriptionText: draft.description,
       htmlDescription: draft.htmlDescription,
@@ -2062,10 +2030,12 @@ export default function ResellerItApp() {
     const packSource = { ...form, shippingNotes, conditionText: generatedConditionBaseText(form) };
     const draft = generateListingDraft(packSource, { preferSaved: false });
     const condition = generatedConditionText(packSource);
+    const syncedResearchQuery = searchQueryManuallyEdited ? form.researchQuery : draft.title;
     setForm({
       ...form,
       listingTitle: draft.title,
       ebayTitle: draft.title,
+      researchQuery: syncedResearchQuery,
       conditionText: condition,
       descriptionText: draft.description,
       htmlDescription: draft.htmlDescription,
@@ -2073,6 +2043,35 @@ export default function ResellerItApp() {
       generatedHtmlDescription: draft.htmlDescription,
       shippingNotes,
     });
+  }
+
+  function updateListingTitle(value) {
+    setForm({
+      ...form,
+      ebayTitle: value,
+      listingTitle: value,
+      researchQuery: searchQueryManuallyEdited ? form.researchQuery : value,
+    });
+  }
+
+  function updateResearchQuery(value) {
+    setSearchQueryManuallyEdited(true);
+    setForm({ ...form, researchQuery: value });
+  }
+
+  function useEbayTitleForResearch() {
+    const title = form.ebayTitle || form.listingTitle || generatedListingTitle(form);
+    setSearchQueryManuallyEdited(false);
+    setForm({ ...form, researchQuery: title });
+  }
+
+  function openGoogleResearchSearch() {
+    const query = String(form.researchQuery || "").trim();
+    if (!query) {
+      setToastMessage("Search Query is empty.");
+      return;
+    }
+    window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, "_blank", "noopener,noreferrer");
   }
 
   async function copyText(label, text) {
@@ -2354,7 +2353,14 @@ export default function ResellerItApp() {
                     <ListingCompleteness item={form} />
                     <ListingWarningsPanel item={form} />
                     <CopyAllForEbayPanel item={form} onCopy={copyText} />
-                    <ResearchPanel item={form} onChange={setForm} onCopy={copyText} />
+                    <ResearchPanel
+                      item={form}
+                      onChange={setForm}
+                      onCopy={copyText}
+                      onOpenGoogleSearch={openGoogleResearchSearch}
+                      onResearchQueryChange={updateResearchQuery}
+                      onUseEbayTitle={useEbayTitleForResearch}
+                    />
                     <div className="grid gap-3 lg:grid-cols-2">
                       <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
                         {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
@@ -2423,7 +2429,7 @@ export default function ResellerItApp() {
                           eBay title
                           <TranslationButtons onTranslate={(target) => openTranslator(target, form.ebayTitle || form.listingTitle || generatedListingTitle(form))} />
                         </span>
-                        <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                        <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => updateListingTitle(e.target.value)} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                         <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
                       </label>
                       <Input label="Included accessories" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
@@ -2777,7 +2783,7 @@ export default function ResellerItApp() {
                     <TranslationButtons onTranslate={(target) => openTranslator(target, form.ebayTitle || form.listingTitle || generatedListingTitle(form))} />
                   </span>
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => setForm({ ...form, ebayTitle: e.target.value, listingTitle: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                    <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => updateListingTitle(e.target.value)} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                     <button type="button" onClick={() => copyText("title", form.ebayTitle || form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Title</button>
                   </div>
                   <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
