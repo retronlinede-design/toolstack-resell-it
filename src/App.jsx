@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
 import resellItLogo from "./assets/resellitlogo2.png";
 import {
@@ -45,7 +45,7 @@ const DEFAULT_STOCK_COLUMN_WIDTHS = {
   proof: 76,
   edit: 48,
 };
-const STOCK_COLUMN_WIDTH_CONTROLS = [
+const STOCK_COLUMN_LABELS = [
   ["date", "Date"],
   ["item", "Item"],
   ["status", "Status"],
@@ -56,20 +56,31 @@ const STOCK_COLUMN_WIDTH_CONTROLS = [
   ["proof", "Proof"],
   ["edit", "Actions"],
 ];
-const STOCK_COLUMN_WIDTH_MIN = 44;
-const STOCK_COLUMN_WIDTH_MAX = 360;
+const STOCK_COLUMN_LABEL_MAP = Object.fromEntries(STOCK_COLUMN_LABELS);
+const STOCK_COLUMN_WIDTH_LIMITS = {
+  item: [90, 360],
+  date: [70, 120],
+  status: [80, 160],
+  source: [80, 180],
+  purchase: [54, 110],
+  sold: [54, 110],
+  profit: [54, 110],
+  proof: [54, 110],
+  edit: [44, 90],
+};
 
-function clampStockColumnWidth(value, fallback) {
+function clampStockColumnWidth(key, value, fallback) {
   const numericValue = Number(value);
+  const [min, max] = STOCK_COLUMN_WIDTH_LIMITS[key] || [44, 360];
   if (!Number.isFinite(numericValue)) return fallback;
-  return Math.min(STOCK_COLUMN_WIDTH_MAX, Math.max(STOCK_COLUMN_WIDTH_MIN, Math.round(numericValue)));
+  return Math.min(max, Math.max(min, Math.round(numericValue)));
 }
 
 function normalizeStockColumnWidths(widths = {}) {
   return Object.fromEntries(
     Object.entries(DEFAULT_STOCK_COLUMN_WIDTHS).map(([key, fallback]) => [
       key,
-      clampStockColumnWidth(widths[key], fallback),
+      clampStockColumnWidth(key, widths[key], fallback),
     ]),
   );
 }
@@ -1166,6 +1177,8 @@ export default function ResellerItApp() {
   const [inventoryTimelineMonth, setInventoryTimelineMonth] = useState("");
   const [stockViewMode, setStockViewMode] = useState("Detailed view");
   const [stockColumnWidths, setStockColumnWidths] = useState(loadStockColumnWidths);
+  const [resizingColumnKey, setResizingColumnKey] = useState("");
+  const stockColumnResizeRef = useRef(null);
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [stockFilterMenu, setStockFilterMenu] = useState("");
@@ -1212,6 +1225,35 @@ export default function ResellerItApp() {
       // Width settings are optional UI preferences; item persistence is handled separately.
     }
   }, [stockColumnWidths]);
+
+  useEffect(() => {
+    if (!resizingColumnKey) return undefined;
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+
+    function handleMouseMove(event) {
+      const resizeState = stockColumnResizeRef.current;
+      if (!resizeState) return;
+      const nextWidth = resizeState.startWidth + event.clientX - resizeState.startX;
+      setStockColumnWidths((currentWidths) => normalizeStockColumnWidths({
+        ...currentWidths,
+        [resizeState.key]: nextWidth,
+      }));
+    }
+
+    function handleMouseUp() {
+      stockColumnResizeRef.current = null;
+      setResizingColumnKey("");
+    }
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      document.body.style.userSelect = previousUserSelect;
+    };
+  }, [resizingColumnKey]);
 
   function persist(nextItems) {
     const normalizedItems = normalizeItems(nextItems);
@@ -1421,15 +1463,31 @@ export default function ResellerItApp() {
     persist(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
   }
 
-  function updateStockColumnWidth(key, value) {
-    setStockColumnWidths((currentWidths) => normalizeStockColumnWidths({
-      ...currentWidths,
-      [key]: value,
-    }));
+  function startStockColumnResize(key, event) {
+    event.preventDefault();
+    event.stopPropagation();
+    stockColumnResizeRef.current = {
+      key,
+      startX: event.clientX,
+      startWidth: stockColumnWidths[key],
+    };
+    setResizingColumnKey(key);
   }
 
   function resetStockColumnWidths() {
     setStockColumnWidths(DEFAULT_STOCK_COLUMN_WIDTHS);
+  }
+
+  function stockResizeHandle(key) {
+    return (
+      <span
+        role="separator"
+        aria-label={`Resize ${STOCK_COLUMN_LABEL_MAP[key]} column`}
+        aria-orientation="vertical"
+        onMouseDown={(event) => startStockColumnResize(key, event)}
+        className={`absolute right-0 top-0 h-full w-2 cursor-col-resize border-r transition ${resizingColumnKey === key ? "border-[#b7412e] bg-[#b7412e]/15" : "border-transparent hover:border-[#b7412e]/40 hover:bg-[#b7412e]/10"}`}
+      />
+    );
   }
 
   function updateItemProofStatus(id, value) {
@@ -1739,11 +1797,6 @@ export default function ResellerItApp() {
     const baseColumns = ["date", "item", "status", "source", "purchase", "sold"];
     return stockViewMode === "Detailed view" ? [...baseColumns, "profit", "proof", "edit"] : [...baseColumns, "edit"];
   }, [stockViewMode]);
-
-  const visibleStockColumnControls = useMemo(
-    () => STOCK_COLUMN_WIDTH_CONTROLS.filter(([key]) => visibleStockColumnKeys.includes(key)),
-    [visibleStockColumnKeys],
-  );
 
   const stockTableWidth = visibleStockColumnKeys.reduce((sum, key) => sum + stockColumnWidths[key], 0);
 
@@ -2902,6 +2955,7 @@ export default function ResellerItApp() {
                     </button>
                   ))}
                   {stockActiveFilterCount > 0 && <button type="button" onClick={() => { setInventorySearch(""); setInventoryTimelineGrouping("Month"); setInventoryClassification("All classifications"); setInventoryStatus("All statuses"); setInventoryTimelineMonth(""); setInventoryCategory("All categories"); setInventoryIssueFilter("All items"); setStockFilterMenu(""); }} className="rounded-full border border-stone-200 bg-white px-2 py-1 text-[11px] font-semibold text-stone-500 hover:bg-stone-50">Clear</button>}
+                  <button type="button" onClick={resetStockColumnWidths} className="rounded-full border border-stone-200 bg-white px-2 py-1 text-[11px] font-semibold text-stone-500 hover:bg-stone-50">Reset Widths</button>
 
                   {stockFilterMenu && (
                     <div className="absolute left-0 top-8 z-20 w-72 rounded-xl border border-stone-200 bg-white p-3 shadow-[0_18px_42px_rgba(41,37,36,0.16)]">
@@ -2919,29 +2973,6 @@ export default function ResellerItApp() {
                   <p className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-600">No inventory items match the current timeline filters.</p>
                 )}
 
-                <div className="mb-2 rounded-lg border border-stone-200 bg-white p-2">
-                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">Column widths</p>
-                    <button type="button" onClick={resetStockColumnWidths} className="rounded border border-stone-200 px-2 py-1 text-[11px] font-semibold text-stone-600 hover:bg-stone-50">Reset Widths</button>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {visibleStockColumnControls.map(([key, label]) => (
-                      <label key={key} className="flex items-center gap-1 rounded border border-stone-200 bg-stone-50 px-2 py-1 text-[11px] font-semibold text-stone-600">
-                        <span>{label} {stockColumnWidths[key]}</span>
-                        <input
-                          type="number"
-                          min={STOCK_COLUMN_WIDTH_MIN}
-                          max={STOCK_COLUMN_WIDTH_MAX}
-                          step="4"
-                          value={stockColumnWidths[key]}
-                          onChange={(e) => updateStockColumnWidth(key, e.target.value)}
-                          className="h-6 w-14 rounded border border-stone-200 bg-white px-1 text-right text-[11px] tabular-nums text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </div>
-
                 {stockTimelineItems.length > 0 && (
                   <div className="w-full max-w-full overflow-x-auto rounded-lg border border-stone-200 bg-white">
                     <table className="table-fixed border-collapse text-left text-[11px]" style={{ width: stockTableWidth, minWidth: stockTableWidth }}>
@@ -2950,15 +2981,16 @@ export default function ResellerItApp() {
                       </colgroup>
                       <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
                         <tr className="border-b border-stone-200">
-                          <th className="px-1 py-1.5 font-semibold" style={{ width: stockColumnWidths.date }}>Date</th>
-                          <th className="px-1 py-1.5 font-semibold" style={{ width: stockColumnWidths.item }}>Item</th>
-                          <th className="px-1 py-1.5 font-semibold" style={{ width: stockColumnWidths.status }}>Status</th>
-                          <th className="px-1 py-1.5 font-semibold" style={{ width: stockColumnWidths.source }}>Source</th>
-                          <th className="px-0.5 py-1.5 text-right font-semibold" style={{ width: stockColumnWidths.purchase }}>Purchase</th>
-                          <th className="px-0.5 py-1.5 text-right font-semibold" style={{ width: stockColumnWidths.sold }}>Sold</th>
-                          {stockViewMode === "Detailed view" && <th className="px-0.5 py-1.5 text-right font-semibold" style={{ width: stockColumnWidths.profit }}>Profit</th>}
-                          {stockViewMode === "Detailed view" && <th className="px-1 py-1.5 font-semibold" style={{ width: stockColumnWidths.proof }}>Proof</th>}
-                          <th className="px-0.5 py-1.5 text-center font-semibold" style={{ width: stockColumnWidths.edit }}>Actions</th>
+                          {visibleStockColumnKeys.map((key) => {
+                            const numericColumn = ["purchase", "sold", "profit"].includes(key);
+                            const centeredColumn = key === "edit";
+                            return (
+                              <th key={key} className={`relative select-none py-1.5 font-semibold ${numericColumn ? "px-0.5 text-right" : centeredColumn ? "px-0.5 text-center" : "px-1"}`} style={{ width: stockColumnWidths[key] }}>
+                                <span className="block truncate pr-2">{STOCK_COLUMN_LABEL_MAP[key]}</span>
+                                {stockResizeHandle(key)}
+                              </th>
+                            );
+                          })}
                         </tr>
                       </thead>
                       <tbody>
