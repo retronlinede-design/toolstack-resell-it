@@ -2914,20 +2914,20 @@ export default function ResellerItApp() {
                 )}
 
                 {stockTimelineItems.length > 0 && (
-                  <div className="overflow-x-auto rounded-lg border border-stone-200 bg-white">
-                    <table className={`${stockViewMode === "Compact view" ? "min-w-[700px]" : "min-w-[860px]"} w-full border-collapse text-left text-[11px]`}>
+                  <div className="w-full max-w-full overflow-x-auto rounded-lg border border-stone-200 bg-white">
+                    <table className={`${stockViewMode === "Compact view" ? "min-w-[620px]" : "min-w-[760px]"} w-full table-fixed border-collapse text-left text-[11px]`}>
                       <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
                         <tr className="border-b border-stone-200">
-                          <th className="px-1.5 py-1.5 font-semibold">Date</th>
-                          <th className="px-1.5 py-1.5 font-semibold">Item</th>
-                          <th className="px-1.5 py-1.5 font-semibold">Status</th>
-                          <th className="px-1.5 py-1.5 font-semibold">Source</th>
-                          <th className="px-1 py-1.5 text-right font-semibold">Purchase</th>
-                          <th className="px-1 py-1.5 text-right font-semibold">Sold</th>
-                          {stockViewMode === "Detailed view" && <th className="px-1 py-1.5 text-right font-semibold">Profit</th>}
-                          {stockViewMode === "Detailed view" && <th className="px-1.5 py-1.5 font-semibold">Proof</th>}
-                          {stockViewMode === "Detailed view" && <th className="px-1.5 py-1.5 font-semibold">Listing</th>}
-                          <th className="px-1.5 py-1.5 text-center font-semibold">Edit</th>
+                          <th className="w-20 px-1 py-1.5 font-semibold">Date</th>
+                          <th className="px-1 py-1.5 font-semibold">Item</th>
+                          <th className="w-20 px-1 py-1.5 font-semibold">Status</th>
+                          <th className="w-24 px-1 py-1.5 font-semibold">Source</th>
+                          <th className="w-14 px-0.5 py-1.5 text-right font-semibold">Purchase</th>
+                          <th className="w-14 px-0.5 py-1.5 text-right font-semibold">Sold</th>
+                          {stockViewMode === "Detailed view" && <th className="w-16 px-0.5 py-1.5 text-right font-semibold">Profit</th>}
+                          {stockViewMode === "Detailed view" && <th className="w-16 px-1 py-1.5 font-semibold">Proof</th>}
+                          {stockViewMode === "Detailed view" && <th className="w-16 px-1 py-1.5 font-semibold">Listing</th>}
+                          <th className="w-8 px-0.5 py-1.5 text-center font-semibold">Edit</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -2945,41 +2945,41 @@ export default function ResellerItApp() {
                               const inputClass = "h-6 w-full truncate rounded border border-transparent bg-transparent px-1 text-[11px] text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
                               return (
                                 <tr key={item.id} className="border-b border-stone-100 last:border-b-0 hover:bg-[#fffaf0]/75">
-                                  <td className="w-24 px-1.5 py-0.5">
+                                  <td className="w-20 px-1 py-0.5">
                                     <input type="date" value={item.purchaseDate || ""} onChange={(e) => updateItemField(item.id, "purchaseDate", e.target.value)} className={inputClass} />
                                   </td>
-                                  <td className="w-60 px-1.5 py-0.5">
+                                  <td className="max-w-[11rem] px-1 py-0.5">
                                     <input value={item.name || ""} onChange={(e) => updateItemField(item.id, "name", e.target.value)} className={`${inputClass} font-semibold`} placeholder="Item name" />
                                   </td>
-                                  <td className="w-24 px-1.5 py-0.5">
+                                  <td className="w-20 px-1 py-0.5">
                                     <select value={itemStatus(item)} onChange={(e) => updateItemField(item.id, "status", e.target.value)} className={inputClass}>
                                       {statusOptions.map((status) => <option key={status}>{status}</option>)}
                                     </select>
                                   </td>
-                                  <td className="w-36 px-1.5 py-0.5">
+                                  <td className="w-24 px-1 py-0.5">
                                     <input value={item.sourceName || item.sourceLocation || ""} onChange={(e) => updateItemField(item.id, "sourceName", e.target.value)} className={inputClass} placeholder="Source" />
                                   </td>
-                                  <td className="w-16 px-1 py-0.5">
-                                    <input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(e) => updateItemField(item.id, "purchasePrice", e.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" />
+                                  <td className="w-14 px-0.5 py-0.5">
+                                    <input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(e) => updateItemField(item.id, "purchasePrice", e.target.value)} className={`${inputClass} whitespace-nowrap text-right tabular-nums`} placeholder="0.00" />
                                   </td>
-                                  <td className="w-16 px-1 py-0.5">
-                                    <input type="number" step="0.01" value={item.finalSalePrice !== undefined ? item.finalSalePrice : item.salePrice || ""} onChange={(e) => updateItemField(item.id, "finalSalePrice", e.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" />
+                                  <td className="w-14 px-0.5 py-0.5">
+                                    <input type="number" step="0.01" value={item.finalSalePrice !== undefined ? item.finalSalePrice : item.salePrice || ""} onChange={(e) => updateItemField(item.id, "finalSalePrice", e.target.value)} className={`${inputClass} whitespace-nowrap text-right tabular-nums`} placeholder="0.00" />
                                   </td>
-                                  {stockViewMode === "Detailed view" && <td className={`w-20 px-1 py-0.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</td>}
-                                  {stockViewMode === "Detailed view" && <td className="w-20 px-1.5 py-0.5">
+                                  {stockViewMode === "Detailed view" && <td className={`w-16 whitespace-nowrap px-0.5 py-0.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "-"}</td>}
+                                  {stockViewMode === "Detailed view" && <td className="w-16 px-1 py-0.5">
                                     <select value={proofStatus} onChange={(e) => updateItemProofStatus(item.id, e.target.value)} className={`${inputClass} font-semibold ${proofStatus === "Missing" ? "text-red-700" : proofStatus === "Eigenbeleg" ? "text-[#8a5b10]" : "text-lime-800"}`}>
                                       <option>OK</option>
                                       <option>Missing</option>
                                       <option>Eigenbeleg</option>
                                     </select>
                                   </td>}
-                                  {stockViewMode === "Detailed view" && <td className="w-20 px-1.5 py-0.5">
+                                  {stockViewMode === "Detailed view" && <td className="w-16 px-1 py-0.5">
                                     <select value={listingStatus} onChange={(e) => updateItemListingStatus(item.id, e.target.value)} className={`${inputClass} font-semibold ${listingStatus === "Ready" ? "text-lime-800" : "text-[#8a5b10]"}`}>
                                       <option>Ready</option>
                                       <option>Needed</option>
                                     </select>
                                   </td>}
-                                  <td className="w-10 px-1 py-0.5 text-center">
+                                  <td className="w-8 px-0.5 py-0.5 text-center">
                                     <button type="button" onClick={() => editItem(item)} className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent bg-transparent text-stone-500 hover:border-stone-200 hover:bg-white hover:text-[#8f3124]" title="Open full item workspace" aria-label={`Open ${item.name || "item"} workspace`}>
                                       <Edit3 size={12} />
                                     </button>
