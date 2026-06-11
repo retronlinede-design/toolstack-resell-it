@@ -2147,17 +2147,32 @@ export default function ResellerItApp() {
 
                 {activeWorkflowSection === "listing" && (
                   <div className="space-y-4">
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={generateFullListingPack} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate Full Listing Pack</button>
-                      <ListingReadinessBadge item={form} />
-                    </div>
-                    <ListingCompleteness item={form} />
-                    <ListingWarningsPanel item={form} />
-                    <div className="grid gap-3 lg:grid-cols-2">
-                      <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
-                        {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </Select>
-                      <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
+                    <section className="rounded-2xl border border-orange-200 bg-white p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="text-sm font-semibold text-neutral-950">1. Seller Input Info</h3>
+                        </div>
+                        <ListingReadinessBadge item={form} />
+                      </div>
+                      <div className="mt-3 space-y-3">
+                        <ListingCompleteness item={form} />
+                        <ListingWarningsPanel item={form} />
+                      </div>
+                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                        <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
+                          {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        </Select>
+                        <Input label="Listed Price / Target Price" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
+                        <label className="block lg:col-span-2">
+                          <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
+                            eBay Title
+                            <TranslationButtons onTranslate={(target) => openTranslator(target, form.ebayTitle || form.listingTitle || generatedListingTitle(form))} />
+                          </span>
+                          <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => updateListingTitle(e.target.value)} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                          <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
+                        </label>
+                        <Input label="Accessories / Included Items" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
+                        <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
                         <p className="mt-1 text-xs leading-5 text-stone-600">Describe what the item is, important features, compatibility, and general product information.</p>
                         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -2166,7 +2181,7 @@ export default function ResellerItApp() {
                           <Input label="Measurements" value={form.measurements || form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, measurements: e.target.value, sizeSpecs: e.target.value })} />
                           <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
                           <label className="block sm:col-span-2 lg:col-span-4">
-                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Product Description / About Text</span>
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Description / Item Details</span>
                             <textarea value={form.productDescriptionText || ""} onChange={(e) => setForm({ ...form, productDescriptionText: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                           </label>
                           <label className="block sm:col-span-2">
@@ -2190,13 +2205,17 @@ export default function ResellerItApp() {
                           <Select label="Tested status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>
                             {testedStatusOptions.map((status) => <option key={status}>{status}</option>)}
                           </Select>
-                      <label className="block sm:col-span-2">
+                          <label className="block sm:col-span-2">
                             <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                              {conditionDescriptionLabel}
+                              Condition Text
                               <TranslationButtons onTranslate={(target) => openTranslator(target, generatedConditionText(form))} />
                             </span>
                             <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                             <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
+                          </label>
+                          <label className="block sm:col-span-2">
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Preview</span>
+                            <textarea value={form.conditionText || ""} readOnly className="min-h-20 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 outline-none" />
                           </label>
                           <div className="sm:col-span-2">
                             <ChecklistGrid
@@ -2216,53 +2235,58 @@ export default function ResellerItApp() {
                           </label>
                         </div>
                       </div>
-                      <label className="block lg:col-span-2">
+                        <label className="block lg:col-span-2">
+                          <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
+                            Shipping Notes
+                            <TranslationButtons onTranslate={(target) => openTranslator(target, form.shippingNotes || "")} />
+                          </span>
+                          <textarea value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Tracked DHL, pickup possible, combined shipping..." />
+                        </label>
+                        <label className="block lg:col-span-2">
+                          <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Notes</span>
+                          <textarea value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                        </label>
+                        <div className="lg:col-span-2">
+                          <ChecklistGrid
+                            title="Photo checklist"
+                            items={photoChecklistItems}
+                            value={normalizeBooleanRecord(form.photoChecklist, defaultPhotoChecklist)}
+                            onChange={(photoChecklist) => setForm({ ...form, photoChecklist })}
+                          />
+                        </div>
+                      </div>
+                    </section>
+
+                    <section className="rounded-2xl border border-orange-200 bg-white p-3">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <h3 className="text-sm font-semibold text-neutral-950">2. Generated eBay Listing Output</h3>
+                        <button type="button" onClick={generateFullListingPack} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate Full Listing Pack</button>
+                      </div>
+                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                        <label className="block">
                         <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                          eBay title
-                          <TranslationButtons onTranslate={(target) => openTranslator(target, form.ebayTitle || form.listingTitle || generatedListingTitle(form))} />
-                        </span>
-                        <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => updateListingTitle(e.target.value)} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                        <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
-                      </label>
-                      <Input label="Included accessories" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
-                      <label className="block">
-                        <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                          Plain description
+                          Generated Plain Description
                           <TranslationButtons onTranslate={(target) => openTranslator(target, form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} />
                         </span>
                         <textarea value={form.generatedPlainDescription || form.descriptionText || ""} onChange={(e) => setForm({ ...form, generatedPlainDescription: e.target.value, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                       </label>
                       <label className="block lg:col-span-2">
                         <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                          HTML description
+                          Generated HTML Description
                           <TranslationButtons onTranslate={(target) => openTranslator(target, form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form))} />
                         </span>
                         <textarea value={form.generatedHtmlDescription || form.htmlDescription || ""} onChange={(e) => setForm({ ...form, generatedHtmlDescription: e.target.value, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                       </label>
-                      <div className="lg:col-span-2">
-                        <ChecklistGrid
-                          title="Photo checklist"
-                          items={photoChecklistItems}
-                          value={normalizeBooleanRecord(form.photoChecklist, defaultPhotoChecklist)}
-                          onChange={(photoChecklist) => setForm({ ...form, photoChecklist })}
-                        />
                       </div>
-                      <label className="block lg:col-span-2">
-                        <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                          Shipping notes
-                          <TranslationButtons onTranslate={(target) => openTranslator(target, form.shippingNotes || "")} />
-                        </span>
-                        <textarea value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Tracked DHL, pickup possible, combined shipping..." />
-                      </label>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => copyText("title", form.ebayTitle || form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Title</button>
-                      <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Condition Text</button>
-                      <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Plain Description</button>
-                      <button type="button" onClick={() => copyText("HTML description", form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy HTML Description</button>
-                      <button type="button" onClick={() => copyText("shipping notes", form.shippingNotes || "")} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Shipping Notes</button>
-                    </div>
-                    {hasListingPreviewInput(form) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: sanitizeHtmlPreview(form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form)) }} /></div>}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button type="button" onClick={() => copyText("title", form.ebayTitle || form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Title</button>
+                        <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Condition</button>
+                        <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Plain Description</button>
+                        <button type="button" onClick={() => copyText("HTML description", form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy HTML Description</button>
+                        <button type="button" onClick={() => copyText("shipping notes", form.shippingNotes || "")} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Shipping Notes</button>
+                      </div>
+                      {hasListingPreviewInput(form) && <div className="mt-3 max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: sanitizeHtmlPreview(form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form)) }} /></div>}
+                    </section>
                   </div>
                 )}
 
