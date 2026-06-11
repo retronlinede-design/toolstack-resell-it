@@ -35,15 +35,15 @@ const CURRENT_DATE = new Date().toISOString().slice(0, 10);
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const CURRENT_YEAR = new Date().getFullYear().toString();
 const DEFAULT_STOCK_COLUMN_WIDTHS = {
-  date: 82,
-  item: 180,
-  status: 90,
-  source: 110,
-  purchase: 70,
-  sold: 70,
-  profit: 76,
-  proof: 76,
-  edit: 48,
+  date: 70,
+  item: 140,
+  status: 80,
+  source: 90,
+  purchase: 58,
+  sold: 58,
+  profit: 60,
+  proof: 60,
+  edit: 44,
 };
 const STOCK_COLUMN_LABELS = [
   ["date", "Date"],
@@ -2879,7 +2879,7 @@ export default function ResellerItApp() {
 
         <section className="grid gap-4">
           {activeTab === "stock" && (
-            <div className="rounded-xl border border-[#b7412e]/15 bg-[#fffaf0] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
+            <div className="min-w-0 rounded-xl border border-[#b7412e]/15 bg-[#fffaf0] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
               <div className="border-b border-[#eadfce] p-2.5 sm:p-3">
                 <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
                   <div>
@@ -2899,9 +2899,9 @@ export default function ResellerItApp() {
 
               </div>
 
-              <div className="p-1.5 sm:p-2">
-                <div className="mb-2 overflow-x-auto rounded-lg border border-[#b7412e]/15 bg-white shadow-[0_4px_14px_rgba(41,37,36,0.04)]">
-                  <div className="grid min-w-[760px] grid-cols-6 divide-x divide-stone-100 border-l-2 border-[#b7412e] text-[11px]">
+              <div className="min-w-0 p-1.5 sm:p-2">
+                <div className="mb-2 rounded-lg border border-[#b7412e]/15 bg-white shadow-[0_4px_14px_rgba(41,37,36,0.04)]">
+                  <div className="grid grid-cols-2 divide-x divide-y divide-stone-100 border-l-2 border-[#b7412e] text-[11px] sm:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
                     {[
                       [Package, "Visible", stockTimelineTotals.itemCount],
                       [Euro, "Purchase cost", money(stockTimelineTotals.purchaseTotal)],
@@ -2921,20 +2921,20 @@ export default function ResellerItApp() {
                   </div>
                 </div>
 
-                <div className="mb-2 overflow-x-auto rounded-lg border border-[#b7412e]/20 bg-[#fff6e6] shadow-[0_4px_14px_rgba(183,65,46,0.06)]">
-                  <div className="grid min-w-[760px] grid-cols-[7rem_1.6fr_1.1fr_7rem_13rem] items-center gap-1 border-b border-[#b7412e]/10 bg-[#fff2dc] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-500">
+                <div className="mb-2 rounded-lg border border-[#b7412e]/20 bg-[#fff6e6] shadow-[0_4px_14px_rgba(183,65,46,0.06)]">
+                  <div className="hidden grid-cols-[6.5rem_minmax(8rem,1.4fr)_minmax(7rem,1fr)_4.25rem_8.5rem] items-center gap-1 border-b border-[#b7412e]/10 bg-[#fff2dc] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-500 md:grid">
                     <span>Date</span>
                     <span>Item</span>
                     <span>Source</span>
                     <span className="text-right">Purchase</span>
                     <span className="text-center text-[#8f3124]">Quick Stock Entry</span>
                   </div>
-                  <div className="grid min-w-[760px] grid-cols-[7rem_1.6fr_1.1fr_7rem_13rem] items-center gap-1 border-l-2 border-[#b7412e] px-1.5 py-1.5">
+                  <div className="grid grid-cols-2 items-center gap-1 border-l-2 border-[#b7412e] px-1.5 py-1.5 md:grid-cols-[6.5rem_minmax(8rem,1.4fr)_minmax(7rem,1fr)_4.25rem_8.5rem]">
                     <input type="date" value={quickAddItem.purchaseDate} onChange={(e) => setQuickAddItem({ ...quickAddItem, purchaseDate: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-1 text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" />
                     <input value={quickAddItem.name} onChange={(e) => setQuickAddItem({ ...quickAddItem, name: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-2 text-[11px] font-semibold text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="New stock item" />
                     <input value={quickAddItem.sourceName} onChange={(e) => setQuickAddItem({ ...quickAddItem, sourceName: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-2 text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="Source" />
                     <input type="number" step="0.01" value={quickAddItem.purchasePrice} onChange={(e) => setQuickAddItem({ ...quickAddItem, purchasePrice: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-1 text-right text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="0.00" />
-                    <div className="flex justify-end gap-1">
+                    <div className="col-span-2 flex justify-end gap-1 md:col-span-1">
                       <button type="button" onClick={() => createQuickLedgerItem()} className="h-7 rounded border border-[#b7412e]/20 bg-white px-2 text-[11px] font-semibold text-[#8f3124] hover:bg-[#fff6e6]">Add</button>
                       <button type="button" onClick={() => createQuickLedgerItem({ openEditor: true })} className="h-7 rounded bg-[#e06b2c] px-2 text-[11px] font-semibold text-[#24110e] hover:bg-[#f0be45]">Add & Edit</button>
                     </div>
@@ -2975,7 +2975,7 @@ export default function ResellerItApp() {
 
                 {stockTimelineItems.length > 0 && (
                   <div className="w-full max-w-full overflow-x-auto rounded-lg border border-stone-200 bg-white">
-                    <table className="table-fixed border-collapse text-left text-[11px]" style={{ width: stockTableWidth, minWidth: stockTableWidth }}>
+                    <table className="table-fixed border-collapse text-left text-[11px]" style={{ width: "100%", minWidth: stockTableWidth }}>
                       <colgroup>
                         {visibleStockColumnKeys.map((key) => <col key={key} style={{ width: stockColumnWidths[key] }} />)}
                       </colgroup>
