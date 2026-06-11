@@ -381,13 +381,6 @@ function priceResearchQuery(item) {
   return (item.researchQuery || item.ebayTitle || item.name || "").trim();
 }
 
-function researchWarnings(item) {
-  return [
-    !String(item.researchQuery || "").trim() && "Search query is empty",
-    !item.suggestedListingPrice && "Suggested price is missing",
-  ].filter(Boolean);
-}
-
 function priceResearchLinks(item) {
   const query = encodeURIComponent(priceResearchQuery(item));
   if (!query) return [];
@@ -1075,52 +1068,6 @@ function ListingWarningsPanel({ item }) {
       <ul className="mt-2 grid gap-1.5 text-sm text-orange-950 sm:grid-cols-2">
         {warnings.map((warning) => <li key={warning}>- {warning}</li>)}
       </ul>
-    </div>
-  );
-}
-
-function ResearchPanel({ item, onChange, onCopy, onOpenGoogleSearch, onResearchQueryChange, onUseEbayTitle }) {
-  const warnings = researchWarnings(item);
-  const query = String(item.researchQuery || "").trim();
-  return (
-    <div className="rounded-2xl border border-[#f0be45]/30 bg-[#fffdf8] p-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6511]">Research Panel</p>
-          <p className="mt-1 text-sm text-stone-600">Use the eBay title as a simple Google search query. Paste useful findings into Research Notes.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => onCopy("research query", query)} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy Research Query</button>
-          <button type="button" onClick={() => onCopy("research notes", item.researchNotes || "")} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy Research Notes</button>
-        </div>
-      </div>
-
-      {warnings.length > 0 && (
-        <div className="mt-3 rounded-2xl border border-orange-200 bg-orange-50 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-orange-900">Research warnings</p>
-          <ul className="mt-2 grid gap-1.5 text-sm text-orange-950 sm:grid-cols-3">
-            {warnings.map((warning) => <li key={warning}>- {warning}</li>)}
-          </ul>
-        </div>
-      )}
-
-      <div className="mt-3 grid gap-3 lg:grid-cols-[1fr_auto_auto] lg:items-end">
-        <Input label="Search Query" value={item.researchQuery || ""} onChange={(e) => onResearchQueryChange(e.target.value)} />
-        <button type="button" onClick={onUseEbayTitle} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Use eBay Title</button>
-        <button type="button" onClick={onOpenGoogleSearch} className="rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-amber-50 hover:bg-[#3f2b24]">Open Google Search</button>
-      </div>
-
-      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Input label="Price research low EUR" value={item.priceResearchLow || item.researchedLowPrice || ""} onChange={(e) => onChange({ ...item, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
-        <Input label="Price research mid EUR" value={item.priceResearchMid || item.researchedMidPrice || ""} onChange={(e) => onChange({ ...item, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
-        <Input label="Price research high EUR" value={item.priceResearchHigh || item.researchedHighPrice || ""} onChange={(e) => onChange({ ...item, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
-        <Input label="Suggested listing price EUR" value={item.suggestedListingPrice || ""} onChange={(e) => onChange({ ...item, suggestedListingPrice: e.target.value })} />
-      </div>
-
-      <label className="mt-3 block">
-        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research Notes</span>
-        <textarea value={item.researchNotes || ""} onChange={(e) => onChange({ ...item, researchNotes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-      </label>
     </div>
   );
 }
@@ -1928,26 +1875,6 @@ export default function ResellerItApp() {
     });
   }
 
-  function updateResearchQuery(value) {
-    setSearchQueryManuallyEdited(true);
-    setForm({ ...form, researchQuery: value });
-  }
-
-  function useEbayTitleForResearch() {
-    const title = form.ebayTitle || form.listingTitle || generatedListingTitle(form);
-    setSearchQueryManuallyEdited(false);
-    setForm({ ...form, researchQuery: title });
-  }
-
-  function openGoogleResearchSearch() {
-    const query = String(form.researchQuery || "").trim();
-    if (!query) {
-      setToastMessage("Search Query is empty.");
-      return;
-    }
-    window.open(`https://www.google.com/search?q=${encodeURIComponent(query)}`, "_blank", "noopener,noreferrer");
-  }
-
   async function copyText(label, text) {
     try {
       await navigator.clipboard.writeText(text || "");
@@ -2226,14 +2153,6 @@ export default function ResellerItApp() {
                     </div>
                     <ListingCompleteness item={form} />
                     <ListingWarningsPanel item={form} />
-                    <ResearchPanel
-                      item={form}
-                      onChange={setForm}
-                      onCopy={copyText}
-                      onOpenGoogleSearch={openGoogleResearchSearch}
-                      onResearchQueryChange={updateResearchQuery}
-                      onUseEbayTitle={useEbayTitleForResearch}
-                    />
                     <div className="grid gap-3 lg:grid-cols-2">
                       <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
                         {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
