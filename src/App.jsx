@@ -15,7 +15,6 @@ import {
   itemProfitValue,
   itemStatus,
   languageLabel,
-  markListingNeeded,
   normalizeBooleanRecord,
   normalizeItem,
   normalizeItems,
@@ -1420,26 +1419,6 @@ export default function ResellerItApp() {
       if (value === "OK") return { ...item, hasReceipt: "Yes", receiptType: item.receiptType || "Shop receipt", proofType: item.proofType || "Shop receipt" };
       if (value === "Eigenbeleg") return { ...item, hasReceipt: "No", receiptType: "Eigenbeleg needed", proofType: "Eigenbeleg", proofStoredExternally: "No" };
       return { ...item, hasReceipt: "No", receiptType: "", proofType: "", proofStoredExternally: "No", proofFileName: "", proofFolderLocation: "", proofImageDataUrl: "", proofNotes: "" };
-    }));
-  }
-
-  function updateItemListingStatus(id, value) {
-    persist(items.map((item) => {
-      if (item.id !== id) return item;
-      if (value === "Ready") {
-        const draft = generateListingDraft(item);
-        return {
-          ...item,
-          listingTitle: item.listingTitle || draft.title,
-          ebayTitle: item.ebayTitle || draft.title,
-          conditionText: item.conditionText || draft.condition,
-          descriptionText: item.descriptionText || draft.description,
-          htmlDescription: item.htmlDescription || draft.htmlDescription,
-          generatedPlainDescription: item.generatedPlainDescription || draft.description,
-          generatedHtmlDescription: item.generatedHtmlDescription || draft.htmlDescription,
-        };
-      }
-      return markListingNeeded(item);
     }));
   }
 
@@ -2915,7 +2894,7 @@ export default function ResellerItApp() {
 
                 {stockTimelineItems.length > 0 && (
                   <div className="w-full max-w-full overflow-x-auto rounded-lg border border-stone-200 bg-white">
-                    <table className={`${stockViewMode === "Compact view" ? "min-w-[620px]" : "min-w-[760px]"} w-full table-fixed border-collapse text-left text-[11px]`}>
+                    <table className={`${stockViewMode === "Compact view" ? "min-w-[580px]" : "min-w-[690px]"} w-full table-fixed border-collapse text-left text-[11px]`}>
                       <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
                         <tr className="border-b border-stone-200">
                           <th className="w-20 px-1 py-1.5 font-semibold">Date</th>
@@ -2926,7 +2905,6 @@ export default function ResellerItApp() {
                           <th className="w-14 px-0.5 py-1.5 text-right font-semibold">Sold</th>
                           {stockViewMode === "Detailed view" && <th className="w-16 px-0.5 py-1.5 text-right font-semibold">Profit</th>}
                           {stockViewMode === "Detailed view" && <th className="w-16 px-1 py-1.5 font-semibold">Proof</th>}
-                          {stockViewMode === "Detailed view" && <th className="w-16 px-1 py-1.5 font-semibold">Listing</th>}
                           <th className="w-8 px-0.5 py-1.5 text-center font-semibold">Edit</th>
                         </tr>
                       </thead>
@@ -2934,22 +2912,21 @@ export default function ResellerItApp() {
                         {stockTimelineGroups.map(([groupLabel, groupItems]) => (
                           <React.Fragment key={groupLabel}>
                             <tr>
-                              <td colSpan={stockViewMode === "Compact view" ? 7 : 10} className="border-b border-stone-200 bg-[#fffaf0] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#8f3124]">
+                              <td colSpan={stockViewMode === "Compact view" ? 7 : 9} className="border-b border-stone-200 bg-[#fffaf0] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#8f3124]">
                                 {groupLabel} <span className="font-medium text-stone-400">({groupItems.length})</span>
                               </td>
                             </tr>
                             {groupItems.map((item) => {
                               const sold = isSoldStatus(item);
                               const proofStatus = quickProofStatus(item) === "Eigenbeleg needed" ? "Eigenbeleg" : needsProofRecord(item) ? "Missing" : "OK";
-                              const listingStatus = hasListingDraft(item) ? "Ready" : "Needed";
                               const inputClass = "h-6 w-full truncate rounded border border-transparent bg-transparent px-1 text-[11px] text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
                               return (
                                 <tr key={item.id} className="border-b border-stone-100 last:border-b-0 hover:bg-[#fffaf0]/75">
                                   <td className="w-20 px-1 py-0.5">
                                     <input type="date" value={item.purchaseDate || ""} onChange={(e) => updateItemField(item.id, "purchaseDate", e.target.value)} className={inputClass} />
                                   </td>
-                                  <td className="max-w-[11rem] px-1 py-0.5">
-                                    <input value={item.name || ""} onChange={(e) => updateItemField(item.id, "name", e.target.value)} className={`${inputClass} font-semibold`} placeholder="Item name" />
+                                  <td className="max-w-[9rem] px-1 py-0.5">
+                                    <input value={item.name || ""} onChange={(e) => updateItemField(item.id, "name", e.target.value)} title={item.name || ""} className={`${inputClass} font-semibold`} placeholder="Item name" />
                                   </td>
                                   <td className="w-20 px-1 py-0.5">
                                     <select value={itemStatus(item)} onChange={(e) => updateItemField(item.id, "status", e.target.value)} className={inputClass}>
@@ -2971,12 +2948,6 @@ export default function ResellerItApp() {
                                       <option>OK</option>
                                       <option>Missing</option>
                                       <option>Eigenbeleg</option>
-                                    </select>
-                                  </td>}
-                                  {stockViewMode === "Detailed view" && <td className="w-16 px-1 py-0.5">
-                                    <select value={listingStatus} onChange={(e) => updateItemListingStatus(item.id, e.target.value)} className={`${inputClass} font-semibold ${listingStatus === "Ready" ? "text-lime-800" : "text-[#8a5b10]"}`}>
-                                      <option>Ready</option>
-                                      <option>Needed</option>
                                     </select>
                                   </td>}
                                   <td className="w-8 px-0.5 py-0.5 text-center">
