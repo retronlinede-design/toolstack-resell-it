@@ -2894,7 +2894,7 @@ export default function ResellerItApp() {
 
                 {stockTimelineItems.length > 0 && (
                   <div className="w-full max-w-full overflow-x-auto rounded-lg border border-stone-200 bg-white">
-                    <table className={`${stockViewMode === "Compact view" ? "min-w-[580px]" : "min-w-[690px]"} w-full table-fixed border-collapse text-left text-[11px]`}>
+                    <table className="min-w-full table-auto border-collapse text-left text-[11px]">
                       <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
                         <tr className="border-b border-stone-200">
                           <th className="w-20 px-1 py-1.5 font-semibold">Date</th>
@@ -2919,14 +2919,14 @@ export default function ResellerItApp() {
                             {groupItems.map((item) => {
                               const sold = isSoldStatus(item);
                               const proofStatus = quickProofStatus(item) === "Eigenbeleg needed" ? "Eigenbeleg" : needsProofRecord(item) ? "Missing" : "OK";
-                              const inputClass = "h-6 w-full truncate rounded border border-transparent bg-transparent px-1 text-[11px] text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
+                              const inputClass = "min-h-6 w-full rounded border border-transparent bg-transparent px-1 text-[11px] text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
                               return (
                                 <tr key={item.id} className="border-b border-stone-100 last:border-b-0 hover:bg-[#fffaf0]/75">
                                   <td className="w-20 px-1 py-0.5">
                                     <input type="date" value={item.purchaseDate || ""} onChange={(e) => updateItemField(item.id, "purchaseDate", e.target.value)} className={inputClass} />
                                   </td>
-                                  <td className="max-w-[9rem] px-1 py-0.5">
-                                    <input value={item.name || ""} onChange={(e) => updateItemField(item.id, "name", e.target.value)} title={item.name || ""} className={`${inputClass} font-semibold`} placeholder="Item name" />
+                                  <td className="px-1 py-0.5">
+                                    <textarea value={item.name || ""} onChange={(e) => updateItemField(item.id, "name", e.target.value)} title={item.name || ""} rows={1} className={`${inputClass} min-w-0 resize-none overflow-hidden whitespace-normal break-words font-semibold leading-5`} placeholder="Item name" />
                                   </td>
                                   <td className="w-20 px-1 py-0.5">
                                     <select value={itemStatus(item)} onChange={(e) => updateItemField(item.id, "status", e.target.value)} className={inputClass}>
