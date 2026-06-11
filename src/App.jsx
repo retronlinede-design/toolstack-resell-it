@@ -1,6 +1,32 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
 import resellItLogo from "./assets/resellitlogo2.png";
+import {
+  actualShippingValue,
+  buyerPlatformLabel,
+  duplicateItemForDraft,
+  ebayBaseFee,
+  finalSaleValue,
+  hasListingDraft,
+  isFullBackupPayload,
+  isLegacyProofImageTooLarge,
+  isSoldStatus,
+  itemClassification,
+  itemProfitValue,
+  itemStatus,
+  languageLabel,
+  markListingNeeded,
+  normalizeBooleanRecord,
+  normalizeItem,
+  normalizeItems,
+  normalizeListingLanguageValue,
+  packagingCostValue,
+  platformFees,
+  refundValue,
+  sanitizeHtmlPreview,
+  shippingChargedValue,
+  summarizeSoldPerformance,
+} from "./resellitLogic.js";
 
 const STORAGE_KEY = "toolstack.resellit.v1";
 const OLD_STORAGE_KEY = "toolstack.resellerit.v1";
@@ -8,6 +34,7 @@ const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
 const CURRENT_DATE = new Date().toISOString().slice(0, 10);
 const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
 const CURRENT_YEAR = new Date().getFullYear().toString();
+const MAX_LEGACY_PROOF_IMAGE_BYTES = 250 * 1024;
 const DISABLED_LEGACY_UI = false;
 const ebayMappingHints = ["order date", "item title", "sale price", "fees", "shipping", "refund", "payout"];
 const DEFAULT_CLASSIFICATION = "Unsure / Review Later";
@@ -35,7 +62,6 @@ const languageOptions = [
 ];
 const DEFAULT_LANGUAGE = "de";
 const testedStatusOptions = ["Not specified", "Tested working", "Partially tested", "Not tested", "Defective / repair needed"];
-const researchConfidenceOptions = ["low", "medium", "high"];
 const photoChecklistItems = [
   ["front", "Front photo"],
   ["back", "Back photo"],
@@ -63,7 +89,6 @@ const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo"
 const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded", "Written Off"];
 const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Refunded"];
 const shippingWorkflowStatuses = ["Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded"];
-const legacyStatusLabels = { "Written off": "Written Off", "Kept private": "Completed" };
 const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
 const classificationHelp = [
   ["Private Sale / Personal Collection", "Originally owned personal item."],
@@ -293,112 +318,6 @@ function timelineGroupLabel(date, grouping) {
   return parsed.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
 }
 
-function itemClassification(item) {
-  return item.classification || DEFAULT_CLASSIFICATION;
-}
-
-function normalizeListingLanguageValue(item) {
-  const rawLanguage = String(item?.language || "").trim().toLowerCase();
-  if (rawLanguage === "en" || rawLanguage === "english") return "en";
-  if (rawLanguage === "de" || rawLanguage === "german" || rawLanguage === "deutsch") return "de";
-  const legacyLanguage = String(item?.listingLanguage || "").trim().toLowerCase();
-  if (legacyLanguage === "english" || legacyLanguage === "en") return "en";
-  return DEFAULT_LANGUAGE;
-}
-
-function languageLabel(value) {
-  return value === "en" ? "English" : "German";
-}
-
-function normalizeBooleanRecord(value, defaults) {
-  if (Array.isArray(value)) {
-    return {
-      ...defaults,
-      ...Object.fromEntries(value.map((key) => [key, true])),
-    };
-  }
-  if (!value || typeof value !== "object") return { ...defaults };
-  return Object.fromEntries(Object.keys(defaults).map((key) => [key, Boolean(value[key])]));
-}
-
-function buyerPlatformLabel(value) {
-  return buyerPlatformOptions.find(([key]) => key === value)?.[1] || "eBay";
-}
-
-function normalizeItem(item) {
-  const next = { ...emptyItem, ...item };
-  next.language = normalizeListingLanguageValue(next);
-  next.listingLanguage = languageLabel(next.language);
-  next.measurements = next.measurements || next.sizeSpecs || "";
-  next.sizeSpecs = next.sizeSpecs || next.measurements || "";
-  next.includedAccessories = next.includedAccessories || next.includedItems || "";
-  next.includedItems = next.includedItems || next.includedAccessories || "";
-  next.priceResearchLow = next.priceResearchLow || next.researchedLowPrice || "";
-  next.priceResearchMid = next.priceResearchMid || next.researchedMidPrice || "";
-  next.priceResearchHigh = next.priceResearchHigh || next.researchedHighPrice || "";
-  next.researchedLowPrice = next.researchedLowPrice || next.priceResearchLow || "";
-  next.researchedMidPrice = next.researchedMidPrice || next.priceResearchMid || "";
-  next.researchedHighPrice = next.researchedHighPrice || next.priceResearchHigh || "";
-  next.researchBrand = next.researchBrand || next.brand || "";
-  next.researchModel = next.researchModel || next.model || "";
-  next.researchNotes = next.researchNotes || next.priceResearchNotes || "";
-  next.suggestedListingPrice = next.suggestedListingPrice || next.chosenListingPrice || "";
-  next.minimumAcceptPrice = next.minimumAcceptPrice || "";
-  next.researchConfidence = researchConfidenceOptions.includes(next.researchConfidence) ? next.researchConfidence : "low";
-  next.generatedPlainDescription = next.generatedPlainDescription || next.descriptionText || "";
-  next.generatedHtmlDescription = next.generatedHtmlDescription || next.htmlDescription || "";
-  next.descriptionText = next.descriptionText || next.generatedPlainDescription || "";
-  next.htmlDescription = next.htmlDescription || next.generatedHtmlDescription || "";
-  next.photoChecklist = normalizeBooleanRecord(next.photoChecklist, defaultPhotoChecklist);
-  next.defectDisclosure = normalizeBooleanRecord(next.defectDisclosure, defaultDefectDisclosure);
-  next.testedStatus = next.testedStatus || "Not specified";
-  if (!buyerPlatformOptions.some(([key]) => key === next.buyerPlatform)) next.buyerPlatform = "ebay";
-  if (!statusOptions.includes(next.status) && legacyStatusLabels[next.status]) next.status = legacyStatusLabels[next.status];
-  return next;
-}
-
-function normalizeItems(items) {
-  return Array.isArray(items) ? items.map(normalizeItem) : [];
-}
-
-function finalSaleValue(item) {
-  return number(item.finalSalePrice || item.salePrice);
-}
-
-function shippingChargedValue(item) {
-  return number(item.shippingChargedToBuyer);
-}
-
-function actualShippingValue(item) {
-  return number(item.actualShippingCost || item.shippingCost);
-}
-
-function packagingCostValue(item) {
-  return number(item.packagingCost);
-}
-
-function refundValue(item) {
-  return number(item.refundAmount) + number(item.returnPostageCost);
-}
-
-function ebayBaseFee(item) {
-  const grossSale = finalSaleValue(item) + shippingChargedValue(item);
-  const mode = item.ebayFeeMode || (item.ebayFees ? "Legacy" : DEFAULT_EBAY_FEE_MODE);
-
-  if (mode === "Manual") return number(item.manualEbayFee || item.ebayFees);
-  if (mode === "Business Estimate") return (grossSale * number(item.feePercent)) / 100 + number(item.fixedFee);
-  if (mode === "Legacy") return number(item.ebayFees);
-  return 0;
-}
-
-function platformFees(item) {
-  return ebayBaseFee(item) + number(item.promotedListingFee) + number(item.otherPlatformFees);
-}
-
-function itemProfitValue(item) {
-  return finalSaleValue(item) + shippingChargedValue(item) - number(item.purchasePrice) - platformFees(item) - actualShippingValue(item) - packagingCostValue(item) - refundValue(item);
-}
-
 function needsProofRecord(item) {
   return !(
     item.hasReceipt === "Yes" ||
@@ -414,10 +333,6 @@ function quickProofStatus(item) {
   if (externallyStoredProof(item) || item.hasReceipt === "Yes") return "Proof available";
   if ((item.proofType || item.receiptType) === "Eigenbeleg" || item.receiptType === "Eigenbeleg needed") return "Eigenbeleg needed";
   return "Missing proof";
-}
-
-function itemStatus(item) {
-  return legacyStatusLabels[item.status] || item.status || "Draft";
 }
 
 function statusBadgeClass(item) {
@@ -447,16 +362,8 @@ function hasPriceResearch(item) {
   return Boolean(item.researchQuery || item.priceResearchLow || item.priceResearchMid || item.priceResearchHigh || item.researchedLowPrice || item.researchedMidPrice || item.researchedHighPrice || item.chosenListingPrice || item.priceResearchNotes);
 }
 
-function hasListingDraft(item) {
-  return Boolean(item.listingTitle || item.ebayTitle || item.conditionText || item.generatedPlainDescription || item.descriptionText || item.generatedHtmlDescription || item.htmlDescription);
-}
-
 function hasListingPreviewInput(item) {
   return Boolean(item.generatedHtmlDescription || item.htmlDescription || item.generatedPlainDescription || item.descriptionText || generatedListingTitle(item) || item.conditionGrade || item.conditionNotes || item.defectsNotes || item.includedAccessories || item.includedItems || item.shippingNotes || item.notes || item.productDescriptionText || item.compatibilityInfo || item.keyFeatures);
-}
-
-function isSoldStatus(item) {
-  return ["Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded"].includes(itemStatus(item)) || Boolean(item.finalSalePrice || item.salePrice || item.saleDate);
 }
 
 function dhlTrackingUrl(trackingNumber) {
@@ -1301,19 +1208,35 @@ export default function ResellerItApp() {
 
   function persist(nextItems) {
     const normalizedItems = normalizeItems(nextItems);
+    const payload = JSON.stringify({ version: 1, items: normalizedItems, expenses, updatedAt: new Date().toISOString() });
+    try {
+      localStorage.setItem(STORAGE_KEY, payload);
+    } catch {
+      setBackupMessage("Save failed: browser storage is full or unavailable. Export a backup and remove large legacy attachments.");
+      setToastMessage("Save failed: browser storage is full.");
+      return false;
+    }
     setItems(normalizedItems);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: normalizedItems, expenses, updatedAt: new Date().toISOString() }));
+    return true;
   }
 
   function persistAll(nextItems, nextExpenses) {
     const normalizedItems = normalizeItems(nextItems);
+    const payload = JSON.stringify({ version: 1, items: normalizedItems, expenses: nextExpenses, updatedAt: new Date().toISOString() });
+    try {
+      localStorage.setItem(STORAGE_KEY, payload);
+    } catch {
+      setBackupMessage("Save failed: browser storage is full or unavailable. Export a backup and remove large legacy attachments.");
+      setToastMessage("Save failed: browser storage is full.");
+      return false;
+    }
     setItems(normalizedItems);
     setExpenses(nextExpenses);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ version: 1, items: normalizedItems, expenses: nextExpenses, updatedAt: new Date().toISOString() }));
+    return true;
   }
 
   function persistExpenses(nextExpenses) {
-    persistAll(items, nextExpenses);
+    return persistAll(items, nextExpenses);
   }
 
   function saveCurrentItem() {
@@ -1346,7 +1269,7 @@ export default function ResellerItApp() {
     const next = editingId
       ? items.map((item) => (item.id === editingId ? { ...item, ...clean } : item))
       : [{ id: crypto.randomUUID(), ...clean }, ...items];
-    persist(next);
+    if (!persist(next)) return;
     setForm(emptyItem);
     setSearchQueryManuallyEdited(false);
     setEditingId(null);
@@ -1423,7 +1346,7 @@ export default function ResellerItApp() {
       generatedPlainDescription: "",
       generatedHtmlDescription: "",
     };
-    persist([newItem, ...items]);
+    if (!persist([newItem, ...items])) return;
     setQuickAddItem({
       purchaseDate: CURRENT_DATE,
       name: "",
@@ -1469,7 +1392,7 @@ export default function ResellerItApp() {
     const nextExpenses = editingExpenseId
       ? expenses.map((expense) => (expense.id === editingExpenseId ? { ...expense, ...clean } : expense))
       : [{ id: crypto.randomUUID(), ...clean }, ...expenses];
-    persistExpenses(nextExpenses);
+    if (!persistExpenses(nextExpenses)) return;
     setExpenseForm(emptyExpense);
     setEditingExpenseId(null);
   }
@@ -1516,22 +1439,12 @@ export default function ResellerItApp() {
           generatedHtmlDescription: item.generatedHtmlDescription || draft.htmlDescription,
         };
       }
-      return { ...item, listingTitle: "", conditionText: "", descriptionText: "", htmlDescription: "", generatedPlainDescription: "", generatedHtmlDescription: "" };
+      return markListingNeeded(item);
     }));
   }
 
   function duplicateItem(item) {
-    const copy = {
-      ...emptyItem,
-      ...item,
-      id: crypto.randomUUID(),
-      name: `${item.name} copy`,
-      status: "Draft",
-      saleDate: "",
-      salePrice: "",
-      finalSalePrice: "",
-      importedAt: undefined,
-    };
+    const copy = duplicateItemForDraft(item, crypto.randomUUID());
     persist([copy, ...items]);
   }
 
@@ -1559,24 +1472,21 @@ export default function ResellerItApp() {
 
     try {
       const parsed = JSON.parse(await file.text());
-      const validType = parsed?.type === "RESELLERIT_BACKUP" || parsed?.type === "RESELLIT_BACKUP";
-      const hasItems = Array.isArray(parsed?.items);
-      const hasExpenses = Array.isArray(parsed?.expenses);
 
-      if (!validType || (!hasItems && !hasExpenses)) {
-        setBackupMessage("Import failed: this does not look like a ResellIt backup with items and/or expenses.");
+      if (!isFullBackupPayload(parsed)) {
+        setBackupMessage("Import failed: this must be a full ResellIt backup with both items and expenses.");
         return;
       }
 
-      const nextItems = hasItems ? parsed.items : [];
-      const nextExpenses = hasExpenses ? parsed.expenses : [];
+      const nextItems = parsed.items;
+      const nextExpenses = parsed.expenses;
       const ok = window.confirm(`Restore this ResellIt backup?\n\nCurrent data will be replaced with ${nextItems.length} items and ${nextExpenses.length} expenses.`);
       if (!ok) {
         setBackupMessage("Import cancelled.");
         return;
       }
 
-      persistAll(nextItems, nextExpenses);
+      if (!persistAll(nextItems, nextExpenses)) return;
       setForm(emptyItem);
       setExpenseForm(emptyExpense);
       setEditingId(null);
@@ -1599,8 +1509,15 @@ export default function ResellerItApp() {
   }
 
   function persistEbayImportBatches(nextBatches) {
+    try {
+      localStorage.setItem(EBAY_IMPORTS_KEY, JSON.stringify({ version: 1, batches: nextBatches, updatedAt: new Date().toISOString() }));
+    } catch {
+      setBackupMessage("Import batch save failed: browser storage is full or unavailable.");
+      setToastMessage("Import batch save failed.");
+      return false;
+    }
     setEbayImportBatches(nextBatches);
-    localStorage.setItem(EBAY_IMPORTS_KEY, JSON.stringify({ version: 1, batches: nextBatches, updatedAt: new Date().toISOString() }));
+    return true;
   }
 
   async function handleCsvUpload(e) {
@@ -1650,23 +1567,32 @@ export default function ResellerItApp() {
 
   function handleProofImageUpload(e) {
     const file = e.target.files?.[0];
+    e.target.value = "";
     if (!file) return;
+    if (file.size > MAX_LEGACY_PROOF_IMAGE_BYTES) {
+      setBackupMessage("Legacy proof image was not attached because it is too large for browser storage. Record a file/folder reference instead.");
+      setToastMessage("Proof image too large for browser storage.");
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = () => {
-      setForm({ ...form, proofImageDataUrl: String(reader.result || ""), proofImageName: file.name });
+      const proofImageDataUrl = String(reader.result || "");
+      if (isLegacyProofImageTooLarge(proofImageDataUrl)) {
+        setBackupMessage("Legacy proof image was not attached because it is too large for browser storage. Record a file/folder reference instead.");
+        setToastMessage("Proof image too large for browser storage.");
+        return;
+      }
+      setForm({ ...form, proofImageDataUrl, proofImageName: file.name });
     };
     reader.readAsDataURL(file);
   }
 
   const summary = useMemo(() => {
+    const soldPerformance = summarizeSoldPerformance(items);
     const purchaseTotal = items.reduce((sum, item) => sum + number(item.purchasePrice), 0);
-    const salesTotal = items.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
-    const feesTotal = items.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
-    const profit = items.reduce((sum, item) => sum + itemProfitValue(item), 0);
-    const sold = items.filter(isSoldStatus).length;
     const eigenbeleg = items.filter((item) => item.hasReceipt === "No").length;
-    return { purchaseTotal, salesTotal, feesTotal, profit, sold, eigenbeleg };
+    return { purchaseTotal, ...soldPerformance, eigenbeleg };
   }, [items]);
 
   const classificationCounts = useMemo(() => (
@@ -1729,7 +1655,7 @@ export default function ResellerItApp() {
 
   const sectionSummaries = useMemo(() => {
     const monthlyExpenses = expenses.filter((expense) => inMonth(expense.date));
-    const monthlySales = items.filter((item) => inMonth(item.saleDate));
+    const monthlySales = items.filter((item) => isSoldStatus(item) && inMonth(item.saleDate));
     const revenue = monthlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const fees = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
     const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0);
@@ -1805,8 +1731,8 @@ export default function ResellerItApp() {
   const stockTimelineTotals = useMemo(() => ({
     itemCount: stockTimelineItems.length,
     purchaseTotal: stockTimelineItems.reduce((sum, item) => sum + number(item.purchasePrice), 0),
-    soldTotal: stockTimelineItems.reduce((sum, item) => sum + finalSaleValue(item), 0),
-    profitTotal: stockTimelineItems.reduce((sum, item) => sum + itemProfitValue(item), 0),
+    soldTotal: stockTimelineItems.filter(isSoldStatus).reduce((sum, item) => sum + finalSaleValue(item), 0),
+    profitTotal: stockTimelineItems.filter(isSoldStatus).reduce((sum, item) => sum + itemProfitValue(item), 0),
     unsoldCount: stockTimelineItems.filter((item) => !isSoldStatus(item)).length,
     missingProofCount: stockTimelineItems.filter(needsProofRecord).length,
   }), [stockTimelineItems]);
@@ -1852,7 +1778,7 @@ export default function ResellerItApp() {
 
   const monthlySummary = useMemo(() => {
     const monthlyPurchases = items.filter((item) => inMonth(item.purchaseDate));
-    const monthlySales = items.filter((item) => inMonth(item.saleDate));
+    const monthlySales = items.filter((item) => isSoldStatus(item) && inMonth(item.saleDate));
     const purchaseTotal = monthlyPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
     const salesTotal = monthlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const feesTotal = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
@@ -1862,7 +1788,7 @@ export default function ResellerItApp() {
 
   const yearlySummary = useMemo(() => {
     const yearlyPurchases = items.filter((item) => inYear(item.purchaseDate));
-    const yearlySales = items.filter((item) => inYear(item.saleDate));
+    const yearlySales = items.filter((item) => isSoldStatus(item) && inYear(item.saleDate));
     const yearlyExpenses = expenses.filter((expense) => inYear(expense.date));
     const purchaseTotal = yearlyPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
     const salesTotal = yearlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
@@ -1875,7 +1801,7 @@ export default function ResellerItApp() {
   const yearlyBusinessSummary = useMemo(() => {
     const businessItems = items.filter((item) => itemClassification(item) === "Business Stock / Resale Inventory");
     const yearlyBusinessPurchases = businessItems.filter((item) => inYear(item.purchaseDate));
-    const yearlyBusinessSales = businessItems.filter((item) => inYear(item.saleDate));
+    const yearlyBusinessSales = businessItems.filter((item) => isSoldStatus(item) && inYear(item.saleDate));
     const purchaseTotal = yearlyBusinessPurchases.reduce((sum, item) => sum + number(item.purchasePrice), 0);
     const salesTotal = yearlyBusinessSales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
     const feesTotal = yearlyBusinessSales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
@@ -1885,7 +1811,7 @@ export default function ResellerItApp() {
 
   const monthlyClosing = (() => {
     const purchasedItems = items.filter((item) => inMonth(item.purchaseDate, closingMonth));
-    const soldItems = items.filter((item) => inMonth(item.saleDate, closingMonth));
+    const soldItems = items.filter((item) => isSoldStatus(item) && inMonth(item.saleDate, closingMonth));
     const monthlyExpenses = expenses.filter((expense) => inMonth(expense.date, closingMonth));
     const activityItems = items.filter((item) => inMonth(item.purchaseDate, closingMonth) || inMonth(item.saleDate, closingMonth));
     const classificationBreakdown = classificationOptions.reduce((counts, classification) => {
@@ -2438,7 +2364,7 @@ export default function ResellerItApp() {
                       <button type="button" onClick={() => copyText("HTML description", form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy HTML Description</button>
                       <button type="button" onClick={() => copyText("shipping notes", form.shippingNotes || "")} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Shipping Notes</button>
                     </div>
-                    {hasListingPreviewInput(form) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form) }} /></div>}
+                    {hasListingPreviewInput(form) && <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: sanitizeHtmlPreview(form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form)) }} /></div>}
                   </div>
                 )}
 
@@ -2826,7 +2752,7 @@ export default function ResellerItApp() {
                   <div className="lg:col-span-2">
                     <p className="mb-1.5 text-xs font-semibold text-neutral-600">{formListingLabels.preview}</p>
                     <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-                      <div dangerouslySetInnerHTML={{ __html: form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form) }} />
+                      <div dangerouslySetInnerHTML={{ __html: sanitizeHtmlPreview(form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form)) }} />
                     </div>
                   </div>
                 )}
@@ -4124,7 +4050,7 @@ export default function ResellerItApp() {
                     <div className="mt-3">
                       <p className="mb-1.5 text-xs font-semibold text-neutral-500">{itemListingLabels.preview}</p>
                       <div className="max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-                        <div dangerouslySetInnerHTML={{ __html: listingDraft.htmlDescription }} />
+                        <div dangerouslySetInnerHTML={{ __html: sanitizeHtmlPreview(listingDraft.htmlDescription) }} />
                       </div>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-2">
