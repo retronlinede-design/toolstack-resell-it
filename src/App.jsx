@@ -2414,10 +2414,22 @@ export default function ResellerItApp() {
                       </div>
                     </section>
 
+                    <div className="rounded-2xl border border-orange-200 bg-orange-50/70 p-3 text-center">
+                      <button
+                        type="button"
+                        onClick={generateFullListingPack}
+                        className="rounded-2xl bg-[#e06b2c] px-5 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.18)] hover:bg-[#f0be45]"
+                      >
+                        Generate eBay Listing
+                      </button>
+                      <p className="mt-2 text-xs text-stone-600">
+                        Uses the seller input above to create the eBay copy below.
+                      </p>
+                    </div>
+
                     <section className="rounded-2xl border border-orange-200 bg-white p-3">
                       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                         <h3 className="text-sm font-semibold text-neutral-950">2. Generated eBay Listing Output</h3>
-                        <button type="button" onClick={generateFullListingPack} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate Full Listing Pack</button>
                       </div>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button type="button" onClick={() => copyText("title", form.ebayTitle || form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Title</button>
