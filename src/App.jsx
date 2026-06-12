@@ -1182,6 +1182,9 @@ export default function ResellerItApp() {
   const [marketResearchOpen, setMarketResearchOpen] = useState(false);
   const [listingAdvancedDetailsOpen, setListingAdvancedDetailsOpen] = useState(false);
   const [listingAdvancedOutputOpen, setListingAdvancedOutputOpen] = useState(false);
+  const [listingLanguageOpen, setListingLanguageOpen] = useState(false);
+  const [listingConditionHelpersOpen, setListingConditionHelpersOpen] = useState(false);
+  const [listingAdditionalNotesOpen, setListingAdditionalNotesOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [searchQueryManuallyEdited, setSearchQueryManuallyEdited] = useState(false);
   const [quickAddItem, setQuickAddItem] = useState({
@@ -2294,15 +2297,12 @@ export default function ResellerItApp() {
                         <ListingWarningsPanel item={form} />
                       </div>
                       <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                        <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
-                          {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                        </Select>
-                        <Input label="Listed Price / Target Price" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
                         <label className="block lg:col-span-2">
                           <span className="mb-1.5 block text-xs font-semibold text-neutral-600">eBay Title</span>
                           <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => updateListingTitle(e.target.value)} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                           <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
                         </label>
+                        <Input label="Listed Price / Target Price" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
                         <Input label="Accessories / Included Items" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
                         <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
@@ -2338,47 +2338,78 @@ export default function ResellerItApp() {
                       </div>
                       <div className="rounded-2xl border border-orange-200 bg-white p-3 lg:col-span-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingLabels.condition}</p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                          <Select label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}>
-                            <option value="">Select condition</option>
-                            {conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}
-                            {form.conditionGrade && !conditionGradeOptions.includes(form.conditionGrade) && <option>{form.conditionGrade}</option>}
-                          </Select>
-                          <Select label="Tested status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>
-                            {testedStatusOptions.map((status) => <option key={status}>{status}</option>)}
-                          </Select>
+                        <div className="mt-3 grid gap-3">
                           <label className="block sm:col-span-2">
                             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Text</span>
                             <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                             <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
                           </label>
                           <label className="block sm:col-span-2">
-                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Preview</span>
-                            <textarea value={generatedConditionText(form)} readOnly className="min-h-20 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 outline-none" />
-                          </label>
-                          <div className="sm:col-span-2">
-                            <ChecklistGrid
-                              title="Defect disclosure"
-                              items={defectDisclosureItems}
-                              value={normalizeBooleanRecord(form.defectDisclosure, defaultDefectDisclosure)}
-                              onChange={(defectDisclosure) => setForm({ ...form, defectDisclosure })}
-                            />
-                          </div>
-                          <label className="block sm:col-span-2">
                             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDefectsLabel}</span>
                             <textarea value={form.defectsNotes || form.conditionNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value, conditionNotes: "" })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                             <span className="mt-1 block text-xs leading-5 text-stone-500">Scratches, wear, missing parts, battery condition, etc.</span>
                           </label>
+                          <label className="block sm:col-span-2">
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Preview</span>
+                            <textarea value={generatedConditionText(form)} readOnly className="min-h-20 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 outline-none" />
+                          </label>
+                          <div className="rounded-xl border border-orange-200 bg-white">
+                            <button type="button" onClick={() => setListingConditionHelpersOpen(!listingConditionHelpersOpen)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-orange-900 hover:bg-orange-50">
+                              <span>Advanced Condition Helpers</span>
+                              <span aria-hidden="true">{listingConditionHelpersOpen ? "▲" : "▼"}</span>
+                            </button>
+                            {listingConditionHelpersOpen && (
+                              <div className="grid gap-3 border-t border-orange-100 p-3 sm:grid-cols-2">
+                                <Select label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}>
+                                  <option value="">Select condition</option>
+                                  {conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}
+                                  {form.conditionGrade && !conditionGradeOptions.includes(form.conditionGrade) && <option>{form.conditionGrade}</option>}
+                                </Select>
+                                <Select label="Tested status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>
+                                  {testedStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                                </Select>
+                                <div className="sm:col-span-2">
+                                  <ChecklistGrid
+                                    title="Defect disclosure"
+                                    items={defectDisclosureItems}
+                                    value={normalizeBooleanRecord(form.defectDisclosure, defaultDefectDisclosure)}
+                                    onChange={(defectDisclosure) => setForm({ ...form, defectDisclosure })}
+                                  />
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                         <label className="block lg:col-span-2">
                           <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Shipping Notes</span>
                           <textarea value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Tracked DHL, pickup possible, combined shipping..." />
                         </label>
-                        <label className="block lg:col-span-2">
-                          <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Notes</span>
-                          <textarea value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                        </label>
+                        <div className="rounded-xl border border-orange-200 bg-white lg:col-span-2">
+                          <button type="button" onClick={() => setListingAdditionalNotesOpen(!listingAdditionalNotesOpen)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-orange-900 hover:bg-orange-50">
+                            <span>Additional Notes</span>
+                            <span aria-hidden="true">{listingAdditionalNotesOpen ? "▲" : "▼"}</span>
+                          </button>
+                          {listingAdditionalNotesOpen && (
+                            <label className="block border-t border-orange-100 p-3">
+                              <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Notes</span>
+                              <textarea value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                            </label>
+                          )}
+                        </div>
+                        <div className="rounded-xl border border-orange-200 bg-white lg:col-span-2">
+                          <button type="button" onClick={() => setListingLanguageOpen(!listingLanguageOpen)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-orange-900 hover:bg-orange-50">
+                            <span>Advanced / Language</span>
+                            <span aria-hidden="true">{listingLanguageOpen ? "▲" : "▼"}</span>
+                          </button>
+                          {listingLanguageOpen && (
+                            <div className="border-t border-orange-100 p-3">
+                              <Select label="Language" value={normalizeListingLanguageValue(form)} onChange={(e) => setForm({ ...form, language: e.target.value, listingLanguage: languageLabel(e.target.value) })}>
+                                {languageOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                              </Select>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </section>
 
