@@ -1181,6 +1181,7 @@ export default function ResellerItApp() {
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("source");
   const [marketResearchOpen, setMarketResearchOpen] = useState(false);
   const [listingAdvancedDetailsOpen, setListingAdvancedDetailsOpen] = useState(false);
+  const [listingAdvancedOutputOpen, setListingAdvancedOutputOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [searchQueryManuallyEdited, setSearchQueryManuallyEdited] = useState(false);
   const [quickAddItem, setQuickAddItem] = useState({
@@ -2386,24 +2387,34 @@ export default function ResellerItApp() {
                         <h3 className="text-sm font-semibold text-neutral-950">2. Generated eBay Listing Output</h3>
                         <button type="button" onClick={generateFullListingPack} className="rounded-2xl bg-orange-300 px-4 py-3 text-sm font-semibold text-stone-950 hover:bg-orange-200">Generate Full Listing Pack</button>
                       </div>
-                      <div className="mt-3 grid gap-3 lg:grid-cols-2">
-                        <label className="block">
-                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Generated Plain Description</span>
-                        <textarea value={form.generatedPlainDescription || form.descriptionText || ""} onChange={(e) => setForm({ ...form, generatedPlainDescription: e.target.value, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                      </label>
-                      <label className="block lg:col-span-2">
-                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Generated HTML Description</span>
-                        <textarea value={form.generatedHtmlDescription || form.htmlDescription || ""} onChange={(e) => setForm({ ...form, generatedHtmlDescription: e.target.value, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                      </label>
-                      </div>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button type="button" onClick={() => copyText("title", form.ebayTitle || form.listingTitle || generatedListingTitle(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Title</button>
                         <button type="button" onClick={() => copyText(formListingLabels.condition.toLowerCase(), generatedConditionText(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Condition</button>
-                        <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Plain Description</button>
                         <button type="button" onClick={() => copyText("HTML description", form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form))} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy HTML Description</button>
-                        <button type="button" onClick={() => copyText("shipping notes", form.shippingNotes || "")} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Shipping Notes</button>
                       </div>
                       {hasListingPreviewInput(form) && <div className="mt-3 max-h-80 overflow-auto rounded-xl border border-neutral-200 bg-neutral-50 p-3"><div dangerouslySetInnerHTML={{ __html: sanitizeHtmlPreview(form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form)) }} /></div>}
+                      <div className="mt-3 rounded-xl border border-orange-200 bg-white">
+                        <button type="button" onClick={() => setListingAdvancedOutputOpen(!listingAdvancedOutputOpen)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-orange-900 hover:bg-orange-50">
+                          <span>Advanced Output</span>
+                          <span aria-hidden="true">{listingAdvancedOutputOpen ? "▲" : "▼"}</span>
+                        </button>
+                        {listingAdvancedOutputOpen && (
+                          <div className="grid gap-3 border-t border-orange-100 p-3 lg:grid-cols-2">
+                            <label className="block">
+                              <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Generated Plain Description</span>
+                              <textarea value={form.generatedPlainDescription || form.descriptionText || ""} onChange={(e) => setForm({ ...form, generatedPlainDescription: e.target.value, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                            </label>
+                            <label className="block lg:col-span-2">
+                              <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Raw Generated HTML</span>
+                              <textarea value={form.generatedHtmlDescription || form.htmlDescription || ""} onChange={(e) => setForm({ ...form, generatedHtmlDescription: e.target.value, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                            </label>
+                            <div className="flex flex-wrap gap-2 lg:col-span-2">
+                              <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Plain Description</button>
+                              <button type="button" onClick={() => copyText("shipping notes", form.shippingNotes || "")} className="rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Shipping Notes</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </section>
                   </div>
                 )}
