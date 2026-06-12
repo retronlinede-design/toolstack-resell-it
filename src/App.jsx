@@ -1180,6 +1180,7 @@ export default function ResellerItApp() {
   const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("source");
   const [marketResearchOpen, setMarketResearchOpen] = useState(false);
+  const [listingAdvancedDetailsOpen, setListingAdvancedDetailsOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [searchQueryManuallyEdited, setSearchQueryManuallyEdited] = useState(false);
   const [quickAddItem, setQuickAddItem] = useState({
@@ -2305,23 +2306,33 @@ export default function ResellerItApp() {
                         <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
                         <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
                         <p className="mt-1 text-xs leading-5 text-stone-600">Describe what the item is, important features, compatibility, and general product information.</p>
-                        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                          <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
-                          <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-                          <Input label="Measurements" value={form.measurements || form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, measurements: e.target.value, sizeSpecs: e.target.value })} />
-                          <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
-                          <label className="block sm:col-span-2 lg:col-span-4">
+                        <div className="mt-3 grid gap-3">
+                          <label className="block">
                             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Description / Item Details</span>
                             <textarea value={form.productDescriptionText || ""} onChange={(e) => setForm({ ...form, productDescriptionText: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                           </label>
-                          <label className="block sm:col-span-2">
-                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Compatibility / Platform info</span>
-                            <textarea value={form.compatibilityInfo || ""} onChange={(e) => setForm({ ...form, compatibilityInfo: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                          </label>
-                          <label className="block sm:col-span-2">
-                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Key Features</span>
-                            <textarea value={form.keyFeatures || ""} onChange={(e) => setForm({ ...form, keyFeatures: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="One feature per line or comma-separated" />
-                          </label>
+                          <div className="rounded-xl border border-orange-200 bg-white">
+                            <button type="button" onClick={() => setListingAdvancedDetailsOpen(!listingAdvancedDetailsOpen)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-orange-900 hover:bg-orange-50">
+                              <span>Advanced Details</span>
+                              <span aria-hidden="true">{listingAdvancedDetailsOpen ? "▲" : "▼"}</span>
+                            </button>
+                            {listingAdvancedDetailsOpen && (
+                              <div className="grid gap-3 border-t border-orange-100 p-3 sm:grid-cols-2 lg:grid-cols-4">
+                                <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+                                <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
+                                <Input label="Measurements / Size Specs" value={form.measurements || form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, measurements: e.target.value, sizeSpecs: e.target.value })} />
+                                <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
+                                <label className="block sm:col-span-2">
+                                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Compatibility / Platform info</span>
+                                  <textarea value={form.compatibilityInfo || ""} onChange={(e) => setForm({ ...form, compatibilityInfo: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                                </label>
+                                <label className="block sm:col-span-2">
+                                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Key Features</span>
+                                  <textarea value={form.keyFeatures || ""} onChange={(e) => setForm({ ...form, keyFeatures: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="One feature per line or comma-separated" />
+                                </label>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </div>
                       <div className="rounded-2xl border border-orange-200 bg-white p-3 lg:col-span-2">
