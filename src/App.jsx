@@ -798,14 +798,12 @@ function generateListingDraft(item, { preferSaved = true } = {}) {
 
 function listingCompleteness(item) {
   const draft = generateListingDraft(item);
-  const checklist = normalizeBooleanRecord(item.photoChecklist, defaultPhotoChecklist);
   const defectFlags = normalizeBooleanRecord(item.defectDisclosure, defaultDefectDisclosure);
   const checks = [
     ["Title complete", Boolean(draft.title && draft.title.length <= 80)],
     ["Price selected", Boolean(item.chosenListingPrice)],
     ["Condition filled", Boolean(item.conditionGrade || item.conditionText)],
     ["Defects reviewed", Boolean(item.defectsNotes || Object.values(defectFlags).some(Boolean))],
-    ["Photos checked", Object.values(checklist).every(Boolean)],
     ["Shipping notes filled", Boolean(String(item.shippingNotes || "").trim())],
     ["Description generated", Boolean(item.generatedPlainDescription || item.descriptionText || item.generatedHtmlDescription || item.htmlDescription)],
   ];
@@ -830,7 +828,6 @@ function listingPack(item) {
 
 function listingWarnings(item) {
   const pack = listingPack(item);
-  const checklist = normalizeBooleanRecord(item.photoChecklist, defaultPhotoChecklist);
   const defectFlags = normalizeBooleanRecord(item.defectDisclosure, defaultDefectDisclosure);
   return [
     !pack.title && "Title is empty",
@@ -838,7 +835,6 @@ function listingWarnings(item) {
     !pack.price && "Price is missing",
     !pack.condition && "Condition text is empty",
     !(item.defectsNotes || Object.values(defectFlags).some(Boolean)) && "Defects have not been reviewed",
-    !Object.values(checklist).every(Boolean) && "Photo checklist is incomplete",
     !pack.shippingNotes && "Shipping notes are empty",
     !(pack.plainDescription || pack.htmlDescription) && "Description is empty",
   ].filter(Boolean);
@@ -856,12 +852,8 @@ function hasLanguageMismatch(item) {
 
 function listingReadiness(item) {
   const warnings = listingWarnings(item);
-  const checklist = normalizeBooleanRecord(item.photoChecklist, defaultPhotoChecklist);
-  const photosIncomplete = !Object.values(checklist).every(Boolean);
-  const coreWarnings = warnings.filter((warning) => warning !== "Photo checklist is incomplete");
   if (!listingPack(item).title && !listingPack(item).plainDescription && !listingPack(item).htmlDescription) return "Draft";
-  if (coreWarnings.length) return "Draft";
-  if (photosIncomplete) return "Needs Photos";
+  if (warnings.length) return "Draft";
   if (hasLanguageMismatch(item)) return "Needs Translation";
   return "Ready for eBay";
 }
@@ -1972,6 +1964,8 @@ export default function ResellerItApp() {
     const syncedResearchQuery = searchQueryManuallyEdited ? form.researchQuery : draft.title;
     setForm({
       ...form,
+      language: form.language || DEFAULT_LANGUAGE,
+      listingLanguage: form.listingLanguage || DEFAULT_LISTING_LANGUAGE,
       listingTitle: draft.title,
       ebayTitle: draft.title,
       researchQuery: syncedResearchQuery,
@@ -1991,6 +1985,8 @@ export default function ResellerItApp() {
     const syncedResearchQuery = searchQueryManuallyEdited ? form.researchQuery : draft.title;
     setForm({
       ...form,
+      language: form.language || DEFAULT_LANGUAGE,
+      listingLanguage: form.listingLanguage || DEFAULT_LISTING_LANGUAGE,
       listingTitle: draft.title,
       ebayTitle: draft.title,
       researchQuery: syncedResearchQuery,
@@ -2301,10 +2297,7 @@ export default function ResellerItApp() {
                         </Select>
                         <Input label="Listed Price / Target Price" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
                         <label className="block lg:col-span-2">
-                          <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                            eBay Title
-                            <TranslationButtons onTranslate={(target) => openTranslator(target, form.ebayTitle || form.listingTitle || generatedListingTitle(form))} />
-                          </span>
+                          <span className="mb-1.5 block text-xs font-semibold text-neutral-600">eBay Title</span>
                           <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => updateListingTitle(e.target.value)} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                           <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
                         </label>
@@ -2343,16 +2336,13 @@ export default function ResellerItApp() {
                             {testedStatusOptions.map((status) => <option key={status}>{status}</option>)}
                           </Select>
                           <label className="block sm:col-span-2">
-                            <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                              Condition Text
-                              <TranslationButtons onTranslate={(target) => openTranslator(target, generatedConditionText(form))} />
-                            </span>
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Text</span>
                             <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                             <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
                           </label>
                           <label className="block sm:col-span-2">
                             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Preview</span>
-                            <textarea value={form.conditionText || ""} readOnly className="min-h-20 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 outline-none" />
+                            <textarea value={generatedConditionText(form)} readOnly className="min-h-20 w-full rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 outline-none" />
                           </label>
                           <div className="sm:col-span-2">
                             <ChecklistGrid
@@ -2363,34 +2353,20 @@ export default function ResellerItApp() {
                             />
                           </div>
                           <label className="block sm:col-span-2">
-                            <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                              {conditionDefectsLabel}
-                              <TranslationButtons onTranslate={(target) => openTranslator(target, form.defectsNotes || form.conditionNotes || "")} />
-                            </span>
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">{conditionDefectsLabel}</span>
                             <textarea value={form.defectsNotes || form.conditionNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value, conditionNotes: "" })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                             <span className="mt-1 block text-xs leading-5 text-stone-500">Scratches, wear, missing parts, battery condition, etc.</span>
                           </label>
                         </div>
                       </div>
                         <label className="block lg:col-span-2">
-                          <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                            Shipping Notes
-                            <TranslationButtons onTranslate={(target) => openTranslator(target, form.shippingNotes || "")} />
-                          </span>
+                          <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Shipping Notes</span>
                           <textarea value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Tracked DHL, pickup possible, combined shipping..." />
                         </label>
                         <label className="block lg:col-span-2">
                           <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Notes</span>
                           <textarea value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                         </label>
-                        <div className="lg:col-span-2">
-                          <ChecklistGrid
-                            title="Photo checklist"
-                            items={photoChecklistItems}
-                            value={normalizeBooleanRecord(form.photoChecklist, defaultPhotoChecklist)}
-                            onChange={(photoChecklist) => setForm({ ...form, photoChecklist })}
-                          />
-                        </div>
                       </div>
                     </section>
 
@@ -2401,17 +2377,11 @@ export default function ResellerItApp() {
                       </div>
                       <div className="mt-3 grid gap-3 lg:grid-cols-2">
                         <label className="block">
-                        <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                          Generated Plain Description
-                          <TranslationButtons onTranslate={(target) => openTranslator(target, form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} />
-                        </span>
+                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Generated Plain Description</span>
                         <textarea value={form.generatedPlainDescription || form.descriptionText || ""} onChange={(e) => setForm({ ...form, generatedPlainDescription: e.target.value, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                       </label>
                       <label className="block lg:col-span-2">
-                        <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
-                          Generated HTML Description
-                          <TranslationButtons onTranslate={(target) => openTranslator(target, form.generatedHtmlDescription || form.htmlDescription || generateHtmlDescription(form))} />
-                        </span>
+                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Generated HTML Description</span>
                         <textarea value={form.generatedHtmlDescription || form.htmlDescription || ""} onChange={(e) => setForm({ ...form, generatedHtmlDescription: e.target.value, htmlDescription: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 font-mono text-xs outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                       </label>
                       </div>
