@@ -797,15 +797,12 @@ function generateListingDraft(item, { preferSaved = true } = {}) {
 }
 
 function listingCompleteness(item) {
-  const draft = generateListingDraft(item);
-  const defectFlags = normalizeBooleanRecord(item.defectDisclosure, defaultDefectDisclosure);
   const checks = [
-    ["Title complete", Boolean(draft.title && draft.title.length <= 80)],
-    ["Price selected", Boolean(item.chosenListingPrice)],
-    ["Condition filled", Boolean(item.conditionGrade || item.conditionText)],
-    ["Defects reviewed", Boolean(item.defectsNotes || Object.values(defectFlags).some(Boolean))],
-    ["Shipping notes filled", Boolean(String(item.shippingNotes || "").trim())],
-    ["Description generated", Boolean(item.generatedPlainDescription || item.descriptionText || item.generatedHtmlDescription || item.htmlDescription)],
+    ["eBay Title", Boolean(String(item.ebayTitle || item.listingTitle || generatedListingTitle(item) || "").trim())],
+    ["Price", Boolean(item.chosenListingPrice)],
+    ["Description / Item Details", Boolean(String(item.productDescriptionText || "").trim())],
+    ["Condition Text", Boolean(String(item.conditionText || "").trim())],
+    ["Shipping Notes", Boolean(String(item.shippingNotes || "").trim())],
   ];
   const completeCount = checks.filter(([, done]) => done).length;
   return {
@@ -828,15 +825,11 @@ function listingPack(item) {
 
 function listingWarnings(item) {
   const pack = listingPack(item);
-  const defectFlags = normalizeBooleanRecord(item.defectDisclosure, defaultDefectDisclosure);
+  const { checks } = listingCompleteness(item);
   return [
-    !pack.title && "Title is empty",
+    ...checks.filter(([, done]) => !done).map(([label]) => `${label} is missing`),
     pack.title.length > 80 && "Title is over 80 characters",
-    !pack.price && "Price is missing",
-    !pack.condition && "Condition text is empty",
-    !(item.defectsNotes || Object.values(defectFlags).some(Boolean)) && "Defects have not been reviewed",
-    !pack.shippingNotes && "Shipping notes are empty",
-    !(pack.plainDescription || pack.htmlDescription) && "Description is empty",
+    hasLanguageMismatch(item) && "Language may not match the selected listing language",
   ].filter(Boolean);
 }
 
@@ -852,10 +845,10 @@ function hasLanguageMismatch(item) {
 
 function listingReadiness(item) {
   const warnings = listingWarnings(item);
-  if (!listingPack(item).title && !listingPack(item).plainDescription && !listingPack(item).htmlDescription) return "Draft";
-  if (warnings.length) return "Draft";
-  if (hasLanguageMismatch(item)) return "Needs Translation";
-  return "Ready for eBay";
+  const { checks } = listingCompleteness(item);
+  if (checks.some(([, done]) => !done)) return "Missing required fields";
+  if (warnings.length) return "Needs info";
+  return "Ready";
 }
 
 function loadInitialItems() {
@@ -1104,10 +1097,9 @@ function ListingCompleteness({ item }) {
 function ListingReadinessBadge({ item }) {
   const readiness = listingReadiness(item);
   const className = {
-    Draft: "border-neutral-200 bg-neutral-100 text-neutral-700",
-    "Needs Photos": "border-[#f0be45]/40 bg-[#f0be45]/20 text-[#72530b]",
-    "Needs Translation": "border-orange-200 bg-orange-50 text-orange-900",
-    "Ready for eBay": "border-lime-200 bg-lime-50 text-lime-800",
+    "Missing required fields": "border-red-200 bg-red-50 text-red-700",
+    "Needs info": "border-[#f0be45]/40 bg-[#f0be45]/20 text-[#72530b]",
+    Ready: "border-lime-200 bg-lime-50 text-lime-800",
   }[readiness];
   return <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${className}`}>{readiness}</span>;
 }
@@ -1185,6 +1177,7 @@ export default function ResellerItApp() {
   const [listingLanguageOpen, setListingLanguageOpen] = useState(false);
   const [listingConditionHelpersOpen, setListingConditionHelpersOpen] = useState(false);
   const [listingAdditionalNotesOpen, setListingAdditionalNotesOpen] = useState(false);
+  const [listingChecksOpen, setListingChecksOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState("");
   const [searchQueryManuallyEdited, setSearchQueryManuallyEdited] = useState(false);
   const [quickAddItem, setQuickAddItem] = useState({
@@ -2292,9 +2285,17 @@ export default function ResellerItApp() {
                         </div>
                         <ListingReadinessBadge item={form} />
                       </div>
-                      <div className="mt-3 space-y-3">
-                        <ListingCompleteness item={form} />
-                        <ListingWarningsPanel item={form} />
+                      <div className="mt-3 rounded-xl border border-orange-200 bg-white">
+                        <button type="button" onClick={() => setListingChecksOpen(!listingChecksOpen)} className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-semibold text-orange-900 hover:bg-orange-50">
+                          <span>Listing Checks</span>
+                          <span aria-hidden="true">{listingChecksOpen ? "▲" : "▼"}</span>
+                        </button>
+                        {listingChecksOpen && (
+                          <div className="space-y-3 border-t border-orange-100 p-3">
+                            <ListingCompleteness item={form} />
+                            <ListingWarningsPanel item={form} />
+                          </div>
+                        )}
                       </div>
                       <div className="mt-3 grid gap-3 lg:grid-cols-2">
                         <label className="block lg:col-span-2">
