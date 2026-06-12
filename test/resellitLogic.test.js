@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
+  generateHtmlDescription,
+  generateListingDraft,
+} from "../src/ebayListingTemplate.js";
+import {
   DEFAULT_EBAY_FEE_MODE,
   MAX_LEGACY_PROOF_IMAGE_BYTES,
   duplicateItemForDraft,
@@ -160,4 +164,50 @@ test("HTML previews are sanitized without changing normal listing HTML shape", (
   assert.doesNotMatch(sanitized, /onclick=/);
   assert.doesNotMatch(sanitized, /javascript:/);
   assert.doesNotMatch(sanitized, /<script>/);
+});
+
+test("generated eBay HTML includes seller item details in product description", () => {
+  const html = generateHtmlDescription({
+    language: "de",
+    ebayTitle: "Test title",
+    productDescriptionText: "Test product description",
+    conditionText: "Guter Zustand",
+    shippingNotes: "Versicherter Versand mit Sendungsverfolgung.",
+  }, { preferSaved: false });
+
+  assert.match(html, /PRODUKTBESCHREIBUNG/);
+  assert.match(html, /Test product description/);
+  assert.ok(html.indexOf("PRODUKTBESCHREIBUNG") < html.indexOf("Test product description"));
+});
+
+test("generated key features appear without Merkmale label", () => {
+  const html = generateHtmlDescription({
+    language: "de",
+    ebayTitle: "Test title",
+    productDescriptionText: "Test product description",
+    keyFeatures: "Feature one\nFeature two",
+    conditionText: "Guter Zustand",
+    shippingNotes: "Versicherter Versand mit Sendungsverfolgung.",
+  }, { preferSaved: false });
+
+  assert.match(html, /Feature one/);
+  assert.match(html, /Feature two/);
+  assert.doesNotMatch(html, /Merkmal/i);
+});
+
+test("generated eBay HTML and plain text do not include pickup or collection wording", () => {
+  const item = {
+    language: "de",
+    ebayTitle: "Test title",
+    productDescriptionText: "Test product description",
+    conditionText: "Guter Zustand",
+    includedItems: "Artikel",
+    shippingNotes: "Versicherter Versand mit Sendungsverfolgung. Abholung nach Absprache moeglich.",
+  };
+  const html = generateHtmlDescription(item, { preferSaved: false });
+  const draft = generateListingDraft(item, { preferSaved: false });
+  const generatedText = `${html}\n${draft.description}`.toLowerCase();
+
+  assert.doesNotMatch(generatedText, /pickup|collection|abholung|selbstabholung|local pickup/);
+  assert.match(generatedText, /versicherter versand mit sendungsverfolgung/);
 });
