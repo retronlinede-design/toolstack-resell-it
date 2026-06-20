@@ -6,7 +6,7 @@ import {
   languageLabel,
   normalizeBooleanRecord,
   normalizeListingLanguageValue,
-} from "./resellitLogic.js";
+} from "./resellitSchema.js";
 
 function escapeHtml(value) {
   return String(value || "")

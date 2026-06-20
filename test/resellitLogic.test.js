@@ -7,7 +7,16 @@ import {
   generatedConditionText,
 } from "../src/ebayListingTemplate.js";
 import {
+  CURRENT_DATE,
+  DEFAULT_CLASSIFICATION,
   DEFAULT_EBAY_FEE_MODE,
+  DEFAULT_LANGUAGE,
+  DEFAULT_LISTING_LANGUAGE,
+  defaultItem,
+  emptyItem,
+  normalizeItem as normalizeSchemaItem,
+} from "../src/resellitSchema.js";
+import {
   MAX_LEGACY_PROOF_IMAGE_BYTES,
   duplicateItemForDraft,
   ebayConditionText,
@@ -20,6 +29,124 @@ import {
   sanitizeHtmlPreview,
   summarizeSoldPerformance,
 } from "../src/resellitLogic.js";
+
+test("emptyItem and defaultItem schema shape remains stable", () => {
+  const expectedKeys = [
+    "name",
+    "category",
+    "classification",
+    "sourceType",
+    "sourceName",
+    "sourceLocation",
+    "purchaseDate",
+    "purchasePrice",
+    "hasReceipt",
+    "receiptType",
+    "paymentMethod",
+    "expectedSalePrice",
+    "status",
+    "ebayTitle",
+    "saleDate",
+    "salePrice",
+    "finalSalePrice",
+    "buyerPlatform",
+    "shippingChargedToBuyer",
+    "actualShippingCost",
+    "packagingCost",
+    "carrier",
+    "trackingNumber",
+    "shippedDate",
+    "trackingNotes",
+    "refundAmount",
+    "refundDate",
+    "returnPostageCost",
+    "refundReason",
+    "ebayFees",
+    "ebayFeeMode",
+    "feePercent",
+    "fixedFee",
+    "estimatedEbayFee",
+    "manualEbayFee",
+    "promotedListingFee",
+    "otherPlatformFees",
+    "shippingCost",
+    "proofType",
+    "proofDate",
+    "proofAmount",
+    "proofNotes",
+    "noReceiptReason",
+    "proofImageDataUrl",
+    "proofImageName",
+    "proofFileName",
+    "proofFolderLocation",
+    "proofStoredExternally",
+    "researchQuery",
+    "researchedLowPrice",
+    "researchedMidPrice",
+    "researchedHighPrice",
+    "chosenListingPrice",
+    "priceResearchNotes",
+    "priceResearchUpdatedAt",
+    "language",
+    "listingLanguage",
+    "listingTitle",
+    "ebay",
+    "brand",
+    "model",
+    "sizeSpecs",
+    "measurements",
+    "colour",
+    "productDescriptionText",
+    "compatibilityInfo",
+    "keyFeatures",
+    "conditionGrade",
+    "conditionText",
+    "conditionNotes",
+    "defectDisclosure",
+    "descriptionText",
+    "htmlDescription",
+    "generatedPlainDescription",
+    "generatedHtmlDescription",
+    "includedItems",
+    "includedAccessories",
+    "defectsNotes",
+    "testedStatus",
+    "shippingNotes",
+    "photoChecklist",
+    "priceResearchLow",
+    "priceResearchMid",
+    "priceResearchHigh",
+    "researchBrand",
+    "researchModel",
+    "researchReference",
+    "researchYear",
+    "researchEAN",
+    "researchSerial",
+    "researchNotes",
+    "suggestedListingPrice",
+    "minimumAcceptPrice",
+    "researchConfidence",
+    "notes",
+  ];
+
+  assert.equal(defaultItem, emptyItem);
+  assert.deepEqual(Object.keys(emptyItem), expectedKeys);
+  assert.deepEqual(emptyItem.ebay, { conditionText: "" });
+  assert.equal(emptyItem.purchaseDate, CURRENT_DATE);
+  assert.equal(emptyItem.proofDate, CURRENT_DATE);
+  assert.equal(emptyItem.classification, DEFAULT_CLASSIFICATION);
+  assert.equal(emptyItem.ebayFeeMode, DEFAULT_EBAY_FEE_MODE);
+  assert.equal(emptyItem.language, DEFAULT_LANGUAGE);
+  assert.equal(emptyItem.listingLanguage, DEFAULT_LISTING_LANGUAGE);
+});
+
+test("schema normalization migrates legacy conditionText into ebay.conditionText", () => {
+  const item = normalizeSchemaItem({
+    conditionText: "Legacy condition description",
+  });
+
+  assert.equal(item.ebay.conditionText, "Legacy condition description");
+});
 
 test("legacy ebayFees are preserved as legacy platform fees during normalization", () => {
   const item = normalizeItem({

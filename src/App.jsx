@@ -1,6 +1,9 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
 import resellItLogo from "./assets/resellitlogo2.png";
+import { InventoryTable } from "./components/inventory/InventoryTable.jsx";
+import { StatCard, QueueCard } from "./components/shared/Cards.jsx";
+import { Input, Select } from "./components/shared/FormControls.jsx";
 import {
   generateHtmlDescription,
   generateListingDraft,
@@ -18,23 +21,14 @@ import {
 } from "./ebayListingTemplate.js";
 import {
   actualShippingValue,
-  buyerPlatformLabel,
   duplicateItemForDraft,
   ebayBaseFee,
-  ebayConditionText,
   finalSaleValue,
   hasListingDraft,
   isFullBackupPayload,
-  isLegacyProofImageTooLarge,
   isSoldStatus,
-  itemClassification,
   itemProfitValue,
   itemStatus,
-  languageLabel,
-  normalizeBooleanRecord,
-  normalizeItem,
-  normalizeItems,
-  normalizeListingLanguageValue,
   packagingCostValue,
   platformFees,
   refundValue,
@@ -42,14 +36,50 @@ import {
   shippingChargedValue,
   summarizeSoldPerformance,
 } from "./resellitLogic.js";
+import {
+  DEFAULT_CLASSIFICATION,
+  DEFAULT_EBAY_FEE_MODE,
+  DEFAULT_LANGUAGE,
+  DEFAULT_LISTING_LANGUAGE,
+  CURRENT_DATE,
+  CURRENT_MONTH,
+  CURRENT_YEAR,
+  MAX_LEGACY_PROOF_IMAGE_BYTES,
+  buyerPlatformLabel,
+  buyerPlatformOptions,
+  classificationOptions,
+  conditionGradeOptions,
+  defaultDefectDisclosure,
+  defaultPhotoChecklist,
+  defectDisclosureItems,
+  ebayConditionText,
+  ebayFeeModes,
+  emptyExpense,
+  emptyItem,
+  expenseCategories,
+  inMonth,
+  inYear,
+  isLegacyProofImageTooLarge,
+  itemClassification,
+  languageLabel,
+  languageOptions,
+  normalizeBooleanRecord,
+  normalizeItem,
+  normalizeItems,
+  normalizeListingLanguageValue,
+  number,
+  photoChecklistItems,
+  proofTypes,
+  quickStatusOptions,
+  shippingWorkflowStatuses,
+  statusOptions,
+  testedStatusOptions,
+} from "./resellitSchema.js";
 
 const STORAGE_KEY = "toolstack.resellit.v1";
 const OLD_STORAGE_KEY = "toolstack.resellerit.v1";
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
 const STOCK_COLUMN_WIDTHS_KEY = "resellit.stockColumnWidths.v1";
-const CURRENT_DATE = new Date().toISOString().slice(0, 10);
-const CURRENT_MONTH = new Date().toISOString().slice(0, 7);
-const CURRENT_YEAR = new Date().getFullYear().toString();
 const DEFAULT_STOCK_COLUMN_WIDTHS = {
   date: 70,
   item: 140,
@@ -112,62 +142,8 @@ function loadStockColumnWidths() {
   }
 }
 
-const MAX_LEGACY_PROOF_IMAGE_BYTES = 250 * 1024;
 const DISABLED_LEGACY_UI = false;
 const ebayMappingHints = ["order date", "item title", "sale price", "fees", "shipping", "refund", "payout"];
-const DEFAULT_CLASSIFICATION = "Unsure / Review Later";
-const DEFAULT_EBAY_FEE_MODE = "Private Germany";
-const classificationOptions = [
-  "Private Sale / Personal Collection",
-  "Business Stock / Resale Inventory",
-  "Legacy Stock / Previous Business",
-  DEFAULT_CLASSIFICATION,
-];
-const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
-const buyerPlatformOptions = [
-  ["ebay", "eBay"],
-  ["kleinanzeigen", "Kleinanzeigen"],
-  ["private", "Private"],
-  ["facebook", "Facebook"],
-  ["vinted", "Vinted"],
-  ["other", "Other"],
-];
-const DEFAULT_LISTING_LANGUAGE = "German";
-const conditionGradeOptions = ["Neu", "Sehr gut", "Gut", "Akzeptabel", "Defekt / Ersatzteile", "Sonstiges"];
-const languageOptions = [
-  ["de", "German"],
-  ["en", "English"],
-];
-const DEFAULT_LANGUAGE = "de";
-const testedStatusOptions = ["Not specified", "Tested working", "Partially tested", "Not tested", "Defective / repair needed"];
-const photoChecklistItems = [
-  ["front", "Front photo"],
-  ["back", "Back photo"],
-  ["sides", "Side photos"],
-  ["topBottom", "Top/bottom photo"],
-  ["serialModel", "Serial/model number photo"],
-  ["defects", "Defects photo"],
-  ["accessories", "Accessories photo"],
-  ["packaging", "Packaging photo"],
-];
-const defectDisclosureItems = [
-  ["scratches", "scratches"],
-  ["dents", "dents"],
-  ["cracks", "cracks"],
-  ["discoloration", "discoloration"],
-  ["missingParts", "missing parts"],
-  ["notTested", "not tested"],
-  ["partiallyWorking", "partially working"],
-  ["repairNeeded", "repair needed"],
-  ["other", "other"],
-];
-const defaultPhotoChecklist = Object.fromEntries(photoChecklistItems.map(([key]) => [key, false]));
-const defaultDefectDisclosure = Object.fromEntries(defectDisclosureItems.map(([key]) => [key, false]));
-const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
-const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded", "Written Off"];
-const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Refunded"];
-const shippingWorkflowStatuses = ["Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded"];
-const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
 const classificationHelp = [
   ["Private Sale / Personal Collection", "Originally owned personal item."],
   ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
@@ -209,117 +185,6 @@ const financeSectionDetails = {
   taxRecords: ["Tax Records", "Items and expenses requiring tax documentation or review."],
   reconciliation: ["Reconciliation", "Match sales, fees, payouts, and imported platform records."],
   yearEnd: ["Year-End / EÜR", "Year-end preparation for ELSTER or accountant reporting."],
-};
-
-const emptyItem = {
-  name: "",
-  category: "",
-  classification: DEFAULT_CLASSIFICATION,
-  sourceType: "Flea market",
-  sourceName: "",
-  sourceLocation: "",
-  purchaseDate: new Date().toISOString().slice(0, 10),
-  purchasePrice: "",
-  hasReceipt: "No",
-  receiptType: "Eigenbeleg needed",
-  paymentMethod: "Cash",
-  expectedSalePrice: "",
-  status: "Sourced",
-  ebayTitle: "",
-  saleDate: "",
-  salePrice: "",
-  finalSalePrice: "",
-  buyerPlatform: "ebay",
-  shippingChargedToBuyer: "",
-  actualShippingCost: "",
-  packagingCost: "",
-  carrier: "DHL",
-  trackingNumber: "",
-  shippedDate: "",
-  trackingNotes: "",
-  refundAmount: "",
-  refundDate: "",
-  returnPostageCost: "",
-  refundReason: "",
-  ebayFees: "",
-  ebayFeeMode: DEFAULT_EBAY_FEE_MODE,
-  feePercent: "",
-  fixedFee: "",
-  estimatedEbayFee: "",
-  manualEbayFee: "",
-  promotedListingFee: "",
-  otherPlatformFees: "",
-  shippingCost: "",
-  proofType: "Eigenbeleg",
-  proofDate: new Date().toISOString().slice(0, 10),
-  proofAmount: "",
-  proofNotes: "",
-  noReceiptReason: "",
-  proofImageDataUrl: "",
-  proofImageName: "",
-  proofFileName: "",
-  proofFolderLocation: "",
-  proofStoredExternally: "No",
-  researchQuery: "",
-  researchedLowPrice: "",
-  researchedMidPrice: "",
-  researchedHighPrice: "",
-  chosenListingPrice: "",
-  priceResearchNotes: "",
-  priceResearchUpdatedAt: "",
-  language: DEFAULT_LANGUAGE,
-  listingLanguage: DEFAULT_LISTING_LANGUAGE,
-  listingTitle: "",
-  ebay: {
-    conditionText: "",
-  },
-  brand: "",
-  model: "",
-  sizeSpecs: "",
-  measurements: "",
-  colour: "",
-  productDescriptionText: "",
-  compatibilityInfo: "",
-  keyFeatures: "",
-  conditionGrade: "",
-  conditionText: "",
-  conditionNotes: "",
-  defectDisclosure: defaultDefectDisclosure,
-  descriptionText: "",
-  htmlDescription: "",
-  generatedPlainDescription: "",
-  generatedHtmlDescription: "",
-  includedItems: "",
-  includedAccessories: "",
-  defectsNotes: "",
-  testedStatus: "Not specified",
-  shippingNotes: "",
-  photoChecklist: defaultPhotoChecklist,
-  priceResearchLow: "",
-  priceResearchMid: "",
-  priceResearchHigh: "",
-  researchBrand: "",
-  researchModel: "",
-  researchReference: "",
-  researchYear: "",
-  researchEAN: "",
-  researchSerial: "",
-  researchNotes: "",
-  suggestedListingPrice: "",
-  minimumAcceptPrice: "",
-  researchConfidence: "low",
-  notes: "",
-};
-
-const emptyExpense = {
-  date: new Date().toISOString().slice(0, 10),
-  category: "Packaging",
-  description: "",
-  amount: "",
-  paymentMethod: "Cash",
-  receiptAvailable: "No",
-  receiptNotes: "",
-  linkedItemId: "",
 };
 
 const demoItems = [
@@ -370,18 +235,6 @@ const demoItems = [
 function money(value) {
   const n = Number(value || 0);
   return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
-}
-
-function number(value) {
-  return Number(String(value || "0").replace(",", ".")) || 0;
-}
-
-function inMonth(date, month = CURRENT_MONTH) {
-  return String(date || "").startsWith(month);
-}
-
-function inYear(date, year = CURRENT_YEAR) {
-  return String(date || "").startsWith(year);
 }
 
 function timelineGroupLabel(date, grouping) {
@@ -585,43 +438,6 @@ function parseCsvText(text) {
   return { columns, rows };
 }
 
-function StatCard({ icon: Icon, label, value, sub, accentClass = "" }) {
-  return (
-    <div className="premium-card rounded-2xl border border-stone-200 bg-[#fffdf8] p-3 shadow-[0_10px_26px_rgba(41,37,36,0.045)]">
-      {accentClass && <div className={`mb-2 h-1 w-10 rounded-full ${accentClass}`} />}
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-500">{label}</p>
-          <p className="mt-1 text-xl font-semibold leading-none text-stone-950">{value}</p>
-          {sub && <p className="mt-1 text-xs leading-snug text-stone-500">{sub}</p>}
-        </div>
-        <div className="rounded-xl bg-stone-100 p-1.5 text-stone-600"><Icon size={16} /></div>
-      </div>
-    </div>
-  );
-}
-
-function QueueCard({ icon: Icon, label, value, sub, onClick, tone = "stock" }) {
-  const tones = {
-    stock: "border-[#b7412e]/20 hover:border-[#b7412e]/45 hover:bg-[#b7412e]/8",
-    sales: "border-[#e06b2c]/20 hover:border-[#e06b2c]/45 hover:bg-[#e06b2c]/10",
-    finance: "border-[#f0be45]/25 hover:border-[#f0be45]/60 hover:bg-[#f0be45]/12",
-  };
-
-  return (
-    <button type="button" onClick={onClick} className={`premium-card rounded-2xl border bg-[#fffdf8] p-4 text-left shadow-[0_10px_26px_rgba(41,37,36,0.045)] ${tones[tone] || tones.stock}`}>
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{label}</p>
-          <p className="mt-2 text-3xl font-semibold leading-none text-stone-950">{value}</p>
-          {sub && <p className="mt-2 text-sm leading-snug text-stone-600">{sub}</p>}
-        </div>
-        <div className="rounded-xl bg-stone-900 p-2 text-amber-50"><Icon size={18} /></div>
-      </div>
-    </button>
-  );
-}
-
 function SectionHeader({ title, subtitle, count }) {
   return (
     <div className="rounded-3xl border border-[#b7412e]/15 bg-[#fffdf8] p-4 shadow-[0_14px_34px_rgba(41,37,36,0.055)]">
@@ -651,26 +467,6 @@ function FinanceHeader({ title, subtitle, meta }) {
         {meta && <p className="rounded-2xl border border-[#f0be45]/30 bg-[#f0be45]/15 px-3 py-2 text-sm font-semibold text-[#72530b]">{meta}</p>}
       </div>
     </div>
-  );
-}
-
-function Input({ label, className = "", ...props }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-xs font-semibold text-stone-600">{label}</span>
-      <input {...props} className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition-all duration-150 placeholder:text-stone-400 focus:border-orange-300 focus:ring-2 focus:ring-orange-100/70" />
-    </label>
-  );
-}
-
-function Select({ label, className = "", children, ...props }) {
-  return (
-    <label className={`block ${className}`}>
-      <span className="mb-1.5 block text-xs font-semibold text-stone-600">{label}</span>
-      <select {...props} className="h-10 w-full rounded-xl border border-stone-200 bg-white px-3 text-sm text-stone-900 outline-none transition-all duration-150 focus:border-orange-300 focus:ring-2 focus:ring-orange-100/70">
-        {children}
-      </select>
-    </label>
   );
 }
 
@@ -2559,178 +2355,50 @@ export default function ResellerItApp() {
 
         <section className="grid gap-4">
           {activeTab === "stock" && (
-            <div className="min-w-0 rounded-xl border border-[#b7412e]/15 bg-[#fffaf0] shadow-[0_10px_24px_rgba(0,0,0,0.08)]">
-              <div className="border-b border-[#eadfce] p-2.5 sm:p-3">
-                <div className="flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
-                  <div>
-                    <div className="mb-1.5 h-0.5 w-12 rounded-full bg-[#b7412e]" />
-                    <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Control</p>
-                    <h2 className="mt-0.5 text-lg font-semibold text-stone-950">Master Inventory Stock Control Sheet</h2>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button type="button" onClick={openNewItemEditor} className="rounded-md bg-[#e06b2c] px-3 py-1.5 text-xs font-semibold text-[#24110e] shadow-sm hover:bg-[#f0be45]">
-                      Add Item
-                    </button>
-                    <div className="rounded-md border border-[#b7412e]/15 bg-white px-2.5 py-1.5 text-xs font-semibold text-[#8f3124]">
-                      {stockTimelineItems.length} of {items.length} items
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              <div className="min-w-0 p-1.5 sm:p-2">
-                <div className="mb-2 rounded-lg border border-[#b7412e]/15 bg-white shadow-[0_4px_14px_rgba(41,37,36,0.04)]">
-                  <div className="grid grid-cols-2 divide-x divide-y divide-stone-100 border-l-2 border-[#b7412e] text-[11px] sm:grid-cols-3 lg:grid-cols-6 lg:divide-y-0">
-                    {[
-                      [Package, "Visible", stockTimelineTotals.itemCount],
-                      [Euro, "Purchase cost", money(stockTimelineTotals.purchaseTotal)],
-                      [ShoppingCart, "Sold total", money(stockTimelineTotals.soldTotal)],
-                      [Euro, "Est. profit", money(stockTimelineTotals.profitTotal), "text-lime-800"],
-                      [Package, "Unsold", stockTimelineTotals.unsoldCount],
-                      [ReceiptText, "Missing proof", stockTimelineTotals.missingProofCount, stockTimelineTotals.missingProofCount ? "text-[#8f3124]" : ""],
-                    ].map(([Icon, label, value, valueClass = "text-stone-950"]) => (
-                      <div key={label} className="flex items-center gap-2 px-2 py-2">
-                        <Icon size={13} className="shrink-0 text-[#b7412e]" />
-                        <div className="min-w-0">
-                          <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-stone-500">{label}</p>
-                          <p className={`truncate text-sm font-semibold ${valueClass}`}>{value}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mb-2 rounded-lg border border-[#b7412e]/20 bg-[#fff6e6] shadow-[0_4px_14px_rgba(183,65,46,0.06)]">
-                  <div className="hidden grid-cols-[6.5rem_minmax(8rem,1.4fr)_minmax(7rem,1fr)_4.25rem_8.5rem] items-center gap-1 border-b border-[#b7412e]/10 bg-[#fff2dc] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-stone-500 md:grid">
-                    <span>Date</span>
-                    <span>Item</span>
-                    <span>Source</span>
-                    <span className="text-right">Purchase</span>
-                    <span className="text-center text-[#8f3124]">Quick Stock Entry</span>
-                  </div>
-                  <div className="grid grid-cols-2 items-center gap-1 border-l-2 border-[#b7412e] px-1.5 py-1.5 md:grid-cols-[6.5rem_minmax(8rem,1.4fr)_minmax(7rem,1fr)_4.25rem_8.5rem]">
-                    <input type="date" value={quickAddItem.purchaseDate} onChange={(e) => setQuickAddItem({ ...quickAddItem, purchaseDate: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-1 text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" />
-                    <input value={quickAddItem.name} onChange={(e) => setQuickAddItem({ ...quickAddItem, name: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-2 text-[11px] font-semibold text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="New stock item" />
-                    <input value={quickAddItem.sourceName} onChange={(e) => setQuickAddItem({ ...quickAddItem, sourceName: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-2 text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="Source" />
-                    <input type="number" step="0.01" value={quickAddItem.purchasePrice} onChange={(e) => setQuickAddItem({ ...quickAddItem, purchasePrice: e.target.value })} onKeyDown={(e) => { if (e.key === "Enter") createQuickLedgerItem(); }} className="h-7 rounded border border-stone-200 bg-white px-1 text-right text-[11px] text-stone-900 outline-none focus:border-[#b7412e]/30 focus:ring-1 focus:ring-[#b7412e]/15" placeholder="0.00" />
-                    <div className="col-span-2 flex justify-end gap-1 md:col-span-1">
-                      <button type="button" onClick={() => createQuickLedgerItem()} className="h-7 rounded border border-[#b7412e]/20 bg-white px-2 text-[11px] font-semibold text-[#8f3124] hover:bg-[#fff6e6]">Add</button>
-                      <button type="button" onClick={() => createQuickLedgerItem({ openEditor: true })} className="h-7 rounded bg-[#e06b2c] px-2 text-[11px] font-semibold text-[#24110e] hover:bg-[#f0be45]">Add & Edit</button>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative mb-2 flex flex-wrap gap-1.5">
-                  {[
-                    ["search", Search, "Search", inventorySearch.trim()],
-                    ["group", ClipboardList, "Group", inventoryTimelineGrouping !== "Month"],
-                    ["classification", Package, "Type", inventoryClassification !== "All classifications"],
-                    ["status", Info, "Status", inventoryStatus !== "All statuses"],
-                    ["date", ReceiptText, "Date", inventoryTimelineMonth],
-                    ["view", FileText, "View", stockViewMode === "Compact view"],
-                  ].map(([key, Icon, label, active]) => (
-                    <button key={key} type="button" onClick={() => setStockFilterMenu(stockFilterMenu === key ? "" : key)} className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[11px] font-semibold transition ${active ? "border-[#b7412e]/30 bg-[#b7412e]/8 text-[#8f3124]" : "border-stone-200 bg-white text-stone-600 hover:border-[#b7412e]/20 hover:bg-[#fff6e6]"}`}>
-                      <Icon size={11} /> {label}
-                    </button>
-                  ))}
-                  {stockActiveFilterCount > 0 && <button type="button" onClick={() => { setInventorySearch(""); setInventoryTimelineGrouping("Month"); setInventoryClassification("All classifications"); setInventoryStatus("All statuses"); setInventoryTimelineMonth(""); setInventoryCategory("All categories"); setInventoryIssueFilter("All items"); setStockFilterMenu(""); }} className="rounded-full border border-stone-200 bg-white px-2 py-1 text-[11px] font-semibold text-stone-500 hover:bg-stone-50">Clear</button>}
-                  <button type="button" onClick={resetStockColumnWidths} className="rounded-full border border-stone-200 bg-white px-2 py-1 text-[11px] font-semibold text-stone-500 hover:bg-stone-50">Reset Widths</button>
-
-                  {stockFilterMenu && (
-                    <div className="absolute left-0 top-8 z-20 w-72 rounded-xl border border-stone-200 bg-white p-3 shadow-[0_18px_42px_rgba(41,37,36,0.16)]">
-                      {stockFilterMenu === "search" && <Input label="Search" value={inventorySearch} onChange={(e) => setInventorySearch(e.target.value)} placeholder="Name, category, source, title..." />}
-                      {stockFilterMenu === "group" && <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => setInventoryTimelineGrouping(e.target.value)}><option>Month</option><option>Week</option><option>Year</option><option>Ungrouped</option></Select>}
-                      {stockFilterMenu === "classification" && <Select label="Classification" value={inventoryClassification} onChange={(e) => setInventoryClassification(e.target.value)}><option>All classifications</option>{classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}</Select>}
-                      {stockFilterMenu === "status" && <Select label="Status" value={inventoryStatus} onChange={(e) => setInventoryStatus(e.target.value)}><option>All statuses</option>{statusOptions.map((status) => <option key={status}>{status}</option>)}</Select>}
-                      {stockFilterMenu === "date" && <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => setInventoryTimelineMonth(e.target.value)} />}
-                      {stockFilterMenu === "view" && <Select label="View" value={stockViewMode} onChange={(e) => setStockViewMode(e.target.value)}><option>Compact view</option><option>Detailed view</option></Select>}
-                    </div>
-                  )}
-                </div>
-
-                {stockTimelineItems.length === 0 && (
-                  <p className="rounded-lg border border-stone-200 bg-white p-4 text-sm text-stone-600">No inventory items match the current timeline filters.</p>
-                )}
-
-                {stockTimelineItems.length > 0 && (
-                  <div className="w-full max-w-full overflow-x-auto rounded-lg border border-stone-200 bg-white">
-                    <table className="table-fixed border-collapse text-left text-[11px]" style={{ width: "100%", minWidth: stockTableWidth }}>
-                      <colgroup>
-                        {visibleStockColumnKeys.map((key) => <col key={key} style={{ width: stockColumnWidths[key] }} />)}
-                      </colgroup>
-                      <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
-                        <tr className="border-b border-stone-200">
-                          {visibleStockColumnKeys.map((key) => {
-                            const numericColumn = ["purchase", "sold", "profit"].includes(key);
-                            const centeredColumn = key === "edit";
-                            return (
-                              <th key={key} className={`relative select-none py-1.5 font-semibold ${numericColumn ? "px-0.5 text-right" : centeredColumn ? "px-0.5 text-center" : "px-1"}`} style={{ width: stockColumnWidths[key] }}>
-                                <span className="block truncate pr-2">{STOCK_COLUMN_LABEL_MAP[key]}</span>
-                                {stockResizeHandle(key)}
-                              </th>
-                            );
-                          })}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {stockTimelineGroups.map(([groupLabel, groupItems]) => (
-                          <React.Fragment key={groupLabel}>
-                            <tr>
-                              <td colSpan={visibleStockColumnKeys.length} className="border-b border-stone-200 bg-[#fffaf0] px-1.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-[#8f3124]">
-                                {groupLabel} <span className="font-medium text-stone-400">({groupItems.length})</span>
-                              </td>
-                            </tr>
-                            {groupItems.map((item) => {
-                              const sold = isSoldStatus(item);
-                              const proofStatus = quickProofStatus(item) === "Eigenbeleg needed" ? "Eigenbeleg" : needsProofRecord(item) ? "Missing" : "OK";
-                              const inputClass = "min-h-6 w-full rounded border border-transparent bg-transparent px-1 text-[11px] text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
-                              return (
-                                <tr key={item.id} className="border-b border-stone-100 last:border-b-0 hover:bg-[#fffaf0]/75">
-                                  <td className="px-1 py-0.5" style={{ width: stockColumnWidths.date }}>
-                                    <input type="date" value={item.purchaseDate || ""} onChange={(e) => updateItemField(item.id, "purchaseDate", e.target.value)} className={inputClass} />
-                                  </td>
-                                  <td className="px-1 py-0.5" style={{ width: stockColumnWidths.item }}>
-                                    <textarea value={item.name || ""} onChange={(e) => updateItemField(item.id, "name", e.target.value)} title={item.name || ""} rows={1} className={`${inputClass} min-w-0 resize-none overflow-hidden whitespace-normal break-words font-semibold leading-5`} placeholder="Item name" />
-                                  </td>
-                                  <td className="px-1 py-0.5" style={{ width: stockColumnWidths.status }}>
-                                    <select value={itemStatus(item)} onChange={(e) => updateItemField(item.id, "status", e.target.value)} className={inputClass}>
-                                      {statusOptions.map((status) => <option key={status}>{status}</option>)}
-                                    </select>
-                                  </td>
-                                  <td className="px-1 py-0.5" style={{ width: stockColumnWidths.source }}>
-                                    <input value={item.sourceName || item.sourceLocation || ""} onChange={(e) => updateItemField(item.id, "sourceName", e.target.value)} className={inputClass} placeholder="Source" />
-                                  </td>
-                                  <td className="px-0.5 py-0.5" style={{ width: stockColumnWidths.purchase }}>
-                                    <input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(e) => updateItemField(item.id, "purchasePrice", e.target.value)} className={`${inputClass} whitespace-nowrap text-right tabular-nums`} placeholder="0.00" />
-                                  </td>
-                                  <td className="px-0.5 py-0.5" style={{ width: stockColumnWidths.sold }}>
-                                    <input type="number" step="0.01" value={item.finalSalePrice !== undefined ? item.finalSalePrice : item.salePrice || ""} onChange={(e) => updateItemField(item.id, "finalSalePrice", e.target.value)} className={`${inputClass} whitespace-nowrap text-right tabular-nums`} placeholder="0.00" />
-                                  </td>
-                                  {stockViewMode === "Detailed view" && <td className={`whitespace-nowrap px-0.5 py-0.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`} style={{ width: stockColumnWidths.profit }}>{sold ? money(itemProfitValue(item)) : "-"}</td>}
-                                  {stockViewMode === "Detailed view" && <td className="px-1 py-0.5" style={{ width: stockColumnWidths.proof }}>
-                                    <select value={proofStatus} onChange={(e) => updateItemProofStatus(item.id, e.target.value)} className={`${inputClass} font-semibold ${proofStatus === "Missing" ? "text-red-700" : proofStatus === "Eigenbeleg" ? "text-[#8a5b10]" : "text-lime-800"}`}>
-                                      <option>OK</option>
-                                      <option>Missing</option>
-                                      <option>Eigenbeleg</option>
-                                    </select>
-                                  </td>}
-                                  <td className="px-0.5 py-0.5 text-center" style={{ width: stockColumnWidths.edit }}>
-                                    <button type="button" onClick={() => editItem(item)} className="inline-flex h-6 w-6 items-center justify-center rounded border border-transparent bg-transparent text-stone-500 hover:border-stone-200 hover:bg-white hover:text-[#8f3124]" title="Open full item workspace" aria-label={`Open ${item.name || "item"} workspace`}>
-                                      <Edit3 size={12} />
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </React.Fragment>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            </div>
+            <InventoryTable
+              items={items}
+              stockTimelineItems={stockTimelineItems}
+              stockTimelineGroups={stockTimelineGroups}
+              stockTimelineTotals={stockTimelineTotals}
+              stockTableWidth={stockTableWidth}
+              visibleStockColumnKeys={visibleStockColumnKeys}
+              stockColumnWidths={stockColumnWidths}
+              stockViewMode={stockViewMode}
+              stockFilterMenu={stockFilterMenu}
+              stockActiveFilterCount={stockActiveFilterCount}
+              quickAddItem={quickAddItem}
+              inventorySearch={inventorySearch}
+              inventoryTimelineGrouping={inventoryTimelineGrouping}
+              inventoryClassification={inventoryClassification}
+              inventoryStatus={inventoryStatus}
+              inventoryTimelineMonth={inventoryTimelineMonth}
+              classificationOptions={classificationOptions}
+              statusOptions={statusOptions}
+              stockColumnLabelMap={STOCK_COLUMN_LABEL_MAP}
+              money={money}
+              isSoldStatus={isSoldStatus}
+              quickProofStatus={quickProofStatus}
+              needsProofRecord={needsProofRecord}
+              itemStatus={itemStatus}
+              itemProfitValue={itemProfitValue}
+              stockResizeHandle={stockResizeHandle}
+              onOpenNewItemEditor={openNewItemEditor}
+              onCreateQuickLedgerItem={createQuickLedgerItem}
+              onSetQuickAddItem={setQuickAddItem}
+              onSetStockFilterMenu={setStockFilterMenu}
+              onSetInventorySearch={setInventorySearch}
+              onSetInventoryTimelineGrouping={setInventoryTimelineGrouping}
+              onSetInventoryClassification={setInventoryClassification}
+              onSetInventoryStatus={setInventoryStatus}
+              onSetInventoryTimelineMonth={setInventoryTimelineMonth}
+              onSetInventoryCategory={setInventoryCategory}
+              onSetInventoryIssueFilter={setInventoryIssueFilter}
+              onSetStockViewMode={setStockViewMode}
+              onResetStockColumnWidths={resetStockColumnWidths}
+              onUpdateItemField={updateItemField}
+              onUpdateItemProofStatus={updateItemProofStatus}
+              onEditItem={editItem}
+            />
           )}
 
           {DISABLED_LEGACY_UI && activeTab === "stock" && ["needsAttention", "inventory", "readyToList"].includes(stockSection) && (
