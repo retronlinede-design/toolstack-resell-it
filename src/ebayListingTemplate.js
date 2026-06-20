@@ -1,6 +1,7 @@
 import {
   defaultDefectDisclosure,
   defectDisclosureItems,
+  ebayConditionText,
   itemClassification,
   languageLabel,
   normalizeBooleanRecord,
@@ -180,8 +181,9 @@ function conditionDetailLines(item) {
 }
 
 export function generatedConditionText(item) {
-  const manualCondition = String(item.conditionText || "").trim();
-  const baseCondition = manualCondition || generatedConditionBaseText(item);
+  const manualCondition = ebayConditionText(item).trim();
+  if (manualCondition) return manualCondition;
+  const baseCondition = generatedConditionBaseText(item);
   return [baseCondition, ...conditionDetailLines(item)].filter(Boolean).join("\n") || (isGermanListing(item) ? "Bitte Zustand selbst prüfen und Beschreibung beachten." : "Please review the description for condition details.");
 }
 
@@ -352,7 +354,7 @@ export function listingCompleteness(item) {
     ["eBay Title", Boolean(String(item.ebayTitle || item.listingTitle || generatedListingTitle(item) || "").trim())],
     ["Price", Boolean(item.chosenListingPrice)],
     ["Description / Item Details", Boolean(String(item.productDescriptionText || "").trim())],
-    ["Condition Text", Boolean(String(item.conditionText || "").trim())],
+    ["Condition Text", Boolean(ebayConditionText(item).trim())],
     ["Shipping Notes", Boolean(String(item.shippingNotes || "").trim())],
   ];
   const completeCount = checks.filter(([, done]) => done).length;
@@ -367,7 +369,7 @@ function listingPack(item) {
   return {
     title: item.ebayTitle || item.listingTitle || draft.title,
     price: item.chosenListingPrice || "",
-    condition: item.conditionText || draft.condition,
+    condition: ebayConditionText(item) || draft.condition,
     plainDescription: item.generatedPlainDescription || item.descriptionText || draft.description,
     htmlDescription: item.generatedHtmlDescription || item.htmlDescription || draft.htmlDescription,
     shippingNotes: item.shippingNotes || "",

@@ -21,6 +21,7 @@ import {
   buyerPlatformLabel,
   duplicateItemForDraft,
   ebayBaseFee,
+  ebayConditionText,
   finalSaleValue,
   hasListingDraft,
   isFullBackupPayload,
@@ -269,6 +270,9 @@ const emptyItem = {
   language: DEFAULT_LANGUAGE,
   listingLanguage: DEFAULT_LISTING_LANGUAGE,
   listingTitle: "",
+  ebay: {
+    conditionText: "",
+  },
   brand: "",
   model: "",
   sizeSpecs: "",
@@ -1007,6 +1011,9 @@ export default function ResellerItApp() {
       proofStoredExternally: "No",
       listingTitle: "",
       ebayTitle: "",
+      ebay: {
+        conditionText: "",
+      },
       conditionText: "",
       descriptionText: "",
       htmlDescription: "",
@@ -1585,8 +1592,10 @@ export default function ResellerItApp() {
   }
 
   function generateCurrentListingDraft() {
-    const draft = generateListingDraft(form, { preferSaved: false });
-    const hasManualCondition = Boolean(String(form.conditionText || "").trim());
+    const currentEbayCondition = ebayConditionText(form);
+    const initializedEbayCondition = currentEbayCondition || generatedConditionBaseText(form);
+    const draftSource = { ...form, ebay: { ...(form.ebay || {}), conditionText: initializedEbayCondition } };
+    const draft = generateListingDraft(draftSource, { preferSaved: false });
     const syncedResearchQuery = searchQueryManuallyEdited ? form.researchQuery : draft.title;
     setForm({
       ...form,
@@ -1595,7 +1604,10 @@ export default function ResellerItApp() {
       listingTitle: draft.title,
       ebayTitle: draft.title,
       researchQuery: syncedResearchQuery,
-      conditionText: hasManualCondition ? form.conditionText : generatedConditionBaseText(form),
+      ebay: {
+        ...(form.ebay || {}),
+        conditionText: initializedEbayCondition,
+      },
       descriptionText: draft.description,
       htmlDescription: draft.htmlDescription,
       generatedPlainDescription: draft.description,
@@ -1605,9 +1617,10 @@ export default function ResellerItApp() {
 
   function generateFullListingPack() {
     const shippingNotes = listingShippingText(form);
-    const packSource = { ...form, shippingNotes, conditionText: generatedConditionBaseText(form) };
+    const currentEbayCondition = ebayConditionText(form);
+    const initializedEbayCondition = currentEbayCondition || generatedConditionBaseText(form);
+    const packSource = { ...form, shippingNotes, ebay: { ...(form.ebay || {}), conditionText: initializedEbayCondition } };
     const draft = generateListingDraft(packSource, { preferSaved: false });
-    const condition = generatedConditionText(packSource);
     const syncedResearchQuery = searchQueryManuallyEdited ? form.researchQuery : draft.title;
     setForm({
       ...form,
@@ -1616,7 +1629,10 @@ export default function ResellerItApp() {
       listingTitle: draft.title,
       ebayTitle: draft.title,
       researchQuery: syncedResearchQuery,
-      conditionText: condition,
+      ebay: {
+        ...(form.ebay || {}),
+        conditionText: initializedEbayCondition,
+      },
       descriptionText: draft.description,
       htmlDescription: draft.htmlDescription,
       generatedPlainDescription: draft.description,
@@ -1970,7 +1986,7 @@ export default function ResellerItApp() {
                         <div className="mt-3 grid gap-3">
                           <label className="block sm:col-span-2">
                             <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Text</span>
-                            <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                            <textarea value={ebayConditionText(form)} onChange={(e) => setForm({ ...form, ebay: { ...(form.ebay || {}), conditionText: e.target.value } })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                             <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
                           </label>
                           <label className="block sm:col-span-2">
@@ -2421,7 +2437,7 @@ export default function ResellerItApp() {
                         {conditionDescriptionLabel}
                         <TranslationButtons onTranslate={(target) => openTranslator(target, generatedConditionText(form))} />
                       </span>
-                      <textarea value={form.conditionText || ""} onChange={(e) => setForm({ ...form, conditionText: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                      <textarea value={ebayConditionText(form)} onChange={(e) => setForm({ ...form, ebay: { ...(form.ebay || {}), conditionText: e.target.value } })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                       <span className="mt-1 block text-xs leading-5 text-stone-500">Write the exact condition shown in the eBay condition field.</span>
                     </label>
                     <div className="sm:col-span-2">

@@ -4,11 +4,13 @@ import test from "node:test";
 import {
   generateHtmlDescription,
   generateListingDraft,
+  generatedConditionText,
 } from "../src/ebayListingTemplate.js";
 import {
   DEFAULT_EBAY_FEE_MODE,
   MAX_LEGACY_PROOF_IMAGE_BYTES,
   duplicateItemForDraft,
+  ebayConditionText,
   hasListingDraft,
   isFullBackupPayload,
   isSoldStatus,
@@ -134,6 +136,7 @@ test("listing needed clears fields that make a draft look ready", () => {
   const item = markListingNeeded({
     listingTitle: "Title",
     ebayTitle: "eBay Title",
+    ebay: { conditionText: "Nested condition" },
     conditionText: "Condition",
     descriptionText: "Description",
     htmlDescription: "<p>Description</p>",
@@ -142,6 +145,25 @@ test("listing needed clears fields that make a draft look ready", () => {
   });
 
   assert.equal(hasListingDraft(item), false);
+});
+
+test("legacy condition text is migrated into the dedicated eBay condition field once", () => {
+  const item = normalizeItem({
+    conditionText: "Legacy eBay condition",
+  });
+
+  assert.equal(item.ebay.conditionText, "Legacy eBay condition");
+  assert.equal(ebayConditionText(item), "Legacy eBay condition");
+});
+
+test("dedicated eBay condition text is not overwritten by legacy condition text", () => {
+  const item = normalizeItem({
+    ebay: { conditionText: "User controlled eBay condition" },
+    conditionText: "Generated or inventory condition",
+  });
+
+  assert.equal(item.ebay.conditionText, "User controlled eBay condition");
+  assert.equal(ebayConditionText(item), "User controlled eBay condition");
 });
 
 test("oversized legacy proof image data is stripped during normalization", () => {
@@ -178,6 +200,29 @@ test("generated eBay HTML includes seller item details in product description", 
   assert.match(html, /PRODUKTBESCHREIBUNG/);
   assert.match(html, /Test product description/);
   assert.ok(html.indexOf("PRODUKTBESCHREIBUNG") < html.indexOf("Test product description"));
+});
+
+test("eBay condition field is used exactly in generated listing output", () => {
+  const conditionText = "Tested and working. Good used condition with minor signs of use.";
+  const item = {
+    language: "en",
+    ebayTitle: "Test title",
+    conditionGrade: "For parts",
+    conditionNotes: "Generated condition note",
+    defectsNotes: "Generated defect note",
+    testedStatus: "Not tested",
+    ebay: { conditionText },
+    productDescriptionText: "Test product description",
+    shippingNotes: "Tracked shipping.",
+  };
+  const draft = generateListingDraft(item, { preferSaved: false });
+  const html = generateHtmlDescription(item, { preferSaved: false });
+
+  assert.equal(generatedConditionText(item), conditionText);
+  assert.match(draft.description, new RegExp(`CONDITION\\n${conditionText}`));
+  assert.doesNotMatch(draft.description, /For parts|Generated condition note|Generated defect note|Not tested/);
+  assert.match(html, /Tested and working\. Good used condition with minor signs of use\./);
+  assert.doesNotMatch(html, /For parts|Generated condition note|Generated defect note|Not tested/);
 });
 
 test("generated key features appear without Merkmale label", () => {

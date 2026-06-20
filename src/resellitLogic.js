@@ -103,6 +103,9 @@ export const emptyItem = {
   language: DEFAULT_LANGUAGE,
   listingLanguage: DEFAULT_LISTING_LANGUAGE,
   listingTitle: "",
+  ebay: {
+    conditionText: "",
+  },
   brand: "",
   model: "",
   sizeSpecs: "",
@@ -189,6 +192,10 @@ export function buyerPlatformLabel(value) {
   return buyerPlatformOptions.find(([key]) => key === value)?.[1] || "eBay";
 }
 
+export function ebayConditionText(item) {
+  return String(item?.ebay?.conditionText ?? item?.conditionText ?? "");
+}
+
 export function normalizeItem(item) {
   const next = { ...emptyItem, ...item };
   const hasLegacyFee = Boolean(next.ebayFees) && !next.manualEbayFee;
@@ -215,6 +222,13 @@ export function normalizeItem(item) {
   next.generatedHtmlDescription = next.generatedHtmlDescription || next.htmlDescription || "";
   next.descriptionText = next.descriptionText || next.generatedPlainDescription || "";
   next.htmlDescription = next.htmlDescription || next.generatedHtmlDescription || "";
+  next.ebay = {
+    ...emptyItem.ebay,
+    ...(next.ebay && typeof next.ebay === "object" ? next.ebay : {}),
+  };
+  if (!String(next.ebay.conditionText || "").trim() && String(next.conditionText || "").trim()) {
+    next.ebay.conditionText = next.conditionText;
+  }
   next.photoChecklist = normalizeBooleanRecord(next.photoChecklist, defaultPhotoChecklist);
   next.defectDisclosure = normalizeBooleanRecord(next.defectDisclosure, defaultDefectDisclosure);
   next.testedStatus = next.testedStatus || "Not specified";
@@ -276,7 +290,7 @@ export function itemStatus(item) {
 }
 
 export function hasListingDraft(item) {
-  return Boolean(item.listingTitle || item.ebayTitle || item.conditionText || item.generatedPlainDescription || item.descriptionText || item.generatedHtmlDescription || item.htmlDescription);
+  return Boolean(item.listingTitle || item.ebayTitle || ebayConditionText(item) || item.generatedPlainDescription || item.descriptionText || item.generatedHtmlDescription || item.htmlDescription);
 }
 
 export function isSoldStatus(item) {
@@ -341,5 +355,5 @@ export function duplicateItemForDraft(item, id) {
 }
 
 export function markListingNeeded(item) {
-  return { ...item, listingTitle: "", ebayTitle: "", conditionText: "", descriptionText: "", htmlDescription: "", generatedPlainDescription: "", generatedHtmlDescription: "" };
+  return { ...item, listingTitle: "", ebayTitle: "", ebay: { ...(item.ebay || {}), conditionText: "" }, conditionText: "", descriptionText: "", htmlDescription: "", generatedPlainDescription: "", generatedHtmlDescription: "" };
 }
