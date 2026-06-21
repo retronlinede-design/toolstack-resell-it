@@ -848,6 +848,36 @@ test("Finance Hub uses tile-driven panels without rendering finance detail conte
   assert.doesNotMatch(source, /financeSections\.map/);
 });
 
+test("Sales Hub uses tile-driven panels without changing sales data ownership", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const \[activeSalesPanel, setActiveSalesPanel\] = useState\(null\);/);
+  assert.match(source, /const salesPanelRef = useRef\(null\);/);
+  assert.match(source, /salesPanelRef\.current\?\.scrollIntoView\(\{ behavior: "smooth", block: "start" \}\);/);
+  assert.match(source, /Track sold items, profits, returns, refunds, and sales activity\./);
+  assert.match(source, /setActiveSalesPanel\("awaiting_shipment"\)/);
+  assert.match(source, /setActiveSalesPanel\("shipped_tracking"\)/);
+  assert.match(source, /setActiveSalesPanel\("completed_sales"\)/);
+  assert.match(source, /setActiveSalesPanel\("returns_refunds"\)/);
+  assert.match(source, /setActiveSalesPanel\("sales_data_gaps"\)/);
+  assert.match(source, /setActiveSalesPanel\("profit_review"\)/);
+  assert.match(source, /openFinanceQueue\("reconciliation"\)/);
+  assert.match(source, /activeSalesPanel && \(/);
+  assert.match(source, /<section ref=\{salesPanelRef\}/);
+  assert.match(source, /onClick=\{\(\) => setActiveSalesPanel\(null\)\}[^>]*>Close<\/button>/);
+  assert.match(source, /salesDataGapQueues\.missingSaleDate/);
+  assert.match(source, /salesDataGapQueues\.missingFinalSalePrice/);
+  assert.match(source, /salesDataGapQueues\.missingPlatformFees/);
+  assert.match(source, /salesDataGapQueues\.missingActualShippingCost/);
+  assert.match(source, /salesDataGapQueues\.missingTracking/);
+  assert.match(source, /salesDataGapQueues\.missingRefundReason/);
+  assert.match(source, /salesProfitReviewQueues\.negativeProfit/);
+  assert.match(source, /salesProfitReviewQueues\.missingFeeShippingData/);
+  assert.match(source, /salesProfitReviewQueues\.highCostOutliers/);
+  assert.match(source, /shippingTrackerGroups\.find/);
+  assert.match(source, /editItem\(item\)/);
+});
+
 test("Tools Compliance Center uses existing readiness data and opens item editor", () => {
   const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 

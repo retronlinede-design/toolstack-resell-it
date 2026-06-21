@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote } from "lucide-react";
+import { Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote, RotateCcw } from "lucide-react";
 import resellItLogo from "./assets/resellitlogo2.png";
 import { ExpenseManager } from "./components/finance/ExpenseManager.jsx";
 import { InventoryTable } from "./components/inventory/InventoryTable.jsx";
@@ -662,6 +662,7 @@ export default function ResellerItApp() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [activeToolPanel, setActiveToolPanel] = useState(null);
   const [activeFinancePanel, setActiveFinancePanel] = useState(null);
+  const [activeSalesPanel, setActiveSalesPanel] = useState(null);
   const [stockSection, setStockSection] = useState("needsAttention");
   const [financeSection, setFinanceSection] = useState("thisMonth");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
@@ -683,6 +684,7 @@ export default function ResellerItApp() {
   const stockColumnResizeRef = useRef(null);
   const toolPanelRef = useRef(null);
   const financePanelRef = useRef(null);
+  const salesPanelRef = useRef(null);
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [stockFilterMenu, setStockFilterMenu] = useState("");
@@ -737,6 +739,11 @@ export default function ResellerItApp() {
     if (activeTab !== "finance" || !activeFinancePanel) return;
     financePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [activeFinancePanel, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== "sales" || !activeSalesPanel) return;
+    salesPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [activeSalesPanel, activeTab]);
 
   useEffect(() => {
     try {
@@ -1013,8 +1020,15 @@ export default function ResellerItApp() {
     if (section === "readyToList") setInventoryStatus("Ready to List");
   }
 
-  function openSalesQueue() {
+  function openSalesQueue(panel = null) {
+    const panelKey = typeof panel === "string" ? panel : null;
     setActiveTab("sales");
+    setActiveSalesPanel({
+      awaitingShipment: "awaiting_shipment",
+      shippedItems: "shipped_tracking",
+      completedSales: "completed_sales",
+      problemItems: "returns_refunds",
+    }[panelKey] || panelKey);
   }
 
   function openFinanceQueue(section) {
@@ -1365,6 +1379,28 @@ export default function ResellerItApp() {
       })],
       ["Returned / Problem", shipmentItems.filter((item) => itemStatusValue(item) === "Returned" || itemStatusValue(item) === "Refunded" || itemStatusValue(item) === "Written Off")],
     ];
+  }, [activeStockItems]);
+
+  const salesDataGapQueues = useMemo(() => {
+    const salesItems = activeStockItems.filter(isSoldStatus);
+    const shippedItems = salesItems.filter((item) => itemStatusValue(item) === "Shipped" || item.shippedDate);
+    return {
+      missingSaleDate: salesItems.filter((item) => !item.saleDate),
+      missingFinalSalePrice: salesItems.filter((item) => !finalSaleValue(item)),
+      missingPlatformFees: salesItems.filter((item) => (item.buyerPlatform || "ebay") === "ebay" && !platformFees(item)),
+      missingActualShippingCost: salesItems.filter((item) => !actualShippingValue(item) && (shippingChargedValue(item) || itemStatusValue(item) === "Shipped" || item.shippedDate)),
+      missingTracking: shippedItems.filter((item) => !item.trackingNumber),
+      missingRefundReason: salesItems.filter((item) => number(item.refundAmount) > 0 && !String(item.refundReason || "").trim()),
+    };
+  }, [activeStockItems]);
+
+  const salesProfitReviewQueues = useMemo(() => {
+    const salesItems = activeStockItems.filter(isSoldStatus);
+    return {
+      negativeProfit: salesItems.filter((item) => itemProfitValue(item) < 0),
+      missingFeeShippingData: salesItems.filter((item) => !platformFees(item) || !actualShippingValue(item)),
+      highCostOutliers: salesItems.filter((item) => actualShippingValue(item) + packagingCostValue(item) > shippingChargedValue(item) && actualShippingValue(item) + packagingCostValue(item) > 0),
+    };
   }, [activeStockItems]);
 
   const sectionSummaries = useMemo(() => {
@@ -1746,7 +1782,7 @@ export default function ResellerItApp() {
               </button>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                 {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
-                  <button key={key} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
+                  <button key={key} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
                     <div className="px-3 py-2.5 lg:px-2.5 lg:py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
@@ -3290,67 +3326,214 @@ export default function ResellerItApp() {
           {activeTab === "sales" && (
             <div className="grid gap-4">
               <div className="rounded-3xl border border-[#e06b2c]/20 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <div className="mb-2 h-1 w-14 rounded-full bg-[#e06b2c]" />
-                    <h2 className="text-xl font-semibold text-neutral-950">Sold Items / Sales & Shipping</h2>
-                    <p className="mt-1 text-sm text-neutral-600">Review sold item bookkeeping, shipping, refunds, and problem orders.</p>
-                  </div>
-                  <p className="rounded-xl border border-[#e06b2c]/20 bg-[#fff7ec] px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[#9c481b]">{salesWorkflow.items.length} sold records</p>
-                </div>
-                <p className="mt-4 rounded-2xl border border-[#eadfce] bg-[#fffaf0] p-3 text-sm leading-6 text-neutral-700">For detailed order status, use eBay. ResellIt stores only the records needed for stock and tax tracking.</p>
+                <div className="mb-4 h-1 w-12 rounded-full bg-[#e06b2c]" />
+                <h2 className="text-2xl font-semibold text-neutral-950">Sales</h2>
+                <p className="mt-1 max-w-2xl text-sm text-neutral-600">Track sold items, profits, returns, refunds, and sales activity.</p>
               </div>
 
-              <div className="grid gap-4">
-                {shippingTrackerGroups.map(([groupLabel, groupItems]) => (
-                  <section key={groupLabel} className="rounded-2xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-sm">
-                    <div className="flex flex-col gap-1 border-b border-[#eadfce] pb-2 sm:flex-row sm:items-center sm:justify-between">
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-[#8a3915]">{groupLabel}</h3>
-                      <span className="text-xs font-semibold text-neutral-500">{groupItems.length} items</span>
+              <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <StatCard icon={Truck} label="Awaiting Shipment" value={salesWorkflow.awaitingShipment.length} accentClass="bg-[#e06b2c]" />
+                <StatCard icon={ShoppingCart} label="Completed Sales" value={salesWorkflow.counts.Completed || 0} accentClass="bg-[#e06b2c]" />
+                <StatCard icon={RotateCcw} label="Returns / Refunds" value={salesWorkflow.problemItems.length} accentClass="bg-[#e06b2c]" />
+                <StatCard icon={Euro} label="Estimated Profit" value={money(summary.profit)} accentClass="bg-[#e06b2c]" />
+              </section>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Fulfillment</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Shipping and tracking work queues.</p>
                     </div>
-                    <div className="mt-3 divide-y divide-[#eadfce] rounded-xl border border-[#eadfce] bg-white">
-                      {groupItems.length === 0 && <p className="p-4 text-sm text-neutral-500">No items to review.</p>}
-                      {groupItems.map((item) => (
-                        <article key={item.id} className="p-3">
-                          <div className="grid gap-3 lg:grid-cols-[1fr_2fr_auto] lg:items-start">
-                            <div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <h4 className="text-sm font-semibold text-neutral-950">{item.name || "Untitled item"}</h4>
-                                <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
-                              </div>
-                              <p className="mt-1 text-xs text-neutral-500">Sold {item.saleDate || "date not set"}</p>
-                              <p className="mt-1 text-xs font-semibold text-neutral-600">{buyerPlatformLabel(item.buyerPlatform)}</p>
-                            </div>
+                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => setActiveSalesPanel("awaiting_shipment")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "awaiting_shipment" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Awaiting Shipment</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Sold, paid, ready to pack, and packed items.</p>
+                    </button>
+                    <button type="button" onClick={() => setActiveSalesPanel("shipped_tracking")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "shipped_tracking" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Shipped / Tracking</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Shipped items, tracking numbers, and carrier info.</p>
+                    </button>
+                  </div>
+                </section>
 
-                            <div className="grid gap-2 text-xs text-neutral-700 sm:grid-cols-3 xl:grid-cols-5">
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Sale price</span>{money(finalSaleValue(item))}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Purchase cost</span>{money(item.purchasePrice)}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Platform fees</span>{money(platformFees(item))}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Buyer shipping</span>{money(shippingChargedValue(item))}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Actual shipping</span>{money(actualShippingValue(item))}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Packaging</span>{money(packagingCostValue(item))}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Refund</span>{refundValue(item) ? money(refundValue(item)) : "-"}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Net profit</span><strong className={itemProfitValue(item) >= 0 ? "text-lime-800" : "text-red-700"}>{money(itemProfitValue(item))}</strong></p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Tracking</span>{item.trackingNumber || "-"}</p>
-                              <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Notes</span>{item.trackingNotes || item.notes || item.refundReason || "-"}</p>
-                            </div>
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Sales Review</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Completed, returned, and profit review queues.</p>
+                    </div>
+                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => setActiveSalesPanel("completed_sales")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "completed_sales" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Completed Sales</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Completed items with sales and profit information.</p>
+                    </button>
+                    <button type="button" onClick={() => setActiveSalesPanel("returns_refunds")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "returns_refunds" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Returns & Refunds</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Returned, refunded, and written-off items.</p>
+                    </button>
+                    <button type="button" onClick={() => setActiveSalesPanel("sales_data_gaps")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "sales_data_gaps" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Sales Data Gaps</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Existing field gaps for sold items.</p>
+                    </button>
+                    <button type="button" onClick={() => setActiveSalesPanel("profit_review")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "profit_review" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Profit Review</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Negative profit, missing costs, and shipping outliers.</p>
+                    </button>
+                  </div>
+                </section>
 
-                            <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                              <button type="button" onClick={() => editItem(item)} className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
-                              <a href={dhlTrackingUrl(item.trackingNumber)} target="_blank" rel="noreferrer" className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${item.trackingNumber ? "bg-[#fff7ec] text-[#8a3915] hover:bg-[#f0be45]/30" : "pointer-events-none bg-neutral-100 text-neutral-400"}`}>Open DHL</a>
-                            </div>
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm xl:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Platform Data</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Use the existing eBay CSV import and reconciliation tools.</p>
+                    </div>
+                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => { setActiveSalesPanel(null); openFinanceQueue("reconciliation"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
+                      <p className="text-sm font-semibold text-orange-950">eBay Reconciliation</p>
+                      <p className="mt-1 text-xs leading-5 text-orange-900/75">Open existing Finance eBay CSV reconciliation.</p>
+                    </button>
+                  </div>
+                </section>
+              </div>
+
+              {activeSalesPanel && (
+                <section ref={salesPanelRef} className="rounded-3xl border border-[#e06b2c]/25 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">Sales Panel</p>
+                      <h3 className="mt-1 text-lg font-semibold text-neutral-950">
+                        {{
+                          awaiting_shipment: "Awaiting Shipment",
+                          shipped_tracking: "Shipped / Tracking",
+                          completed_sales: "Completed Sales",
+                          returns_refunds: "Returns & Refunds",
+                          sales_data_gaps: "Sales Data Gaps",
+                          profit_review: "Profit Review",
+                        }[activeSalesPanel]}
+                      </h3>
+                    </div>
+                    <button type="button" onClick={() => setActiveSalesPanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+                  </div>
+
+                  {["awaiting_shipment", "shipped_tracking", "completed_sales", "returns_refunds"].includes(activeSalesPanel) && (
+                    <div className="grid gap-4">
+                      {[
+                        activeSalesPanel === "awaiting_shipment" && ["Awaiting shipment", shippingTrackerGroups.find(([label]) => label === "Sold not shipped")?.[1] || salesWorkflow.awaitingShipment],
+                        activeSalesPanel === "shipped_tracking" && ["Shipped / Tracking", shippingTrackerGroups.find(([label]) => label === "Shipped / Tracking")?.[1] || salesWorkflow.shippedItems],
+                        activeSalesPanel === "completed_sales" && ["Completed sales", salesWorkflow.items.filter((item) => itemStatusValue(item) === "Completed")],
+                        activeSalesPanel === "returns_refunds" && ["Returns & Refunds", shippingTrackerGroups.find(([label]) => label === "Returned / Problem")?.[1] || salesWorkflow.problemItems],
+                      ].filter(Boolean).map(([groupLabel, groupItems]) => (
+                        <section key={groupLabel} className="rounded-2xl border border-[#eadfce] bg-[#fffaf0] p-4">
+                          <div className="flex flex-col gap-1 border-b border-[#eadfce] pb-2 sm:flex-row sm:items-center sm:justify-between">
+                            <h4 className="text-sm font-semibold uppercase tracking-wide text-[#8a3915]">{groupLabel}</h4>
+                            <span className="text-xs font-semibold text-neutral-500">{groupItems.length} items</span>
                           </div>
-                        </article>
+                          <div className="mt-3 divide-y divide-[#eadfce] rounded-xl border border-[#eadfce] bg-white">
+                            {groupItems.length === 0 && <p className="p-4 text-sm text-neutral-500">No items to review.</p>}
+                            {groupItems.map((item) => (
+                              <article key={item.id} className="p-3">
+                                <div className="grid gap-3 lg:grid-cols-[1fr_2fr_auto] lg:items-start">
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <h4 className="text-sm font-semibold text-neutral-950">{item.name || "Untitled item"}</h4>
+                                      <span className={`rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${statusBadgeClass(item)}`}>{itemStatus(item)}</span>
+                                    </div>
+                                    <p className="mt-1 text-xs text-neutral-500">Sold {item.saleDate || "date not set"}</p>
+                                    <p className="mt-1 text-xs font-semibold text-neutral-600">{buyerPlatformLabel(item.buyerPlatform)}</p>
+                                  </div>
+
+                                  <div className="grid gap-2 text-xs text-neutral-700 sm:grid-cols-3 xl:grid-cols-5">
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Sale price</span>{money(finalSaleValue(item))}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Purchase cost</span>{money(item.purchasePrice)}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Platform fees</span>{money(platformFees(item))}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Buyer shipping</span>{money(shippingChargedValue(item))}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Actual shipping</span>{money(actualShippingValue(item))}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Packaging</span>{money(packagingCostValue(item))}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Refund</span>{refundValue(item) ? money(refundValue(item)) : "-"}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Net profit</span><strong className={itemProfitValue(item) >= 0 ? "text-lime-800" : "text-red-700"}>{money(itemProfitValue(item))}</strong></p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Carrier</span>{item.carrier || "-"}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Tracking</span>{item.trackingNumber || "-"}</p>
+                                  </div>
+
+                                  <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
+                                    <button type="button" onClick={() => editItem(item)} className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
+                                    <a href={dhlTrackingUrl(item.trackingNumber)} target="_blank" rel="noreferrer" className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${item.trackingNumber ? "bg-[#fff7ec] text-[#8a3915] hover:bg-[#f0be45]/30" : "pointer-events-none bg-neutral-100 text-neutral-400"}`}>Open DHL</a>
+                                  </div>
+                                </div>
+                              </article>
+                            ))}
+                          </div>
+                        </section>
                       ))}
                     </div>
-                  </section>
-                ))}
-              </div>
+                  )}
 
-              <div className="rounded-2xl border border-dashed border-[#e06b2c]/35 bg-white p-4">
-                <h3 className="text-sm font-semibold text-neutral-950">eBay Import / Reconciliation coming next</h3>
-                <p className="mt-1 text-sm text-neutral-600">Future imports can reconcile eBay order reports with ResellIt stock, tax proof, and local records.</p>
-              </div>
+                  {activeSalesPanel === "sales_data_gaps" && (
+                    <div className="grid gap-3 lg:grid-cols-2">
+                      {[
+                        ["Missing sale date", salesDataGapQueues.missingSaleDate],
+                        ["Missing final sale price", salesDataGapQueues.missingFinalSalePrice],
+                        ["Missing platform fees", salesDataGapQueues.missingPlatformFees],
+                        ["Missing actual shipping cost", salesDataGapQueues.missingActualShippingCost],
+                        ["Missing tracking for shipped items", salesDataGapQueues.missingTracking],
+                        ["Missing refund reason", salesDataGapQueues.missingRefundReason],
+                      ].map(([label, queue]) => (
+                        <div key={label} className="rounded-2xl border border-stone-200 bg-stone-50 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="text-sm font-semibold text-stone-950">{label}</h4>
+                            <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-stone-600">{queue.length}</span>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {queue.length === 0 && <p className="rounded-xl bg-white p-3 text-sm text-stone-500">No items.</p>}
+                            {queue.map((item) => (
+                              <div key={item.id} className="rounded-xl bg-white p-3">
+                                <p className="text-sm font-semibold text-stone-950">{item.name || "Untitled item"}</p>
+                                <p className="mt-1 text-xs text-stone-500">{itemStatus(item)} / {buyerPlatformLabel(item.buyerPlatform)} / {money(itemProfitValue(item))}</p>
+                                <button type="button" onClick={() => editItem(item)} className="mt-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Open Item</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {activeSalesPanel === "profit_review" && (
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      {[
+                        ["Negative profit items", salesProfitReviewQueues.negativeProfit],
+                        ["Missing fee/shipping data", salesProfitReviewQueues.missingFeeShippingData],
+                        ["High-cost outliers", salesProfitReviewQueues.highCostOutliers],
+                      ].map(([label, queue]) => (
+                        <div key={label} className="rounded-2xl border border-stone-200 bg-stone-50 p-3">
+                          <div className="flex items-center justify-between gap-2">
+                            <h4 className="text-sm font-semibold text-stone-950">{label}</h4>
+                            <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-stone-600">{queue.length}</span>
+                          </div>
+                          <div className="mt-3 space-y-2">
+                            {queue.length === 0 && <p className="rounded-xl bg-white p-3 text-sm text-stone-500">No items.</p>}
+                            {queue.map((item) => (
+                              <div key={item.id} className="rounded-xl bg-white p-3">
+                                <p className="text-sm font-semibold text-stone-950">{item.name || "Untitled item"}</p>
+                                <p className="mt-1 text-xs text-stone-500">Profit {money(itemProfitValue(item))} / Fees {money(platformFees(item))} / Shipping {money(actualShippingValue(item))}</p>
+                                <button type="button" onClick={() => editItem(item)} className="mt-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Open Item</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )}
             </div>
           )}
 
