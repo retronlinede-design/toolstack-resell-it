@@ -793,6 +793,24 @@ test("App item archive and permanent delete controls preserve compliance records
   assert.match(tableSource, /statusLabel\(status\)/);
 });
 
+test("Tools Hub uses tile-driven panels without rendering the generic item list", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const \[activeToolPanel, setActiveToolPanel\] = useState\(null\);/);
+  assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("app_info"\)\}/);
+  assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("help"\)\}/);
+  assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("backup_instructions"\)\}/);
+  assert.match(source, /\{activeToolPanel && \(/);
+  assert.match(source, /activeToolPanel === "app_info"/);
+  assert.match(source, /activeToolPanel === "help"/);
+  assert.match(source, /activeToolPanel === "backup_instructions"/);
+  assert.match(source, /onClick=\{\(\) => setActiveToolPanel\(null\)\}[^>]*>Close<\/button>/);
+  assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); exportJson\(\); \}\}/);
+  assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openStockQueue\("needsAttention", "Missing listing draft"\); \}\}/);
+  assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openFinanceQueue\("reconciliation"\); \}\}/);
+  assert.match(source, /activeTab !== "stock" && activeTab !== "sales" && activeTab !== "tools" && filtered\.map/);
+});
+
 test("seller classification is exposed in editor and inventory records without calculation wiring", () => {
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");

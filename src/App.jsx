@@ -661,6 +661,7 @@ export default function ResellerItApp() {
   });
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeToolPanel, setActiveToolPanel] = useState(null);
   const [stockSection, setStockSection] = useState("needsAttention");
   const [financeSection, setFinanceSection] = useState("thisMonth");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
@@ -3415,11 +3416,11 @@ export default function ResellerItApp() {
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={exportJson} className="rounded-2xl border border-[#1f9d99]/30 bg-[#1f9d99]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/50 hover:bg-[#1f9d99]/15 hover:shadow-sm">
+                    <button type="button" onClick={() => { setActiveToolPanel(null); exportJson(); }} className="rounded-2xl border border-[#1f9d99]/30 bg-[#1f9d99]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/50 hover:bg-[#1f9d99]/15 hover:shadow-sm">
                       <p className="text-sm font-semibold text-neutral-950">Export Backup</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Download all local ResellIt data.</p>
                     </button>
-                    <label className="cursor-pointer rounded-2xl border border-[#1f9d99]/30 bg-[#1f9d99]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/50 hover:bg-[#1f9d99]/15 hover:shadow-sm">
+                    <label className="cursor-pointer rounded-2xl border border-[#1f9d99]/30 bg-[#1f9d99]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/50 hover:bg-[#1f9d99]/15 hover:shadow-sm" onClick={() => setActiveToolPanel(null)}>
                       <span className="block text-sm font-semibold text-neutral-950">Import Backup</span>
                       <span className="mt-1 block text-xs leading-5 text-neutral-600">Restore a local JSON backup.</span>
                       <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
@@ -3482,11 +3483,11 @@ export default function ResellerItApp() {
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={() => openStockQueue("needsAttention", "Missing listing draft")} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
+                    <button type="button" onClick={() => { setActiveToolPanel(null); openStockQueue("needsAttention", "Missing listing draft"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
                       <p className="text-sm font-semibold text-orange-950">Open Listing Queue</p>
                       <p className="mt-1 text-xs leading-5 text-orange-900/75">Show items missing listing drafts.</p>
                     </button>
-                    <button type="button" onClick={() => openFinanceQueue("reconciliation")} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
+                    <button type="button" onClick={() => { setActiveToolPanel(null); openFinanceQueue("reconciliation"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
                       <p className="text-sm font-semibold text-orange-950">Open eBay Import / Reconciliation</p>
                       <p className="mt-1 text-xs leading-5 text-orange-900/75">Open existing CSV import tools.</p>
                     </button>
@@ -3524,26 +3525,65 @@ export default function ResellerItApp() {
                     <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Mixed</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-[#1f9d99]/25 bg-[#1f9d99]/8 p-4 text-left">
+                    <button type="button" onClick={() => setActiveToolPanel("app_info")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "app_info" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
                       <p className="text-sm font-semibold text-neutral-950">App Info</p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">localStorage only. No backend or cloud sync.</p>
-                    </div>
-                    {[
-                      ["Help Guide", "Workflow guide."],
-                      ["Backup Instructions", "Backup and restore notes."],
-                    ].map(([label, description]) => (
-                      <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
-                        <p className="text-sm font-semibold text-stone-700">{label}</p>
-                        <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
-                      </button>
-                    ))}
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Storage and sync status.</p>
+                    </button>
+                    <button type="button" onClick={() => setActiveToolPanel("help")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "help" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Help Guide</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Workflow guide.</p>
+                    </button>
+                    <button type="button" onClick={() => setActiveToolPanel("backup_instructions")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "backup_instructions" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Backup Instructions</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Backup and restore notes.</p>
+                    </button>
                   </div>
                 </section>
               </div>
+
+              {activeToolPanel && (
+                <section className="rounded-3xl border border-[#1f9d99]/25 bg-white p-5 shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide text-[#1f9d99]">Tool Details</p>
+                      {activeToolPanel === "app_info" && (
+                        <>
+                          <h3 className="mt-1 text-lg font-semibold text-neutral-950">App Info</h3>
+                          <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2">
+                            <p className="rounded-2xl bg-stone-50 p-3">ResellIt stores data in this browser using localStorage.</p>
+                            <p className="rounded-2xl bg-stone-50 p-3">No backend or cloud sync is connected.</p>
+                          </div>
+                        </>
+                      )}
+                      {activeToolPanel === "help" && (
+                        <>
+                          <h3 className="mt-1 text-lg font-semibold text-neutral-950">Help Guide</h3>
+                          <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
+                            <p className="rounded-2xl bg-stone-50 p-3">Use Stock Control for item entry and active selling work.</p>
+                            <p className="rounded-2xl bg-stone-50 p-3">Use Finance for expenses, imports, and tax record checks.</p>
+                            <p className="rounded-2xl bg-stone-50 p-3">Use Tools for backups and utility shortcuts.</p>
+                          </div>
+                        </>
+                      )}
+                      {activeToolPanel === "backup_instructions" && (
+                        <>
+                          <h3 className="mt-1 text-lg font-semibold text-neutral-950">Backup Instructions</h3>
+                          <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
+                            <p className="rounded-2xl bg-stone-50 p-3">Export a backup after important inventory, sales, or expense updates.</p>
+                            <p className="rounded-2xl bg-stone-50 p-3">Keep the JSON file somewhere outside the browser.</p>
+                            <p className="rounded-2xl bg-stone-50 p-3">Import replaces current local data after confirmation.</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                    <button type="button" onClick={() => setActiveToolPanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+                  </div>
+                </section>
+              )}
             </div>
           )}
 
-          {activeTab !== "stock" && activeTab !== "sales" && filtered.map((item) => {
+          {activeTab !== "stock" && activeTab !== "sales" && activeTab !== "tools" && filtered.map((item) => {
             const itemProfit = itemProfitValue(item);
             const classification = itemClassification(item);
             const proofExpanded = expandedProofId === item.id;
