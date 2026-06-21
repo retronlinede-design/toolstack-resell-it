@@ -66,6 +66,7 @@ import {
   languageLabel,
   languageOptions,
   normalizeBooleanRecord,
+  normalizeEvidenceRecords,
   normalizeItem,
   normalizeItems,
   normalizeListingLanguageValue,
@@ -361,6 +362,7 @@ function loadInitialItems() {
         items: normalizedData.items,
         expenses: normalizedData.expenses,
         purchaseRecords: normalizedData.purchaseRecords,
+        evidenceRecords: normalizedData.evidenceRecords,
         updatedAt: new Date().toISOString(),
       }));
     }
@@ -399,6 +401,20 @@ function loadInitialPurchaseRecords() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return normalizeRootAppData(parsed).purchaseRecords;
+  } catch {
+    return [];
+  }
+}
+
+function loadInitialEvidenceRecords() {
+  try {
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      raw = localStorage.getItem(OLD_STORAGE_KEY);
+    }
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return normalizeRootAppData(parsed).evidenceRecords;
   } catch {
     return [];
   }
@@ -581,6 +597,7 @@ export default function ResellerItApp() {
   const [items, setItems] = useState(loadInitialItems);
   const [expenses, setExpenses] = useState(loadInitialExpenses);
   const [purchaseRecords, setPurchaseRecords] = useState(loadInitialPurchaseRecords);
+  const [evidenceRecords, setEvidenceRecords] = useState(loadInitialEvidenceRecords);
   const [expenseForm, setExpenseForm] = useState(emptyExpense);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [expenseMonthFilter, setExpenseMonthFilter] = useState(CURRENT_MONTH);
@@ -696,7 +713,8 @@ export default function ResellerItApp() {
   function persist(nextItems) {
     const normalizedItems = normalizeItems(nextItems);
     const normalizedPurchaseRecords = normalizePurchaseRecords(purchaseRecords);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses, purchaseRecords: normalizedPurchaseRecords, updatedAt: new Date().toISOString() });
+    const normalizedEvidenceRecords = normalizeEvidenceRecords(evidenceRecords);
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses, purchaseRecords: normalizedPurchaseRecords, evidenceRecords: normalizedEvidenceRecords, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -706,13 +724,15 @@ export default function ResellerItApp() {
     }
     setItems(normalizedItems);
     setPurchaseRecords(normalizedPurchaseRecords);
+    setEvidenceRecords(normalizedEvidenceRecords);
     return true;
   }
 
-  function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords) {
+  function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords, nextEvidenceRecords = evidenceRecords) {
     const normalizedItems = normalizeItems(nextItems);
     const normalizedPurchaseRecords = normalizePurchaseRecords(nextPurchaseRecords);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: nextExpenses, purchaseRecords: normalizedPurchaseRecords, updatedAt: new Date().toISOString() });
+    const normalizedEvidenceRecords = normalizeEvidenceRecords(nextEvidenceRecords);
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: nextExpenses, purchaseRecords: normalizedPurchaseRecords, evidenceRecords: normalizedEvidenceRecords, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -723,6 +743,7 @@ export default function ResellerItApp() {
     setItems(normalizedItems);
     setExpenses(nextExpenses);
     setPurchaseRecords(normalizedPurchaseRecords);
+    setEvidenceRecords(normalizedEvidenceRecords);
     return true;
   }
 
@@ -950,7 +971,7 @@ export default function ResellerItApp() {
   }
 
   function exportJson() {
-    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 2, items, expenses, purchaseRecords: normalizePurchaseRecords(purchaseRecords), exportedAt: new Date().toISOString() }, null, 2);
+    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 2, items, expenses, purchaseRecords: normalizePurchaseRecords(purchaseRecords), evidenceRecords: normalizeEvidenceRecords(evidenceRecords), exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -983,13 +1004,14 @@ export default function ResellerItApp() {
       const nextItems = normalizedData.items;
       const nextExpenses = normalizedData.expenses;
       const nextPurchaseRecords = normalizedData.purchaseRecords;
+      const nextEvidenceRecords = normalizedData.evidenceRecords;
       const ok = window.confirm(`Restore this ResellIt backup?\n\nCurrent data will be replaced with ${nextItems.length} items and ${nextExpenses.length} expenses.`);
       if (!ok) {
         setBackupMessage("Import cancelled.");
         return;
       }
 
-      if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords)) return;
+      if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords)) return;
       setForm(emptyItem);
       setExpenseForm(emptyExpense);
       setEditingId(null);

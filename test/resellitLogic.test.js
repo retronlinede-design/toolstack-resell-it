@@ -373,6 +373,7 @@ test("sold-only performance excludes unsold inventory from profit", () => {
 test("partial JSON backup payloads are rejected", () => {
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [] }), true);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [], purchaseRecords: [] }), true);
+  assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [], purchaseRecords: [], evidenceRecords: [] }), true);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [] }), false);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", expenses: [] }), false);
   assert.equal(isFullBackupPayload({ type: "OTHER_BACKUP", items: [], expenses: [] }), false);
@@ -391,6 +392,7 @@ test("root app data normalization accepts old backups without purchaseRecords", 
   assert.equal(data.items[0].name, "Legacy item");
   assert.deepEqual(data.expenses, [{ description: "Tape", amount: "3" }]);
   assert.deepEqual(data.purchaseRecords, []);
+  assert.deepEqual(data.evidenceRecords, []);
 });
 
 test("root app data normalization preserves new backup purchaseRecords", () => {
@@ -410,9 +412,33 @@ test("root app data normalization preserves new backup purchaseRecords", () => {
   assert.equal(data.purchaseRecords[0].receiptStatus, "Receipt available");
 });
 
+test("root app data normalization preserves new backup evidenceRecords", () => {
+  const data = normalizeRootAppData({
+    type: "RESELLERIT_BACKUP",
+    version: 2,
+    items: [{ id: "item-1", name: "Item" }],
+    expenses: [],
+    purchaseRecords: [],
+    evidenceRecords: [{ itemId: "item-1", evidenceType: "Invoice", evidenceStatus: "Available", storageType: "metadata_only", title: "Invoice 1" }],
+  });
+
+  assert.equal(data.version, 2);
+  assert.equal(data.evidenceRecords.length, 1);
+  assert.equal(data.evidenceRecords[0].itemId, "item-1");
+  assert.equal(data.evidenceRecords[0].evidenceType, "Invoice");
+  assert.equal(data.evidenceRecords[0].evidenceStatus, "Available");
+  assert.equal(data.evidenceRecords[0].storageType, "metadata_only");
+  assert.equal(data.evidenceRecords[0].title, "Invoice 1");
+});
+
 test("missing purchaseRecords initialize to an empty collection", () => {
   assert.deepEqual(normalizeRootAppData({ items: [], expenses: [] }).purchaseRecords, []);
   assert.deepEqual(normalizeRootAppData({ items: [], expenses: [], purchaseRecords: "bad" }).purchaseRecords, []);
+});
+
+test("missing evidenceRecords initialize to an empty collection", () => {
+  assert.deepEqual(normalizeRootAppData({ items: [], expenses: [] }).evidenceRecords, []);
+  assert.deepEqual(normalizeRootAppData({ items: [], expenses: [], evidenceRecords: "bad" }).evidenceRecords, []);
 });
 
 test("persistence failure guards preserve form/editor state before reset behavior", () => {
@@ -432,6 +458,16 @@ test("App persistence shape includes purchaseRecords without automatic scaffoldi
   assert.match(source, /purchaseRecords: normalizePurchaseRecords\(purchaseRecords\)/);
   assert.match(source, /const nextPurchaseRecords = normalizedData\.purchaseRecords;/);
   assert.doesNotMatch(source, /scaffoldTaxComplianceRecordsFromItems\(/);
+});
+
+test("App persistence shape includes evidenceRecords without automatic evidence migration", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const \[evidenceRecords, setEvidenceRecords\] = useState\(loadInitialEvidenceRecords\);/);
+  assert.match(source, /evidenceRecords: normalizedEvidenceRecords/);
+  assert.match(source, /evidenceRecords: normalizeEvidenceRecords\(evidenceRecords\)/);
+  assert.match(source, /const nextEvidenceRecords = normalizedData\.evidenceRecords;/);
+  assert.doesNotMatch(source, /evidenceRecordFromLegacyItem\(/);
 });
 
 test("duplicate draft clears sale, shipping, refund, fee, tracking, platform fields", () => {

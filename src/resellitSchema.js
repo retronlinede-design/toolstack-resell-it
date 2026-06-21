@@ -389,6 +389,7 @@ export function normalizeRootAppData(data, fallbackItems = []) {
     items: Array.isArray(parsed.items) ? normalizeItems(parsed.items) : normalizeItems(fallbackItems),
     expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
     purchaseRecords: normalizePurchaseRecords(parsed.purchaseRecords),
+    evidenceRecords: normalizeEvidenceRecords(parsed.evidenceRecords),
     updatedAt: String(parsed.updatedAt || ""),
   };
 }
