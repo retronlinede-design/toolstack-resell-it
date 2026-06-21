@@ -800,15 +800,35 @@ test("Tools Hub uses tile-driven panels without rendering the generic item list"
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("app_info"\)\}/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("help"\)\}/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("backup_instructions"\)\}/);
+  assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("compliance_center"\)\}/);
   assert.match(source, /\{activeToolPanel && \(/);
   assert.match(source, /activeToolPanel === "app_info"/);
   assert.match(source, /activeToolPanel === "help"/);
   assert.match(source, /activeToolPanel === "backup_instructions"/);
+  assert.match(source, /activeToolPanel === "compliance_center"/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\(null\)\}[^>]*>Close<\/button>/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); exportJson\(\); \}\}/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openStockQueue\("needsAttention", "Missing listing draft"\); \}\}/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openFinanceQueue\("reconciliation"\); \}\}/);
   assert.match(source, /activeTab !== "stock" && activeTab !== "sales" && activeTab !== "tools" && filtered\.map/);
+});
+
+test("Tools Compliance Center uses existing readiness data and opens item editor", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const complianceIssueQueues = useMemo\(\(\) => {/);
+  assert.match(source, /readiness\.issues\.includes\("purchase_record_missing"\)/);
+  assert.match(source, /readiness\.issues\.includes\("evidence_missing"\)/);
+  assert.match(source, /readiness\.issues\.includes\("eigenbeleg_missing"\)/);
+  assert.match(source, /\["Ready", complianceSummary\.ready\]/);
+  assert.match(source, /\["Incomplete", complianceSummary\.incomplete\]/);
+  assert.match(source, /\["Needs Eigenbeleg", complianceSummary\.needsEigenbeleg\]/);
+  assert.match(source, /\["Not applicable", complianceSummary\.notApplicable\]/);
+  assert.match(source, /\["Missing Purchase Records", complianceIssueQueues\.missingPurchaseRecords\]/);
+  assert.match(source, /\["Missing Evidence", complianceIssueQueues\.missingEvidence\]/);
+  assert.match(source, /\["Needs Eigenbeleg", complianceIssueQueues\.needsEigenbeleg\]/);
+  assert.match(source, /sellerClassificationLabel\(item\.sellerClassification\)/);
+  assert.match(source, /onClick=\{\(\) => editItem\(item\)\}[^>]*>Open Item<\/button>/);
 });
 
 test("seller classification is exposed in editor and inventory records without calculation wiring", () => {

@@ -1262,6 +1262,17 @@ export default function ResellerItApp() {
       getItemTaxReadiness(item, purchaseRecords, evidenceRecords, eigenbelege),
     ]))
   ), [eigenbelege, evidenceRecords, items, purchaseRecords]);
+  const complianceIssueQueues = useMemo(() => {
+    const entries = items.map((item) => ({
+      item,
+      readiness: complianceReadinessByItemId[item.id] || getItemTaxReadiness(item, purchaseRecords, evidenceRecords, eigenbelege),
+    }));
+    return {
+      missingPurchaseRecords: entries.filter(({ readiness }) => readiness.issues.includes("purchase_record_missing")).map(({ item }) => item),
+      missingEvidence: entries.filter(({ readiness }) => readiness.issues.includes("evidence_missing")).map(({ item }) => item),
+      needsEigenbeleg: entries.filter(({ readiness }) => readiness.issues.includes("eigenbeleg_missing")).map(({ item }) => item),
+    };
+  }, [complianceReadinessByItemId, eigenbelege, evidenceRecords, items, purchaseRecords]);
   const formTaxReadiness = useMemo(() => (
     getItemTaxReadiness(form, purchaseRecords, evidenceRecords, eigenbelege)
   ), [eigenbelege, evidenceRecords, form, purchaseRecords]);
@@ -3457,13 +3468,14 @@ export default function ResellerItApp() {
                       <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Issues</h3>
                       <p className="mt-1 text-xs text-neutral-500">Data quality checks.</p>
                     </div>
-                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Coming soon</span>
+                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => setActiveToolPanel("compliance_center")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "compliance_center" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Compliance Center</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Review item readiness queues.</p>
+                    </button>
                     {[
-                      ["Missing Purchase Records", "Find items without purchase records."],
-                      ["Missing Evidence", "Find records without evidence."],
-                      ["Needs Eigenbeleg", "Find self-receipt tasks."],
                       ["Unmatched eBay Transactions", "Find imports needing matching."],
                     ].map(([label, description]) => (
                       <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
@@ -3572,6 +3584,48 @@ export default function ResellerItApp() {
                             <p className="rounded-2xl bg-stone-50 p-3">Export a backup after important inventory, sales, or expense updates.</p>
                             <p className="rounded-2xl bg-stone-50 p-3">Keep the JSON file somewhere outside the browser.</p>
                             <p className="rounded-2xl bg-stone-50 p-3">Import replaces current local data after confirmation.</p>
+                          </div>
+                        </>
+                      )}
+                      {activeToolPanel === "compliance_center" && (
+                        <>
+                          <h3 className="mt-1 text-lg font-semibold text-neutral-950">Compliance Center</h3>
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            {[
+                              ["Ready", complianceSummary.ready],
+                              ["Incomplete", complianceSummary.incomplete],
+                              ["Needs Eigenbeleg", complianceSummary.needsEigenbeleg],
+                              ["Not applicable", complianceSummary.notApplicable],
+                            ].map(([label, value]) => (
+                              <div key={label} className="rounded-2xl bg-stone-50 p-3">
+                                <p className="text-xs font-semibold text-stone-500">{label}</p>
+                                <p className="mt-1 text-xl font-semibold text-stone-950">{value}</p>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                            {[
+                              ["Missing Purchase Records", complianceIssueQueues.missingPurchaseRecords],
+                              ["Missing Evidence", complianceIssueQueues.missingEvidence],
+                              ["Needs Eigenbeleg", complianceIssueQueues.needsEigenbeleg],
+                            ].map(([label, queue]) => (
+                              <div key={label} className="rounded-2xl border border-stone-200 bg-stone-50 p-3">
+                                <div className="flex items-center justify-between gap-2">
+                                  <h4 className="text-sm font-semibold text-stone-950">{label}</h4>
+                                  <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-stone-600">{queue.length}</span>
+                                </div>
+                                <div className="mt-3 space-y-2">
+                                  {queue.length === 0 && <p className="rounded-xl bg-white p-3 text-sm text-stone-500">No items.</p>}
+                                  {queue.map((item) => (
+                                    <div key={item.id} className="rounded-xl bg-white p-3">
+                                      <p className="text-sm font-semibold text-stone-950">{item.name || "Untitled item"}</p>
+                                      <p className="mt-1 text-xs text-stone-500">{sellerClassificationLabel(item.sellerClassification)}</p>
+                                      <button type="button" onClick={() => editItem(item)} className="mt-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Open Item</button>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </>
                       )}
