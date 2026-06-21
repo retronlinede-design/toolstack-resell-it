@@ -70,6 +70,7 @@ import {
   languageLabel,
   languageOptions,
   normalizeBooleanRecord,
+  normalizeEigenbeleg,
   normalizeEvidenceRecords,
   normalizeEigenbelege,
   normalizeItem,
@@ -649,6 +650,12 @@ export default function ResellerItApp() {
   const [csvPreview, setCsvPreview] = useState(null);
   const [csvError, setCsvError] = useState("");
   const [form, setForm] = useState(emptyItem);
+  const [draftEigenbelegForm, setDraftEigenbelegForm] = useState({
+    id: "",
+    reasonNoReceipt: "",
+    sellerDescription: "",
+    acquisitionDescription: "",
+  });
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [stockSection, setStockSection] = useState("needsAttention");
@@ -816,6 +823,42 @@ export default function ResellerItApp() {
       : [draft, ...eigenbelege];
     if (!persistEigenbelege(nextEigenbelege)) return;
     setToastMessage("Draft Eigenbeleg generated.");
+  }
+
+  function regenerateDraftEigenbeleg(itemId) {
+    const item = items.find((entry) => entry.id === itemId);
+    const existingDraft = eigenbelege.find((entry) => entry.itemId === itemId && ["draft", "Draft"].includes(entry.status));
+    if (!item || !existingDraft) return;
+    const draft = {
+      ...createDraftEigenbelegForItem(item, purchaseRecords, evidenceRecords),
+      id: existingDraft.id,
+      createdAt: existingDraft.createdAt,
+      updatedAt: new Date().toISOString(),
+    };
+    const nextEigenbelege = eigenbelege.map((entry) => (entry.id === existingDraft.id ? draft : entry));
+    if (!persistEigenbelege(nextEigenbelege)) return;
+    setDraftEigenbelegForm({
+      id: draft.id,
+      reasonNoReceipt: draft.reasonNoReceipt,
+      sellerDescription: draft.sellerDescription,
+      acquisitionDescription: draft.acquisitionDescription,
+    });
+    setToastMessage("Draft Eigenbeleg regenerated.");
+  }
+
+  function saveDraftEigenbeleg() {
+    const existingDraft = eigenbelege.find((entry) => entry.id === currentDraftEigenbeleg?.id && ["draft", "Draft"].includes(entry.status));
+    if (!existingDraft) return;
+    const updatedDraft = normalizeEigenbeleg({
+      ...existingDraft,
+      reasonNoReceipt: draftEigenbelegValues.reasonNoReceipt,
+      sellerDescription: draftEigenbelegValues.sellerDescription,
+      acquisitionDescription: draftEigenbelegValues.acquisitionDescription,
+      updatedAt: new Date().toISOString(),
+    });
+    const nextEigenbelege = eigenbelege.map((entry) => (entry.id === updatedDraft.id ? updatedDraft : entry));
+    if (!persistEigenbelege(nextEigenbelege)) return;
+    setToastMessage("Draft Eigenbeleg saved.");
   }
 
   function saveCurrentItem() {
@@ -1200,6 +1243,16 @@ export default function ResellerItApp() {
   const formTaxReadiness = useMemo(() => (
     getItemTaxReadiness(form, purchaseRecords, evidenceRecords, eigenbelege)
   ), [eigenbelege, evidenceRecords, form, purchaseRecords]);
+  const currentDraftEigenbeleg = eigenbelege.find((entry) => entry.itemId === form.id && ["draft", "Draft"].includes(entry.status)) || null;
+  const currentDraftPurchaseRecord = purchaseRecords.find((record) => record.id === currentDraftEigenbeleg?.purchaseRecordId) || null;
+  const draftEigenbelegValues = currentDraftEigenbeleg && draftEigenbelegForm.id === currentDraftEigenbeleg.id
+    ? draftEigenbelegForm
+    : {
+        id: currentDraftEigenbeleg?.id || "",
+        reasonNoReceipt: currentDraftEigenbeleg?.reasonNoReceipt || "",
+        sellerDescription: currentDraftEigenbeleg?.sellerDescription || "",
+        acquisitionDescription: currentDraftEigenbeleg?.acquisitionDescription || "",
+      };
 
   const classificationCounts = useMemo(() => (
     classificationOptions.reduce((counts, classification) => {
@@ -1753,7 +1806,7 @@ export default function ResellerItApp() {
                 <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-sm font-semibold text-stone-950">Compliance Status</h3>
                   <div className="flex flex-wrap items-center gap-2">
-                    {form.id && isBusinessRelevant(form) && formTaxReadiness.eigenbelegRequired && (
+                    {form.id && isBusinessRelevant(form) && formTaxReadiness.eigenbelegRequired && !currentDraftEigenbeleg && (
                       <button type="button" onClick={() => generateDraftEigenbeleg(form.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Generate Draft Eigenbeleg</button>
                     )}
                     <span className="w-fit rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-semibold text-stone-700">{taxReadinessStatusLabel(formTaxReadiness.status)}</span>
@@ -1775,6 +1828,45 @@ export default function ResellerItApp() {
                     </div>
                   ))}
                 </div>
+                {currentDraftEigenbeleg && (
+                  <div className="mt-4 space-y-3 rounded-2xl border border-stone-200 bg-stone-50 p-3">
+                    <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                      {[
+                        ["Draft status", currentDraftEigenbeleg.status],
+                        ["Generated date", currentDraftEigenbeleg.createdAt || currentDraftEigenbeleg.updatedAt || "-"],
+                        ["Linked purchase record", currentDraftPurchaseRecord?.id || currentDraftEigenbeleg.purchaseRecordId || "None"],
+                        ["Linked item", form.name || currentDraftEigenbeleg.itemId || "-"],
+                      ].map(([label, value]) => (
+                        <div key={label} className="rounded-xl bg-white p-2">
+                          <p className="text-xs text-stone-500">{label}</p>
+                          <p className="mt-0.5 break-words font-semibold text-stone-900">{value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="grid gap-3 lg:grid-cols-3">
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Reason no receipt</span>
+                        <textarea value={draftEigenbelegValues.reasonNoReceipt} onChange={(event) => setDraftEigenbelegForm({ ...draftEigenbelegValues, reasonNoReceipt: event.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Seller description</span>
+                        <textarea value={draftEigenbelegValues.sellerDescription} onChange={(event) => setDraftEigenbelegForm({ ...draftEigenbelegValues, sellerDescription: event.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                      </label>
+                      <label className="block">
+                        <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Acquisition description</span>
+                        <textarea value={draftEigenbelegValues.acquisitionDescription} onChange={(event) => setDraftEigenbelegForm({ ...draftEigenbelegValues, acquisitionDescription: event.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
+                      </label>
+                    </div>
+                    <div className="rounded-xl bg-white p-3">
+                      <p className="text-xs font-semibold text-stone-500">Generated text</p>
+                      <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs leading-5 text-stone-800">{currentDraftEigenbeleg.generatedText || "-"}</pre>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button" onClick={() => regenerateDraftEigenbeleg(form.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Regenerate Draft</button>
+                      <button type="button" onClick={saveDraftEigenbeleg} className="rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-amber-50 hover:bg-stone-800">Save Draft</button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid gap-2 rounded-3xl border border-stone-200 bg-white p-2 shadow-sm sm:grid-cols-2">

@@ -728,6 +728,29 @@ test("App draft Eigenbeleg action updates existing drafts without overwriting fi
   assert.match(source, /: \[draft, \.\.\.eigenbelege\];/);
 });
 
+test("App exposes draft Eigenbeleg preview, editing, saving, and regeneration only for drafts", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const \[draftEigenbelegForm, setDraftEigenbelegForm\] = useState/);
+  assert.match(source, /const currentDraftEigenbeleg = eigenbelege\.find\(\(entry\) => entry\.itemId === form\.id && \["draft", "Draft"\]\.includes\(entry\.status\)\) \|\| null;/);
+  assert.match(source, /const draftEigenbelegValues = currentDraftEigenbeleg && draftEigenbelegForm\.id === currentDraftEigenbeleg\.id/);
+  assert.match(source, /function regenerateDraftEigenbeleg\(itemId\) {/);
+  assert.match(source, /const existingDraft = eigenbelege\.find\(\(entry\) => entry\.itemId === itemId && \["draft", "Draft"\]\.includes\(entry\.status\)\);/);
+  assert.match(source, /function saveDraftEigenbeleg\(\) {/);
+  assert.match(source, /const existingDraft = eigenbelege\.find\(\(entry\) => entry\.id === currentDraftEigenbeleg\?\.id && \["draft", "Draft"\]\.includes\(entry\.status\)\);/);
+  assert.match(source, /Draft status/);
+  assert.match(source, /Generated date/);
+  assert.match(source, /Linked purchase record/);
+  assert.match(source, /Linked item/);
+  assert.match(source, /Reason no receipt/);
+  assert.match(source, /Seller description/);
+  assert.match(source, /Acquisition description/);
+  assert.match(source, /Generated text/);
+  assert.match(source, /Regenerate Draft/);
+  assert.match(source, /Save Draft/);
+  assert.doesNotMatch(source, /Finalize Draft|Generate PDF|PDF button/);
+});
+
 test("seller classification is exposed in editor and inventory records without calculation wiring", () => {
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
