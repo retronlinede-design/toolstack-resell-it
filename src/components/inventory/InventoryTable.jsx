@@ -23,13 +23,13 @@ export function InventoryTable({
   complianceReadinessByItemId,
   complianceStatusLabel,
   sellerClassificationLabel,
+  statusLabel,
   statusOptions,
   stockColumnLabelMap,
   money,
   isSoldStatus,
   quickProofStatus,
   needsProofRecord,
-  itemStatus,
   itemProfitValue,
   stockResizeHandle,
   onOpenNewItemEditor,
@@ -133,7 +133,7 @@ export function InventoryTable({
               {stockFilterMenu === "search" && <Input label="Search" value={inventorySearch} onChange={(e) => onSetInventorySearch(e.target.value)} placeholder="Name, category, source, title..." />}
               {stockFilterMenu === "group" && <Select label="Group by" value={inventoryTimelineGrouping} onChange={(e) => onSetInventoryTimelineGrouping(e.target.value)}><option>Month</option><option>Week</option><option>Year</option><option>Ungrouped</option></Select>}
               {stockFilterMenu === "classification" && <Select label="Classification" value={inventoryClassification} onChange={(e) => onSetInventoryClassification(e.target.value)}><option>All classifications</option>{classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}</Select>}
-              {stockFilterMenu === "status" && <Select label="Status" value={inventoryStatus} onChange={(e) => onSetInventoryStatus(e.target.value)}><option>All statuses</option>{statusOptions.map((status) => <option key={status}>{status}</option>)}</Select>}
+              {stockFilterMenu === "status" && <Select label="Status" value={inventoryStatus} onChange={(e) => onSetInventoryStatus(e.target.value)}><option>All statuses</option>{statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</Select>}
               {stockFilterMenu === "date" && <Input label="Month filter" type="month" value={inventoryTimelineMonth} onChange={(e) => onSetInventoryTimelineMonth(e.target.value)} />}
               {stockFilterMenu === "view" && <Select label="View" value={stockViewMode} onChange={(e) => onSetStockViewMode(e.target.value)}><option>Compact view</option><option>Detailed view</option></Select>}
             </div>
@@ -186,8 +186,8 @@ export function InventoryTable({
                             <textarea value={item.name || ""} onChange={(e) => onUpdateItemField(item.id, "name", e.target.value)} title={item.name || ""} rows={1} className={`${inputClass} min-w-0 resize-none overflow-hidden whitespace-normal break-words font-semibold leading-5`} placeholder="Item name" />
                           </td>
                           <td className="px-1 py-0.5" style={{ width: stockColumnWidths.status }}>
-                            <select value={itemStatus(item)} onChange={(e) => onUpdateItemField(item.id, "status", e.target.value)} className={inputClass}>
-                              {statusOptions.map((status) => <option key={status}>{status}</option>)}
+                            <select value={item.status || "Draft"} onChange={(e) => onUpdateItemField(item.id, "status", e.target.value)} className={inputClass}>
+                              {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
                             </select>
                           </td>
                           <td className="px-1 py-0.5" style={{ width: stockColumnWidths.seller }}>

@@ -69,11 +69,15 @@ export const defaultPhotoChecklist = Object.fromEntries(photoChecklistItems.map(
 export const defaultDefectDisclosure = Object.fromEntries(defectDisclosureItems.map(([key]) => [key, false]));
 
 export const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
-export const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded", "Written Off"];
+export const PERSONAL_COLLECTION_STATUS = "personal_collection";
+export const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded", "Written Off", PERSONAL_COLLECTION_STATUS];
+export const statusLabels = {
+  [PERSONAL_COLLECTION_STATUS]: "Personal Collection",
+};
 export const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Refunded"];
 export const shippingWorkflowStatuses = ["Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded"];
 export const soldStatusOptions = ["Sold", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Returned", "Refunded"];
-export const legacyStatusLabels = { "Written off": "Written Off", "Kept private": "Completed" };
+export const legacyStatusLabels = { "Written off": "Written Off", "Kept private": "Completed", "Personal Collection": PERSONAL_COLLECTION_STATUS };
 
 export const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
 export const researchConfidenceOptions = ["low", "medium", "high"];
@@ -299,6 +303,18 @@ export function sellerClassificationLabel(value) {
   return sellerClassificationOptions.find(([key]) => key === value)?.[1] || "Private Sale";
 }
 
+export function statusLabel(value) {
+  return statusLabels[value] || value || "Draft";
+}
+
+export function itemStatusValue(item) {
+  return legacyStatusLabels[item?.status] || item?.status || "Draft";
+}
+
+export function isActiveStockItem(item) {
+  return itemStatusValue(item) !== PERSONAL_COLLECTION_STATUS;
+}
+
 export function isBusinessRelevant(item) {
   const normalized = normalizeItem(item);
   return normalized.sellerClassification === "pre_registration" || normalized.sellerClassification === "business";
@@ -394,6 +410,7 @@ export function normalizeItem(item) {
   }
   if (!buyerPlatformOptions.some(([key]) => key === next.buyerPlatform)) next.buyerPlatform = "ebay";
   if (!soldStatusOptions.includes(next.status) && legacyStatusLabels[next.status]) next.status = legacyStatusLabels[next.status];
+  if (next.status === statusLabel(PERSONAL_COLLECTION_STATUS)) next.status = PERSONAL_COLLECTION_STATUS;
   return next;
 }
 

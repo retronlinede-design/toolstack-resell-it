@@ -39,6 +39,8 @@ import {
   scaffoldTaxComplianceRecordsFromItems,
   sellerClassificationLabel,
   sellerClassificationOptions,
+  statusLabel,
+  statusOptions,
   validateEigenbeleg,
   validateEvidenceRecord,
   validatePurchaseRecord,
@@ -48,8 +50,11 @@ import {
   duplicateItemForDraft,
   ebayConditionText,
   hasListingDraft,
+  isActiveStockItem,
   isFullBackupPayload,
   isSoldStatus,
+  itemStatus,
+  itemStatusValue,
   markListingNeeded,
   normalizeItem,
   platformFees,
@@ -181,6 +186,25 @@ test("seller classification defaults and labels remain stable", () => {
   assert.equal(sellerClassificationLabel("business"), "Business Stock");
   assert.equal(sellerClassificationLabel("excluded"), "Excluded");
   assert.equal(sellerClassificationLabel("bad"), "Private Sale");
+});
+
+test("personal_collection status normalizes and displays correctly", () => {
+  assert.ok(statusOptions.includes("personal_collection"));
+  assert.equal(statusLabel("personal_collection"), "Personal Collection");
+
+  const item = normalizeSchemaItem({ name: "Archive item", status: "personal_collection" });
+  assert.equal(item.status, "personal_collection");
+  assert.equal(itemStatusValue(item), "personal_collection");
+  assert.equal(itemStatus(item), "Personal Collection");
+
+  const legacyItem = normalizeSchemaItem({ name: "Legacy archive item", status: "Personal Collection" });
+  assert.equal(legacyItem.status, "personal_collection");
+});
+
+test("personal_collection items are excluded from active stock helpers", () => {
+  assert.equal(isActiveStockItem({ status: "Draft" }), true);
+  assert.equal(isActiveStockItem({ status: "personal_collection" }), false);
+  assert.equal(isActiveStockItem(normalizeSchemaItem({ status: "Personal Collection" })), false);
 });
 
 test("schema normalization migrates legacy conditionText into ebay.conditionText", () => {
@@ -749,6 +773,24 @@ test("App exposes draft Eigenbeleg preview, editing, saving, and regeneration on
   assert.match(source, /Regenerate Draft/);
   assert.match(source, /Save Draft/);
   assert.doesNotMatch(source, /Finalize Draft|Generate PDF|PDF button/);
+});
+
+test("App item archive and permanent delete controls preserve compliance records except linked drafts", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /function moveItemToPersonalCollection\(\) {/);
+  assert.match(source, /status: "personal_collection"/);
+  assert.match(source, /Move to Personal Collection/);
+  assert.match(source, /Delete Permanently/);
+  assert.match(source, /window\.confirm/);
+  assert.match(source, /const nextItems = items\.filter\(\(entry\) => entry\.id !== id\);/);
+  assert.match(source, /const nextEigenbelege = eigenbelege\.filter\(\(entry\) => entry\.itemId !== id \|\| !\["draft", "Draft"\]\.includes\(entry\.status\)\);/);
+  assert.match(source, /persistAll\(nextItems, expenses, purchaseRecords, evidenceRecords, nextEigenbelege\)/);
+  assert.doesNotMatch(source, /purchaseRecords\.filter\(\(.*itemId !== id/s);
+  assert.doesNotMatch(source, /evidenceRecords\.filter\(\(.*itemId !== id/s);
+  assert.match(source, /!isActiveStockItem\(item\) && !query && inventoryStatus !== "personal_collection"/);
+  assert.match(tableSource, /statusLabel\(status\)/);
 });
 
 test("seller classification is exposed in editor and inventory records without calculation wiring", () => {

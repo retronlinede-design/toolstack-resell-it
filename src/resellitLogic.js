@@ -2,9 +2,10 @@ import {
   DEFAULT_EBAY_FEE_MODE,
   ebayConditionText,
   emptyItem,
-  legacyStatusLabels,
   number,
+  itemStatusValue,
   soldStatusOptions,
+  statusLabel,
 } from "./resellitSchema.js";
 
 export {
@@ -33,6 +34,7 @@ export {
   quickStatusOptions,
   shippingWorkflowStatuses,
   soldStatusOptions,
+  PERSONAL_COLLECTION_STATUS,
   legacyStatusLabels,
   expenseCategories,
   researchConfidenceOptions,
@@ -44,6 +46,9 @@ export {
   inYear,
   itemClassification,
   sellerClassificationLabel,
+  statusLabel,
+  itemStatusValue,
+  isActiveStockItem,
   isBusinessRelevant,
   itemRequiresEigenbeleg,
   getItemTaxReadiness,
@@ -98,7 +103,7 @@ export function itemProfitValue(item) {
 }
 
 export function itemStatus(item) {
-  return legacyStatusLabels[item.status] || item.status || "Draft";
+  return statusLabel(itemStatusValue(item));
 }
 
 export function hasListingDraft(item) {
@@ -106,7 +111,7 @@ export function hasListingDraft(item) {
 }
 
 export function isSoldStatus(item) {
-  return soldStatusOptions.includes(itemStatus(item)) || finalSaleValue(item) > 0;
+  return soldStatusOptions.includes(itemStatusValue(item)) || finalSaleValue(item) > 0;
 }
 
 export function sanitizeHtmlPreview(value) {
