@@ -83,7 +83,6 @@ import {
   number,
   photoChecklistItems,
   proofTypes,
-  quickStatusOptions,
   sellerClassificationLabel,
   sellerClassificationOptions,
   statusLabel,
@@ -174,7 +173,6 @@ const classificationHelp = [
 const workflowSections = [
   ["source", "Source", Package, "Purchase source, identity, and cost"],
   ["listing", "Prepare Listing", ClipboardList, "Product details, condition, and eBay copy"],
-  ["sale", "Sell & Ship", Truck, "Sale, fees, shipping, and status"],
   ["proof", "Tax Record", ReceiptText, "Proof, receipts, and Eigenbeleg"],
   ["notes", "Notes", StickyNote, "Defects, included items, and metadata"],
 ];
@@ -182,7 +180,7 @@ const advancedFormSections = [
   ["basic", "Basic Info", Info, "Name, category, classification, status", "border-[#b7412e] bg-[#b7412e] text-[#fff7e8] ring-[#b7412e]/20", "hover:border-[#b7412e]/50 hover:bg-[#b7412e]/12", "text-[#b7412e]"],
   ["sourcing", "Sourcing", Package, "Source, location, purchase, payment", "border-[#b7412e] bg-[#b7412e] text-[#fff7e8] ring-[#b7412e]/20", "hover:border-[#b7412e]/50 hover:bg-[#b7412e]/12", "text-[#b7412e]"],
   ["pricing", "Pricing", Search, "Research, prices, fee settings", "border-[#f0be45] bg-[#f0be45] text-[#24110e] ring-[#f0be45]/25", "hover:border-[#f0be45]/60 hover:bg-[#f0be45]/18", "text-[#b88918]"],
-  ["sale", "Sale & Shipping", Truck, "Final sale and shipping numbers", "border-[#e06b2c] bg-[#e06b2c] text-[#24110e] ring-[#e06b2c]/20", "hover:border-[#e06b2c]/55 hover:bg-[#e06b2c]/15", "text-[#e06b2c]"],
+  ["sale", "Advanced Sale Fields", Truck, "Final sale and refund numbers", "border-[#e06b2c] bg-[#e06b2c] text-[#24110e] ring-[#e06b2c]/20", "hover:border-[#e06b2c]/55 hover:bg-[#e06b2c]/15", "text-[#e06b2c]"],
   ["proof", "Proof / Receipts", ReceiptText, "Proof status and file references", "border-[#b7412e] bg-[#b7412e] text-[#fff7e8] ring-[#b7412e]/20", "hover:border-[#b7412e]/50 hover:bg-[#b7412e]/12", "text-[#b7412e]"],
   ["listing", "Listing Studio", ClipboardList, "Listing copy, HTML, and research links", "border-[#e06b2c] bg-[#e06b2c] text-[#24110e] ring-[#e06b2c]/20", "hover:border-[#e06b2c]/55 hover:bg-[#e06b2c]/15", "text-[#e06b2c]"],
   ["notes", "Notes", StickyNote, "General notes and extra context", "border-[#1f9d99] bg-[#1f9d99] text-[#062f2d] ring-[#1f9d99]/20", "hover:border-[#1f9d99]/55 hover:bg-[#1f9d99]/15", "text-[#1f9d99]"],
@@ -190,7 +188,7 @@ const advancedFormSections = [
 
 const modules = [
   ["stock", "Stock Control", "bg-[#b7412e]", "text-[#b7412e]", "text-[#fff7e8]", "border-[#b7412e]/45 bg-[#b7412e]/18", "hover:border-[#b7412e]/40 hover:bg-[#b7412e]/12"],
-  ["sales", "Sales & Shipping", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#fff7e8]", "border-[#e06b2c]/45 bg-[#e06b2c]/18", "hover:border-[#e06b2c]/40 hover:bg-[#e06b2c]/12"],
+  ["sales", "Sales", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#fff7e8]", "border-[#e06b2c]/45 bg-[#e06b2c]/18", "hover:border-[#e06b2c]/40 hover:bg-[#e06b2c]/12"],
   ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#fff7e8]", "border-[#f0be45]/45 bg-[#f0be45]/16", "hover:border-[#f0be45]/45 hover:bg-[#f0be45]/12"],
   ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12"],
 ];
@@ -655,6 +653,7 @@ export default function ResellerItApp() {
   const [activeToolPanel, setActiveToolPanel] = useState(null);
   const [activeFinancePanel, setActiveFinancePanel] = useState(null);
   const [activeSalesPanel, setActiveSalesPanel] = useState(null);
+  const [salesEditItemId, setSalesEditItemId] = useState(null);
   const [stockSection, setStockSection] = useState("needsAttention");
   const [financeSection, setFinanceSection] = useState("thisMonth");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
@@ -1015,6 +1014,7 @@ export default function ResellerItApp() {
   function openSalesQueue(panel = null) {
     const panelKey = typeof panel === "string" ? panel : null;
     setActiveTab("sales");
+    setSalesEditItemId(null);
     setActiveSalesPanel({
       awaitingShipment: "sold_items",
       shippedItems: "sold_items",
@@ -1084,6 +1084,10 @@ export default function ResellerItApp() {
 
   function updateItemField(id, field, value) {
     persist(items.map((item) => (item.id === id ? { ...item, [field]: value } : item)));
+  }
+
+  function updateItemFields(id, fields) {
+    persist(items.map((item) => (item.id === id ? { ...item, ...fields } : item)));
   }
 
   function startStockColumnResize(key, event) {
@@ -1485,6 +1489,8 @@ export default function ResellerItApp() {
   const previousWorkflowStep = workflowSections[activeWorkflowIndex - 1];
   const nextWorkflowStep = workflowSections[activeWorkflowIndex + 1];
   const activeItemFormMode = activeWorkflowSection === "listing" ? "listing" : "inventory";
+  const salesEditItem = salesEditItemId ? items.find((item) => item.id === salesEditItemId) : null;
+  const salesStatusOptions = ["Sold", "Shipped", "Complete", "Returned"];
 
   const stockSectionItems = useMemo(() => {
     if (stockSection === "needsAttention") {
@@ -1775,7 +1781,7 @@ export default function ResellerItApp() {
               <div className="grid gap-2">
                 <button type="button" onClick={openNewItemEditor} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add item</button>
                 <button type="button" onClick={() => openStockQueue("needsAttention")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Open Stock Control</button>
-                <button type="button" onClick={openSalesQueue} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales & shipping queue</button>
+                <button type="button" onClick={openSalesQueue} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales queue</button>
               </div>
             </div>
 
@@ -1942,7 +1948,7 @@ export default function ResellerItApp() {
               <div className="grid gap-2 rounded-3xl border border-stone-200 bg-white p-2 shadow-sm sm:grid-cols-2">
                 <button type="button" onClick={() => setActiveWorkflowSection(activeWorkflowSection === "listing" ? "source" : activeWorkflowSection)} className={`rounded-2xl px-4 py-3 text-left transition ${activeItemFormMode === "inventory" ? "bg-stone-900 text-amber-50" : "border border-stone-200 bg-stone-50 text-stone-700 hover:bg-stone-100"}`}>
                   <p className="text-sm font-semibold">Inventory details</p>
-                  <p className="mt-1 text-xs opacity-80">Source, price, proof, sale, and internal notes.</p>
+                  <p className="mt-1 text-xs opacity-80">Source, price, proof, compliance, and internal notes.</p>
                 </button>
                 <button type="button" onClick={() => setActiveWorkflowSection("listing")} className={`rounded-2xl px-4 py-3 text-left transition ${activeItemFormMode === "listing" ? "bg-[#e06b2c] text-[#24110e]" : "border border-orange-200 bg-orange-50 text-orange-900 hover:bg-orange-100"}`}>
                   <p className="text-sm font-semibold">eBay Listing Help</p>
@@ -2005,12 +2011,10 @@ export default function ResellerItApp() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6511]">Core money</p>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <Input label="Purchase price EUR" value={form.purchasePrice || ""} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
-                        {isSoldStatus(form) && <Input label="Sold price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />}
-                        <Input label="Shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value, shippingCost: e.target.value })} />
-                        <Input label="Packaging cost EUR" value={form.packagingCost || ""} onChange={(e) => setForm({ ...form, packagingCost: e.target.value })} />
-                        <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
+                        <Input label="Expected sale price EUR" value={form.expectedSalePrice || ""} onChange={(e) => setForm({ ...form, expectedSalePrice: e.target.value })} />
+                        <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
+                        <Input label="Suggested listing price EUR" value={form.suggestedListingPrice || ""} onChange={(e) => setForm({ ...form, suggestedListingPrice: e.target.value })} />
                       </div>
-                      <p className="mt-3 rounded-xl bg-lime-100 p-3 text-sm font-semibold text-lime-800">Estimated/current profit: {money(itemProfitValue(form))}</p>
                     </div>
 
                     <div className="rounded-2xl border border-neutral-200 bg-white p-3">
@@ -2092,32 +2096,6 @@ export default function ResellerItApp() {
                     </label>
                     <textarea value={form.proofNotes || ""} onChange={(e) => setForm({ ...form, proofNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Proof notes..." />
                     {needsEigenbeleg(form) && <div className="rounded-2xl bg-neutral-50 p-3"><pre className="max-h-44 overflow-auto whitespace-pre-wrap text-xs text-neutral-700">{eigenbelegText(form)}</pre><button type="button" onClick={() => copyEigenbeleg(form)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy Eigenbeleg</button></div>}
-                  </div>
-                )}
-
-                {activeWorkflowSection === "sale" && (
-                  <div className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <Input label="Sale date" type="date" value={form.saleDate} onChange={(e) => setForm({ ...form, saleDate: e.target.value })} />
-                      <Select label="Buyer platform" value={form.buyerPlatform || "ebay"} onChange={(e) => setForm({ ...form, buyerPlatform: e.target.value })}>
-                        {buyerPlatformOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                      </Select>
-                      <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
-                      <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
-                      <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
-                      <Input label="Packaging cost EUR" value={form.packagingCost || ""} onChange={(e) => setForm({ ...form, packagingCost: e.target.value })} />
-                      <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
-                      <Input label="Refund amount EUR" value={form.refundAmount || ""} onChange={(e) => setForm({ ...form, refundAmount: e.target.value })} />
-                      <Input label="Refund date" type="date" value={form.refundDate || ""} onChange={(e) => setForm({ ...form, refundDate: e.target.value })} />
-                      <Input label="Return postage cost EUR" value={form.returnPostageCost || ""} onChange={(e) => setForm({ ...form, returnPostageCost: e.target.value })} />
-                      <Input label="Refund reason" className="sm:col-span-2" value={form.refundReason || ""} onChange={(e) => setForm({ ...form, refundReason: e.target.value })} />
-                      <Input label="Carrier" value={form.carrier || "DHL"} onChange={(e) => setForm({ ...form, carrier: e.target.value })} />
-                      <Input label="Tracking number" value={form.trackingNumber || ""} onChange={(e) => setForm({ ...form, trackingNumber: e.target.value })} />
-                      <Input label="Shipped date" type="date" value={form.shippedDate || ""} onChange={(e) => setForm({ ...form, shippedDate: e.target.value })} />
-                      <Input label="Tracking notes" className="sm:col-span-2" value={form.trackingNotes || ""} onChange={(e) => setForm({ ...form, trackingNotes: e.target.value })} />
-                      <Input label="Shipment / shipping notes" className="sm:col-span-2" value={form.shippingNotes || ""} onChange={(e) => setForm({ ...form, shippingNotes: e.target.value })} />
-                    </div>
-                    <div className="flex flex-wrap gap-2">{quickStatusOptions.map((status) => <button key={status} type="button" onClick={() => setForm({ ...form, status })} className={`rounded-xl px-3 py-2 text-sm font-semibold ${form.status === status ? "bg-[#e06b2c] text-[#24110e]" : "border border-neutral-300 text-neutral-700 hover:bg-[#f0be45]/20"}`}>{status}</button>)}</div>
                   </div>
                 )}
 
@@ -2863,7 +2841,7 @@ export default function ResellerItApp() {
                   </button>
                   <button type="button" onClick={openSalesQueue} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Sales Queue</span>
-                    <span className="mt-2 block text-sm leading-5 text-stone-600">Check sold items, shipping, tracking, and status.</span>
+                    <span className="mt-2 block text-sm leading-5 text-stone-600">Review sold items, completion, returns, and profit.</span>
                   </button>
                   <button type="button" onClick={exportJson} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
                     <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Backup</span>
@@ -2890,7 +2868,7 @@ export default function ResellerItApp() {
                   {[
                     ["Research", todayWorkflow.toResearch.length, "stock", "needsAttention", "Missing price research"],
                     ["List", todayWorkflow.readyToList.length, "stock", "readyToList", "All items"],
-                    ["Ship", todayWorkflow.soldNotShipped.length, "sales", "awaitingShipment", ""],
+                    ["Sold", todayWorkflow.soldNotShipped.length, "sales", "awaitingShipment", ""],
                     ["Proof", todayWorkflow.missingProof.length, "stock", "needsAttention", "Missing proof"],
                   ].map(([label, value, tab, section, issue]) => (
                     <button key={label} type="button" onClick={() => { if (tab === "stock") openStockQueue(section, issue || "All items"); else openSalesQueue(section); }} className="rounded-2xl border border-stone-200 bg-[#fffdf8] p-4 text-left transition hover:border-[#e06b2c]/35 hover:bg-[#fff6e6]">
@@ -2915,7 +2893,7 @@ export default function ResellerItApp() {
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#e06b2c]">Sales Snapshot</p>
                   <div className="mt-4 grid gap-3">
                     <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Month sales</span><span className="font-semibold text-stone-950">{money(monthlySummary.salesTotal)}</span></div>
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Awaiting shipment</span><span className="font-semibold text-stone-950">{sectionSummaries.sales.awaitingShipment}</span></div>
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Sold items</span><span className="font-semibold text-stone-950">{sectionSummaries.sales.awaitingShipment}</span></div>
                     <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Month profit</span><span className="font-semibold text-lime-800">{money(monthlySummary.profit)}</span></div>
                   </div>
                 </section>
@@ -3325,15 +3303,15 @@ export default function ResellerItApp() {
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={() => setActiveSalesPanel("sold_items")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "sold_items" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                    <button type="button" onClick={() => { setSalesEditItemId(null); setActiveSalesPanel("sold_items"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "sold_items" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
                       <p className="text-sm font-semibold text-neutral-950">Sold Items</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Items marked sold but not complete.</p>
                     </button>
-                    <button type="button" onClick={() => setActiveSalesPanel("completed_sales")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "completed_sales" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                    <button type="button" onClick={() => { setSalesEditItemId(null); setActiveSalesPanel("completed_sales"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "completed_sales" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
                       <p className="text-sm font-semibold text-neutral-950">Completed Sales</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Complete items with sales and profit information.</p>
                     </button>
-                    <button type="button" onClick={() => setActiveSalesPanel("returns_refunds")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "returns_refunds" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                    <button type="button" onClick={() => { setSalesEditItemId(null); setActiveSalesPanel("returns_refunds"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "returns_refunds" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
                       <p className="text-sm font-semibold text-neutral-950">Returns & Refunds</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Returned or reversed sales.</p>
                     </button>
@@ -3349,11 +3327,11 @@ export default function ResellerItApp() {
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={() => setActiveSalesPanel("sales_data_gaps")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "sales_data_gaps" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                    <button type="button" onClick={() => { setSalesEditItemId(null); setActiveSalesPanel("sales_data_gaps"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "sales_data_gaps" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
                       <p className="text-sm font-semibold text-neutral-950">Sales Data Gaps</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Existing field gaps for sold items.</p>
                     </button>
-                    <button type="button" onClick={() => setActiveSalesPanel("profit_review")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "profit_review" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                    <button type="button" onClick={() => { setSalesEditItemId(null); setActiveSalesPanel("profit_review"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "profit_review" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
                       <p className="text-sm font-semibold text-neutral-950">Profit Review</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Negative profit, missing costs, and shipping outliers.</p>
                     </button>
@@ -3392,7 +3370,7 @@ export default function ResellerItApp() {
                         }[activeSalesPanel]}
                       </h3>
                     </div>
-                    <button type="button" onClick={() => setActiveSalesPanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+                    <button type="button" onClick={() => { setActiveSalesPanel(null); setSalesEditItemId(null); }} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
                   </div>
 
                   {["sold_items", "completed_sales", "returns_refunds"].includes(activeSalesPanel) && (
@@ -3435,7 +3413,7 @@ export default function ResellerItApp() {
                                   </div>
 
                                   <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
-                                    <button type="button" onClick={() => editItem(item)} className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
+                                    <button type="button" onClick={() => setSalesEditItemId(item.id)} className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50">Edit Sale</button>
                                   </div>
                                 </div>
                               </article>
@@ -3466,7 +3444,7 @@ export default function ResellerItApp() {
                               <div key={item.id} className="rounded-xl bg-white p-3">
                                 <p className="text-sm font-semibold text-stone-950">{item.name || "Untitled item"}</p>
                                 <p className="mt-1 text-xs text-stone-500">{itemStatus(item)} / {buyerPlatformLabel(item.buyerPlatform)} / {money(itemProfitValue(item))}</p>
-                                <button type="button" onClick={() => editItem(item)} className="mt-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Open Item</button>
+                                <button type="button" onClick={() => setSalesEditItemId(item.id)} className="mt-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Edit Sale</button>
                               </div>
                             ))}
                           </div>
@@ -3493,12 +3471,44 @@ export default function ResellerItApp() {
                               <div key={item.id} className="rounded-xl bg-white p-3">
                                 <p className="text-sm font-semibold text-stone-950">{item.name || "Untitled item"}</p>
                                 <p className="mt-1 text-xs text-stone-500">Profit {money(itemProfitValue(item))} / Fees {money(platformFees(item))} / Shipping {money(actualShippingValue(item))}</p>
-                                <button type="button" onClick={() => editItem(item)} className="mt-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Open Item</button>
+                                <button type="button" onClick={() => setSalesEditItemId(item.id)} className="mt-2 rounded-lg border border-stone-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Edit Sale</button>
                               </div>
                             ))}
                           </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {salesEditItem && (
+                    <div className="mt-5 rounded-2xl border border-[#e06b2c]/25 bg-[#fffaf0] p-4">
+                      <div className="flex flex-col gap-3 border-b border-[#eadfce] pb-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">Sales Completion</p>
+                          <h4 className="mt-1 text-base font-semibold text-neutral-950">{salesEditItem.name || "Untitled item"}</h4>
+                          <p className="mt-1 text-xs text-neutral-600">Edit sale, fee, shipping cost, refund, and completion fields for this item.</p>
+                        </div>
+                        <button type="button" onClick={() => setSalesEditItemId(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close Sales Edit</button>
+                      </div>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <Input label="Sale date" type="date" value={salesEditItem.saleDate || ""} onChange={(e) => updateItemField(salesEditItem.id, "saleDate", e.target.value)} />
+                        <Input label="Final sale price EUR" value={salesEditItem.finalSalePrice || salesEditItem.salePrice || ""} onChange={(e) => updateItemFields(salesEditItem.id, { finalSalePrice: e.target.value, salePrice: e.target.value })} />
+                        <Select label="Buyer platform" value={salesEditItem.buyerPlatform || "ebay"} onChange={(e) => updateItemField(salesEditItem.id, "buyerPlatform", e.target.value)}>
+                          {buyerPlatformOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                        </Select>
+                        <Select label="Status" value={salesEditItem.status || "Sold"} onChange={(e) => updateItemField(salesEditItem.id, "status", e.target.value)}>
+                          {salesStatusOptions.map((status) => <option key={status}>{status}</option>)}
+                          {salesEditItem.status && !salesStatusOptions.includes(salesEditItem.status) && <option>{salesEditItem.status}</option>}
+                        </Select>
+                        <Input label="Shipping charged to buyer EUR" value={salesEditItem.shippingChargedToBuyer || ""} onChange={(e) => updateItemField(salesEditItem.id, "shippingChargedToBuyer", e.target.value)} />
+                        <Input label="Actual shipping cost EUR" value={salesEditItem.actualShippingCost || salesEditItem.shippingCost || ""} onChange={(e) => updateItemFields(salesEditItem.id, { actualShippingCost: e.target.value, shippingCost: e.target.value })} />
+                        <Input label="Packaging cost EUR" value={salesEditItem.packagingCost || ""} onChange={(e) => updateItemField(salesEditItem.id, "packagingCost", e.target.value)} />
+                        <Input label="Platform fees EUR" value={salesEditItem.manualEbayFee || salesEditItem.ebayFees || ""} onChange={(e) => updateItemFields(salesEditItem.id, { manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
+                        <Input label="Refund amount EUR" value={salesEditItem.refundAmount || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundAmount", e.target.value)} />
+                        <Input label="Refund date" type="date" value={salesEditItem.refundDate || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundDate", e.target.value)} />
+                        <Input label="Return postage cost EUR" value={salesEditItem.returnPostageCost || ""} onChange={(e) => updateItemField(salesEditItem.id, "returnPostageCost", e.target.value)} />
+                        <Input label="Refund reason" value={salesEditItem.refundReason || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundReason", e.target.value)} />
+                      </div>
                     </div>
                   )}
                 </section>
