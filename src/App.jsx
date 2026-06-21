@@ -681,6 +681,7 @@ export default function ResellerItApp() {
   const [stockColumnWidths, setStockColumnWidths] = useState(loadStockColumnWidths);
   const [resizingColumnKey, setResizingColumnKey] = useState("");
   const stockColumnResizeRef = useRef(null);
+  const toolPanelRef = useRef(null);
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [stockFilterMenu, setStockFilterMenu] = useState("");
@@ -725,6 +726,11 @@ export default function ResellerItApp() {
     const timeout = window.setTimeout(() => setToastMessage(""), 3200);
     return () => window.clearTimeout(timeout);
   }, [toastMessage]);
+
+  useEffect(() => {
+    if (activeTab !== "tools" || !activeToolPanel) return;
+    toolPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [activeTab, activeToolPanel]);
 
   useEffect(() => {
     try {
@@ -3471,7 +3477,7 @@ export default function ResellerItApp() {
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={() => setActiveToolPanel("compliance_center")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "compliance_center" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                    <button type="button" aria-expanded={activeToolPanel === "compliance_center"} aria-controls="tools-panel-compliance-center" onClick={() => setActiveToolPanel("compliance_center")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "compliance_center" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
                       <p className="text-sm font-semibold text-neutral-950">Compliance Center</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Review item readiness queues.</p>
                     </button>
@@ -3554,7 +3560,7 @@ export default function ResellerItApp() {
               </div>
 
               {activeToolPanel && (
-                <section className="rounded-3xl border border-[#1f9d99]/25 bg-white p-5 shadow-sm">
+                <section ref={toolPanelRef} className="rounded-3xl border border-[#1f9d99]/25 bg-white p-5 shadow-sm">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#1f9d99]">Tool Details</p>
@@ -3589,7 +3595,7 @@ export default function ResellerItApp() {
                       )}
                       {activeToolPanel === "compliance_center" && (
                         <>
-                          <h3 className="mt-1 text-lg font-semibold text-neutral-950">Compliance Center</h3>
+                          <h3 id="tools-panel-compliance-center" className="mt-1 text-lg font-semibold text-neutral-950">Compliance Center</h3>
                           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             {[
                               ["Ready", complianceSummary.ready],

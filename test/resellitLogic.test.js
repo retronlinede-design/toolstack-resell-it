@@ -797,11 +797,16 @@ test("Tools Hub uses tile-driven panels without rendering the generic item list"
   const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 
   assert.match(source, /const \[activeToolPanel, setActiveToolPanel\] = useState\(null\);/);
+  assert.match(source, /const toolPanelRef = useRef\(null\);/);
+  assert.match(source, /toolPanelRef\.current\?\.scrollIntoView\(\{ behavior: "smooth", block: "start" \}\);/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("app_info"\)\}/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("help"\)\}/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("backup_instructions"\)\}/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\("compliance_center"\)\}/);
+  assert.match(source, /aria-expanded=\{activeToolPanel === "compliance_center"\}/);
+  assert.match(source, /aria-controls="tools-panel-compliance-center"/);
   assert.match(source, /\{activeToolPanel && \(/);
+  assert.match(source, /<section ref=\{toolPanelRef\}/);
   assert.match(source, /activeToolPanel === "app_info"/);
   assert.match(source, /activeToolPanel === "help"/);
   assert.match(source, /activeToolPanel === "backup_instructions"/);
@@ -811,6 +816,8 @@ test("Tools Hub uses tile-driven panels without rendering the generic item list"
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openStockQueue\("needsAttention", "Missing listing draft"\); \}\}/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openFinanceQueue\("reconciliation"\); \}\}/);
   assert.match(source, /activeTab !== "stock" && activeTab !== "sales" && activeTab !== "tools" && filtered\.map/);
+  assert.doesNotMatch(source, /setActiveToolPanel\("compliance_center"\)[^>]*disabled/s);
+  assert.doesNotMatch(source, /setActiveToolPanel\("compliance_center"\)[^>]*pointer-events-none/s);
 });
 
 test("Tools Compliance Center uses existing readiness data and opens item editor", () => {
