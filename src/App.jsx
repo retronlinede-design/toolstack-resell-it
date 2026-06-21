@@ -3399,45 +3399,147 @@ export default function ResellerItApp() {
 
           {activeTab === "tools" && (
             <div className="grid gap-4">
-            <div className="premium-panel overflow-hidden rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <div className="mb-4 h-1 w-12 rounded-full bg-[#1f9d99]" />
-              <div className="grid gap-3 md:grid-cols-3">
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Backup reminder</p>
-                  <p className="mt-1 text-sm leading-6 text-neutral-700">Export a local backup after important inventory, sales, or expense updates.</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">App info</p>
-                  <p className="mt-1 text-sm leading-6 text-neutral-700">ResellIt is localStorage-only in this browser. No backend or cloud sync is connected.</p>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Future tools</p>
-                  <p className="mt-1 text-sm leading-6 text-neutral-700">Templates, settings, and help utilities can be expanded here without changing the core workflow.</p>
-                </div>
+              <div className="rounded-3xl border border-[#1f9d99]/20 bg-white p-5 shadow-sm">
+                <div className="mb-4 h-1 w-12 rounded-full bg-[#1f9d99]" />
+                <h2 className="text-2xl font-semibold text-neutral-950">Tools</h2>
+                <p className="mt-1 max-w-2xl text-sm text-neutral-600">Manage backups, reports, listing helpers, issue checks, and app utilities.</p>
               </div>
-            </div>
-            <div className="grid gap-4 lg:grid-cols-[0.9fr_1.1fr]">
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <h2 className="text-lg font-semibold text-neutral-950">Tools</h2>
-                <p className="mt-1 text-sm text-neutral-600">Local utilities for backups, future templates, settings, and help. Data stays in this browser unless you export it.</p>
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button type="button" onClick={exportJson} className="rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-[#f0be45]/20">Export Backup</button>
-                  <label className="cursor-pointer rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-[#f0be45]/20">
-                    Import Backup
-                    <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
-                  </label>
-                </div>
-                {backupMessage && <p className="mt-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">{backupMessage}</p>}
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Backup & Import</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Local JSON backup tools.</p>
+                    </div>
+                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={exportJson} className="rounded-2xl border border-[#1f9d99]/30 bg-[#1f9d99]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/50 hover:bg-[#1f9d99]/15 hover:shadow-sm">
+                      <p className="text-sm font-semibold text-neutral-950">Export Backup</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Download all local ResellIt data.</p>
+                    </button>
+                    <label className="cursor-pointer rounded-2xl border border-[#1f9d99]/30 bg-[#1f9d99]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/50 hover:bg-[#1f9d99]/15 hover:shadow-sm">
+                      <span className="block text-sm font-semibold text-neutral-950">Import Backup</span>
+                      <span className="mt-1 block text-xs leading-5 text-neutral-600">Restore a local JSON backup.</span>
+                      <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
+                    </label>
+                  </div>
+                  {backupMessage && <p className="mt-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">{backupMessage}</p>}
+                </section>
+
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Reports</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Exports and summaries.</p>
+                    </div>
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Coming soon</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {[
+                      ["Monthly Report", "Month-end overview."],
+                      ["Tax Export Package", "Accountant-ready bundle."],
+                      ["Profit Summary", "Sales and cost summary."],
+                    ].map(([label, description]) => (
+                      <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
+                        <p className="text-sm font-semibold text-stone-700">{label}</p>
+                        <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Issues</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Data quality checks.</p>
+                    </div>
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Coming soon</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {[
+                      ["Missing Purchase Records", "Find items without purchase records."],
+                      ["Missing Evidence", "Find records without evidence."],
+                      ["Needs Eigenbeleg", "Find self-receipt tasks."],
+                      ["Unmatched eBay Transactions", "Find imports needing matching."],
+                    ].map(([label, description]) => (
+                      <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
+                        <p className="text-sm font-semibold text-stone-700">{label}</p>
+                        <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">eBay Listing Helper</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Listing and import work queues.</p>
+                    </div>
+                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => openStockQueue("needsAttention", "Missing listing draft")} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
+                      <p className="text-sm font-semibold text-orange-950">Open Listing Queue</p>
+                      <p className="mt-1 text-xs leading-5 text-orange-900/75">Show items missing listing drafts.</p>
+                    </button>
+                    <button type="button" onClick={() => openFinanceQueue("reconciliation")} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
+                      <p className="text-sm font-semibold text-orange-950">Open eBay Import / Reconciliation</p>
+                      <p className="mt-1 text-xs leading-5 text-orange-900/75">Open existing CSV import tools.</p>
+                    </button>
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Templates</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Reusable text presets.</p>
+                    </div>
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Coming soon</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    {[
+                      ["Listing Templates", "Reusable listing structures."],
+                      ["Condition Text Templates", "Saved condition wording."],
+                      ["Eigenbeleg Text Templates", "Reusable self-receipt text."],
+                    ].map(([label, description]) => (
+                      <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
+                        <p className="text-sm font-semibold text-stone-700">{label}</p>
+                        <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Settings & Help</h3>
+                      <p className="mt-1 text-xs text-neutral-500">App information and guidance.</p>
+                    </div>
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Mixed</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-[#1f9d99]/25 bg-[#1f9d99]/8 p-4 text-left">
+                      <p className="text-sm font-semibold text-neutral-950">App Info</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">localStorage only. No backend or cloud sync.</p>
+                    </div>
+                    {[
+                      ["Help Guide", "Workflow guide."],
+                      ["Backup Instructions", "Backup and restore notes."],
+                    ].map(([label, description]) => (
+                      <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
+                        <p className="text-sm font-semibold text-stone-700">{label}</p>
+                        <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                      </button>
+                    ))}
+                  </div>
+                </section>
               </div>
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-neutral-950">Future utilities</h3>
-                <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-sm font-semibold text-neutral-800">Templates</p><p className="mt-1 text-xs text-neutral-500">Reusable listing and sourcing presets.</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-sm font-semibold text-neutral-800">Settings</p><p className="mt-1 text-xs text-neutral-500">Future local preferences.</p></div>
-                  <div className="rounded-2xl bg-neutral-50 p-4"><p className="text-sm font-semibold text-neutral-800">Help</p><p className="mt-1 text-xs text-neutral-500">Workflow notes and reminders.</p></div>
-                </div>
-              </div>
-            </div>
             </div>
           )}
 
