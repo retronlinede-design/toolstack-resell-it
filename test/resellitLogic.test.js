@@ -505,6 +505,7 @@ test("partial JSON backup payloads are rejected", () => {
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [] }), true);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [], purchaseRecords: [] }), true);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [], purchaseRecords: [], evidenceRecords: [] }), true);
+  assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [], purchaseRecords: [], evidenceRecords: [], eigenbelege: [] }), true);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [] }), false);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", expenses: [] }), false);
   assert.equal(isFullBackupPayload({ type: "OTHER_BACKUP", items: [], expenses: [] }), false);
@@ -524,6 +525,7 @@ test("root app data normalization accepts old backups without purchaseRecords", 
   assert.deepEqual(data.expenses, [{ description: "Tape", amount: "3" }]);
   assert.deepEqual(data.purchaseRecords, []);
   assert.deepEqual(data.evidenceRecords, []);
+  assert.deepEqual(data.eigenbelege, []);
 });
 
 test("root app data normalization preserves new backup purchaseRecords", () => {
@@ -562,6 +564,26 @@ test("root app data normalization preserves new backup evidenceRecords", () => {
   assert.equal(data.evidenceRecords[0].title, "Invoice 1");
 });
 
+test("root app data normalization preserves new backup eigenbelege", () => {
+  const data = normalizeRootAppData({
+    type: "RESELLERIT_BACKUP",
+    version: 2,
+    items: [{ id: "item-1", name: "Item" }],
+    expenses: [],
+    purchaseRecords: [],
+    evidenceRecords: [],
+    eigenbelege: [{ itemId: "item-1", purchaseRecordId: "purchase-1", reasonNoReceipt: "No receipt", amount: "12", status: "Generated" }],
+  });
+
+  assert.equal(data.version, 2);
+  assert.equal(data.eigenbelege.length, 1);
+  assert.equal(data.eigenbelege[0].itemId, "item-1");
+  assert.equal(data.eigenbelege[0].purchaseRecordId, "purchase-1");
+  assert.equal(data.eigenbelege[0].reasonNoReceipt, "No receipt");
+  assert.equal(data.eigenbelege[0].amount, "12");
+  assert.equal(data.eigenbelege[0].status, "Generated");
+});
+
 test("missing purchaseRecords initialize to an empty collection", () => {
   assert.deepEqual(normalizeRootAppData({ items: [], expenses: [] }).purchaseRecords, []);
   assert.deepEqual(normalizeRootAppData({ items: [], expenses: [], purchaseRecords: "bad" }).purchaseRecords, []);
@@ -570,6 +592,11 @@ test("missing purchaseRecords initialize to an empty collection", () => {
 test("missing evidenceRecords initialize to an empty collection", () => {
   assert.deepEqual(normalizeRootAppData({ items: [], expenses: [] }).evidenceRecords, []);
   assert.deepEqual(normalizeRootAppData({ items: [], expenses: [], evidenceRecords: "bad" }).evidenceRecords, []);
+});
+
+test("missing eigenbelege initialize to an empty collection", () => {
+  assert.deepEqual(normalizeRootAppData({ items: [], expenses: [] }).eigenbelege, []);
+  assert.deepEqual(normalizeRootAppData({ items: [], expenses: [], eigenbelege: "bad" }).eigenbelege, []);
 });
 
 test("persistence failure guards preserve form/editor state before reset behavior", () => {
@@ -599,6 +626,16 @@ test("App persistence shape includes evidenceRecords without automatic evidence 
   assert.match(source, /evidenceRecords: normalizeEvidenceRecords\(evidenceRecords\)/);
   assert.match(source, /const nextEvidenceRecords = normalizedData\.evidenceRecords;/);
   assert.doesNotMatch(source, /evidenceRecordFromLegacyItem\(/);
+});
+
+test("App persistence shape includes eigenbelege without automatic Eigenbeleg migration", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const \[eigenbelege, setEigenbelege\] = useState\(loadInitialEigenbelege\);/);
+  assert.match(source, /eigenbelege: normalizedEigenbelege/);
+  assert.match(source, /eigenbelege: normalizeEigenbelege\(eigenbelege\)/);
+  assert.match(source, /const nextEigenbelege = normalizedData\.eigenbelege;/);
+  assert.doesNotMatch(source, /eigenbelegFromLegacyItem\(/);
 });
 
 test("seller classification is exposed in editor and inventory records without calculation wiring", () => {

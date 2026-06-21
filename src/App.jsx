@@ -70,6 +70,7 @@ import {
   languageOptions,
   normalizeBooleanRecord,
   normalizeEvidenceRecords,
+  normalizeEigenbelege,
   normalizeItem,
   normalizeItems,
   normalizeListingLanguageValue,
@@ -387,6 +388,7 @@ function loadInitialItems() {
         expenses: normalizedData.expenses,
         purchaseRecords: normalizedData.purchaseRecords,
         evidenceRecords: normalizedData.evidenceRecords,
+        eigenbelege: normalizedData.eigenbelege,
         updatedAt: new Date().toISOString(),
       }));
     }
@@ -439,6 +441,20 @@ function loadInitialEvidenceRecords() {
     if (!raw) return [];
     const parsed = JSON.parse(raw);
     return normalizeRootAppData(parsed).evidenceRecords;
+  } catch {
+    return [];
+  }
+}
+
+function loadInitialEigenbelege() {
+  try {
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      raw = localStorage.getItem(OLD_STORAGE_KEY);
+    }
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return normalizeRootAppData(parsed).eigenbelege;
   } catch {
     return [];
   }
@@ -622,6 +638,7 @@ export default function ResellerItApp() {
   const [expenses, setExpenses] = useState(loadInitialExpenses);
   const [purchaseRecords, setPurchaseRecords] = useState(loadInitialPurchaseRecords);
   const [evidenceRecords, setEvidenceRecords] = useState(loadInitialEvidenceRecords);
+  const [eigenbelege, setEigenbelege] = useState(loadInitialEigenbelege);
   const [expenseForm, setExpenseForm] = useState(emptyExpense);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [expenseMonthFilter, setExpenseMonthFilter] = useState(CURRENT_MONTH);
@@ -738,7 +755,8 @@ export default function ResellerItApp() {
     const normalizedItems = normalizeItems(nextItems);
     const normalizedPurchaseRecords = normalizePurchaseRecords(purchaseRecords);
     const normalizedEvidenceRecords = normalizeEvidenceRecords(evidenceRecords);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses, purchaseRecords: normalizedPurchaseRecords, evidenceRecords: normalizedEvidenceRecords, updatedAt: new Date().toISOString() });
+    const normalizedEigenbelege = normalizeEigenbelege(eigenbelege);
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses, purchaseRecords: normalizedPurchaseRecords, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -749,14 +767,16 @@ export default function ResellerItApp() {
     setItems(normalizedItems);
     setPurchaseRecords(normalizedPurchaseRecords);
     setEvidenceRecords(normalizedEvidenceRecords);
+    setEigenbelege(normalizedEigenbelege);
     return true;
   }
 
-  function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords, nextEvidenceRecords = evidenceRecords) {
+  function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords, nextEvidenceRecords = evidenceRecords, nextEigenbelege = eigenbelege) {
     const normalizedItems = normalizeItems(nextItems);
     const normalizedPurchaseRecords = normalizePurchaseRecords(nextPurchaseRecords);
     const normalizedEvidenceRecords = normalizeEvidenceRecords(nextEvidenceRecords);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: nextExpenses, purchaseRecords: normalizedPurchaseRecords, evidenceRecords: normalizedEvidenceRecords, updatedAt: new Date().toISOString() });
+    const normalizedEigenbelege = normalizeEigenbelege(nextEigenbelege);
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: nextExpenses, purchaseRecords: normalizedPurchaseRecords, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -768,6 +788,7 @@ export default function ResellerItApp() {
     setExpenses(nextExpenses);
     setPurchaseRecords(normalizedPurchaseRecords);
     setEvidenceRecords(normalizedEvidenceRecords);
+    setEigenbelege(normalizedEigenbelege);
     return true;
   }
 
@@ -995,7 +1016,7 @@ export default function ResellerItApp() {
   }
 
   function exportJson() {
-    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 2, items, expenses, purchaseRecords: normalizePurchaseRecords(purchaseRecords), evidenceRecords: normalizeEvidenceRecords(evidenceRecords), exportedAt: new Date().toISOString() }, null, 2);
+    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 2, items, expenses, purchaseRecords: normalizePurchaseRecords(purchaseRecords), evidenceRecords: normalizeEvidenceRecords(evidenceRecords), eigenbelege: normalizeEigenbelege(eigenbelege), exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1029,13 +1050,14 @@ export default function ResellerItApp() {
       const nextExpenses = normalizedData.expenses;
       const nextPurchaseRecords = normalizedData.purchaseRecords;
       const nextEvidenceRecords = normalizedData.evidenceRecords;
+      const nextEigenbelege = normalizedData.eigenbelege;
       const ok = window.confirm(`Restore this ResellIt backup?\n\nCurrent data will be replaced with ${nextItems.length} items and ${nextExpenses.length} expenses.`);
       if (!ok) {
         setBackupMessage("Import cancelled.");
         return;
       }
 
-      if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords)) return;
+      if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords, nextEigenbelege)) return;
       setForm(emptyItem);
       setExpenseForm(emptyExpense);
       setEditingId(null);
@@ -1144,7 +1166,6 @@ export default function ResellerItApp() {
     return { purchaseTotal, ...soldPerformance, eigenbeleg };
   }, [items]);
 
-  const eigenbelege = useMemo(() => [], []);
   const complianceSummary = useMemo(() => (
     getComplianceSummary(items, purchaseRecords, evidenceRecords, eigenbelege)
   ), [eigenbelege, evidenceRecords, items, purchaseRecords]);
