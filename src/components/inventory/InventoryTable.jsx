@@ -20,6 +20,7 @@ export function InventoryTable({
   inventoryStatus,
   inventoryTimelineMonth,
   classificationOptions,
+  sellerClassificationLabel,
   statusOptions,
   stockColumnLabelMap,
   money,
@@ -185,6 +186,11 @@ export function InventoryTable({
                             <select value={itemStatus(item)} onChange={(e) => onUpdateItemField(item.id, "status", e.target.value)} className={inputClass}>
                               {statusOptions.map((status) => <option key={status}>{status}</option>)}
                             </select>
+                          </td>
+                          <td className="px-1 py-0.5" style={{ width: stockColumnWidths.seller }}>
+                            <span className="block truncate rounded border border-transparent px-1 py-1 text-[11px] font-semibold text-stone-700" title={sellerClassificationLabel(item.sellerClassification)}>
+                              {sellerClassificationLabel(item.sellerClassification)}
+                            </span>
                           </td>
                           <td className="px-1 py-0.5" style={{ width: stockColumnWidths.source }}>
                             <input value={item.sourceName || item.sourceLocation || ""} onChange={(e) => onUpdateItemField(item.id, "sourceName", e.target.value)} className={inputClass} placeholder="Source" />

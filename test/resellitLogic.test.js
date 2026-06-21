@@ -22,9 +22,13 @@ import {
   emptyEvidenceRecord,
   emptyPurchaseRecord,
   evidenceRecordFromLegacyItem,
+  getComplianceSummary,
+  getItemTaxReadiness,
+  isBusinessRelevant,
   isValidEigenbeleg,
   isValidEvidenceRecord,
   isValidPurchaseRecord,
+  itemRequiresEigenbeleg,
   normalizeEigenbeleg,
   normalizeEvidenceRecord,
   normalizeItem as normalizeSchemaItem,
@@ -32,6 +36,8 @@ import {
   normalizeRootAppData,
   purchaseRecordFromLegacyItem,
   scaffoldTaxComplianceRecordsFromItems,
+  sellerClassificationLabel,
+  sellerClassificationOptions,
   validateEigenbeleg,
   validateEvidenceRecord,
   validatePurchaseRecord,
@@ -55,6 +61,7 @@ test("emptyItem and defaultItem schema shape remains stable", () => {
     "name",
     "category",
     "classification",
+    "sellerClassification",
     "sourceType",
     "sourceName",
     "sourceLocation",
@@ -155,9 +162,24 @@ test("emptyItem and defaultItem schema shape remains stable", () => {
   assert.equal(emptyItem.purchaseDate, CURRENT_DATE);
   assert.equal(emptyItem.proofDate, CURRENT_DATE);
   assert.equal(emptyItem.classification, DEFAULT_CLASSIFICATION);
+  assert.equal(emptyItem.sellerClassification, "private");
   assert.equal(emptyItem.ebayFeeMode, DEFAULT_EBAY_FEE_MODE);
   assert.equal(emptyItem.language, DEFAULT_LANGUAGE);
   assert.equal(emptyItem.listingLanguage, DEFAULT_LISTING_LANGUAGE);
+});
+
+test("seller classification defaults and labels remain stable", () => {
+  assert.deepEqual(sellerClassificationOptions, [
+    ["private", "Private Sale"],
+    ["pre_registration", "Pre-Registration Stock"],
+    ["business", "Business Stock"],
+    ["excluded", "Excluded"],
+  ]);
+  assert.equal(sellerClassificationLabel("private"), "Private Sale");
+  assert.equal(sellerClassificationLabel("pre_registration"), "Pre-Registration Stock");
+  assert.equal(sellerClassificationLabel("business"), "Business Stock");
+  assert.equal(sellerClassificationLabel("excluded"), "Excluded");
+  assert.equal(sellerClassificationLabel("bad"), "Private Sale");
 });
 
 test("schema normalization migrates legacy conditionText into ebay.conditionText", () => {
@@ -166,6 +188,115 @@ test("schema normalization migrates legacy conditionText into ebay.conditionText
   });
 
   assert.equal(item.ebay.conditionText, "Legacy condition description");
+});
+
+test("schema normalization migrates missing sellerClassification to private", () => {
+  assert.equal(normalizeSchemaItem({ name: "Legacy item" }).sellerClassification, "private");
+  assert.equal(normalizeSchemaItem({ name: "Business item", sellerClassification: "business" }).sellerClassification, "business");
+  assert.equal(normalizeSchemaItem({ name: "Invalid item", sellerClassification: "unknown" }).sellerClassification, "private");
+});
+
+test("business inclusion follows seller classification", () => {
+  assert.equal(isBusinessRelevant({ sellerClassification: "private" }), false);
+  assert.equal(isBusinessRelevant({ sellerClassification: "excluded" }), false);
+  assert.equal(isBusinessRelevant({ sellerClassification: "pre_registration" }), true);
+  assert.equal(isBusinessRelevant({ sellerClassification: "business" }), true);
+  assert.equal(isBusinessRelevant({}), false);
+});
+
+test("item tax readiness marks private and excluded items not applicable", () => {
+  assert.deepEqual(getItemTaxReadiness({ id: "private-1", sellerClassification: "private" }, [], [], []), {
+    status: "not_applicable",
+    issues: [],
+    purchaseRecordPresent: false,
+    evidencePresent: false,
+    eigenbelegRequired: true,
+    eigenbelegPresent: false,
+  });
+  assert.equal(getItemTaxReadiness({ id: "excluded-1", sellerClassification: "excluded" }, [], [], []).status, "not_applicable");
+});
+
+test("item tax readiness detects ready business records", () => {
+  const item = normalizeSchemaItem({
+    id: "item-1",
+    sellerClassification: "business",
+    hasReceipt: "Yes",
+    proofType: "Shop receipt",
+    receiptType: "Shop receipt",
+  });
+  const readiness = getItemTaxReadiness(
+    item,
+    [{ itemId: "item-1", grossPurchasePrice: "12" }],
+    [{ itemId: "item-1", evidenceStatus: "Available" }],
+    [],
+  );
+
+  assert.deepEqual(readiness, {
+    status: "ready",
+    issues: [],
+    purchaseRecordPresent: true,
+    evidencePresent: true,
+    eigenbelegRequired: false,
+    eigenbelegPresent: false,
+  });
+});
+
+test("item tax readiness detects incomplete and eigenbeleg states", () => {
+  const incomplete = getItemTaxReadiness(
+    { id: "item-1", sellerClassification: "business", hasReceipt: "Yes", proofType: "Shop receipt", receiptType: "Shop receipt" },
+    [],
+    [{ itemId: "item-1", evidenceStatus: "Missing" }],
+    [],
+  );
+  assert.equal(incomplete.status, "incomplete");
+  assert.deepEqual(incomplete.issues, ["purchase_record_missing", "evidence_missing"]);
+
+  const needsEigenbeleg = getItemTaxReadiness(
+    { id: "item-2", sellerClassification: "pre_registration", hasReceipt: "No", proofType: "Eigenbeleg", receiptType: "Eigenbeleg needed" },
+    [{ itemId: "item-2", grossPurchasePrice: "20" }],
+    [{ itemId: "item-2", evidenceStatus: "Available" }],
+    [],
+  );
+  assert.equal(itemRequiresEigenbeleg({ hasReceipt: "No" }), true);
+  assert.equal(needsEigenbeleg.status, "needs_eigenbeleg");
+  assert.deepEqual(needsEigenbeleg.issues, ["eigenbeleg_missing"]);
+
+  const readyWithEigenbeleg = getItemTaxReadiness(
+    { id: "item-2", sellerClassification: "pre_registration", hasReceipt: "No", proofType: "Eigenbeleg", receiptType: "Eigenbeleg needed" },
+    [{ itemId: "item-2", grossPurchasePrice: "20" }],
+    [{ itemId: "item-2", evidenceStatus: "Available" }],
+    [{ itemId: "item-2", purchaseRecordId: "purchase-2", reasonNoReceipt: "No receipt", amount: "20", status: "Generated" }],
+  );
+  assert.equal(readyWithEigenbeleg.status, "ready");
+  assert.equal(readyWithEigenbeleg.eigenbelegPresent, true);
+});
+
+test("compliance summary counts item readiness states", () => {
+  const items = [
+    { id: "ready", sellerClassification: "business", hasReceipt: "Yes", proofType: "Shop receipt", receiptType: "Shop receipt" },
+    { id: "incomplete", sellerClassification: "business", hasReceipt: "Yes", proofType: "Shop receipt", receiptType: "Shop receipt" },
+    { id: "needs-eigenbeleg", sellerClassification: "pre_registration", hasReceipt: "No", proofType: "Eigenbeleg", receiptType: "Eigenbeleg needed" },
+    { id: "not-applicable", sellerClassification: "private" },
+  ];
+  const summary = getComplianceSummary(
+    items,
+    [
+      { itemId: "ready", grossPurchasePrice: "12" },
+      { itemId: "needs-eigenbeleg", grossPurchasePrice: "20" },
+    ],
+    [
+      { itemId: "ready", evidenceStatus: "Available" },
+      { itemId: "needs-eigenbeleg", evidenceStatus: "Available" },
+    ],
+    [],
+  );
+
+  assert.deepEqual(summary, {
+    ready: 1,
+    incomplete: 1,
+    needsEigenbeleg: 1,
+    notApplicable: 1,
+  });
 });
 
 test("tax compliance schema defaults remain stable", () => {
@@ -468,6 +599,16 @@ test("App persistence shape includes evidenceRecords without automatic evidence 
   assert.match(source, /evidenceRecords: normalizeEvidenceRecords\(evidenceRecords\)/);
   assert.match(source, /const nextEvidenceRecords = normalizedData\.evidenceRecords;/);
   assert.doesNotMatch(source, /evidenceRecordFromLegacyItem\(/);
+});
+
+test("seller classification is exposed in editor and inventory records without calculation wiring", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /<Select label="Seller mode" value=\{form\.sellerClassification \|\| "private"\}/);
+  assert.match(appSource, /sellerClassificationOptions\.map/);
+  assert.match(appSource, /sellerClassificationLabel=\{sellerClassificationLabel\}/);
+  assert.match(tableSource, /sellerClassificationLabel\(item\.sellerClassification\)/);
 });
 
 test("duplicate draft clears sale, shipping, refund, fee, tracking, platform fields", () => {

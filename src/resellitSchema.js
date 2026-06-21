@@ -14,6 +14,14 @@ export const classificationOptions = [
   DEFAULT_CLASSIFICATION,
 ];
 
+export const sellerClassificationOptions = [
+  ["private", "Private Sale"],
+  ["pre_registration", "Pre-Registration Stock"],
+  ["business", "Business Stock"],
+  ["excluded", "Excluded"],
+];
+export const sellerClassificationValues = sellerClassificationOptions.map(([value]) => value);
+
 export const ebayFeeModes = ["Private Germany", "Business Estimate", "Manual"];
 
 export const buyerPlatformOptions = [
@@ -82,6 +90,7 @@ export const emptyItem = {
   name: "",
   category: "",
   classification: DEFAULT_CLASSIFICATION,
+  sellerClassification: "private",
   sourceType: "Flea market",
   sourceName: "",
   sourceLocation: "",
@@ -286,6 +295,15 @@ export function itemClassification(item) {
   return item.classification || DEFAULT_CLASSIFICATION;
 }
 
+export function sellerClassificationLabel(value) {
+  return sellerClassificationOptions.find(([key]) => key === value)?.[1] || "Private Sale";
+}
+
+export function isBusinessRelevant(item) {
+  const normalized = normalizeItem(item);
+  return normalized.sellerClassification === "pre_registration" || normalized.sellerClassification === "business";
+}
+
 export function normalizeListingLanguageValue(item) {
   const rawLanguage = String(item?.language || "").trim().toLowerCase();
   if (rawLanguage === "en" || rawLanguage === "english") return "en";
@@ -337,6 +355,7 @@ export function normalizeItem(item) {
   const hasExplicitFeeMode = Boolean(item?.ebayFeeMode);
   next.language = normalizeListingLanguageValue(next);
   next.listingLanguage = languageLabel(next.language);
+  next.sellerClassification = sellerClassificationValues.includes(next.sellerClassification) ? next.sellerClassification : "private";
   next.measurements = next.measurements || next.sizeSpecs || "";
   next.sizeSpecs = next.sizeSpecs || next.measurements || "";
   next.includedAccessories = next.includedAccessories || next.includedItems || "";
@@ -535,6 +554,69 @@ export function validateEigenbeleg(record) {
 
 export function isValidEigenbeleg(record) {
   return validateEigenbeleg(record).length === 0;
+}
+
+export function itemRequiresEigenbeleg(item) {
+  const normalized = normalizeItem(item);
+  return normalized.hasReceipt === "No" || normalized.proofType === "Eigenbeleg" || normalized.receiptType === "Eigenbeleg needed";
+}
+
+export function getItemTaxReadiness(item, purchaseRecords = [], evidenceRecords = [], eigenbelege = []) {
+  const normalizedItem = normalizeItem(item);
+  const purchaseRecordList = normalizePurchaseRecords(purchaseRecords);
+  const evidenceRecordList = normalizeEvidenceRecords(evidenceRecords);
+  const eigenbelegList = normalizeEigenbelege(eigenbelege);
+  const purchaseRecordPresent = purchaseRecordList.some((record) => record.itemId === normalizedItem.id);
+  const evidencePresent = evidenceRecordList.some((record) => record.itemId === normalizedItem.id && record.evidenceStatus !== "Missing");
+  const eigenbelegRequired = itemRequiresEigenbeleg(normalizedItem);
+  const eigenbelegPresent = eigenbelegList.some((record) => record.itemId === normalizedItem.id && record.status !== "Not needed");
+  const issues = [];
+
+  if (!isBusinessRelevant(normalizedItem)) {
+    return {
+      status: "not_applicable",
+      issues,
+      purchaseRecordPresent,
+      evidencePresent,
+      eigenbelegRequired,
+      eigenbelegPresent,
+    };
+  }
+
+  if (!purchaseRecordPresent) issues.push("purchase_record_missing");
+  if (!evidencePresent) issues.push("evidence_missing");
+  if (eigenbelegRequired && !eigenbelegPresent) issues.push("eigenbeleg_missing");
+
+  const status = eigenbelegRequired && !eigenbelegPresent
+    ? "needs_eigenbeleg"
+    : issues.length
+      ? "incomplete"
+      : "ready";
+
+  return {
+    status,
+    issues,
+    purchaseRecordPresent,
+    evidencePresent,
+    eigenbelegRequired,
+    eigenbelegPresent,
+  };
+}
+
+export function getComplianceSummary(items = [], purchaseRecords = [], evidenceRecords = [], eigenbelege = []) {
+  return normalizeItems(items).reduce((summary, item) => {
+    const readiness = getItemTaxReadiness(item, purchaseRecords, evidenceRecords, eigenbelege);
+    if (readiness.status === "ready") summary.ready += 1;
+    if (readiness.status === "incomplete") summary.incomplete += 1;
+    if (readiness.status === "needs_eigenbeleg") summary.needsEigenbeleg += 1;
+    if (readiness.status === "not_applicable") summary.notApplicable += 1;
+    return summary;
+  }, {
+    ready: 0,
+    incomplete: 0,
+    needsEigenbeleg: 0,
+    notApplicable: 0,
+  });
 }
 
 export function purchaseRecordFromLegacyItem(item, overrides = {}) {

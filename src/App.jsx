@@ -76,6 +76,8 @@ import {
   photoChecklistItems,
   proofTypes,
   quickStatusOptions,
+  sellerClassificationLabel,
+  sellerClassificationOptions,
   shippingWorkflowStatuses,
   statusOptions,
   testedStatusOptions,
@@ -89,6 +91,7 @@ const DEFAULT_STOCK_COLUMN_WIDTHS = {
   date: 70,
   item: 140,
   status: 80,
+  seller: 92,
   source: 90,
   purchase: 58,
   sold: 58,
@@ -100,6 +103,7 @@ const STOCK_COLUMN_LABELS = [
   ["date", "Date"],
   ["item", "Item"],
   ["status", "Status"],
+  ["seller", "Seller"],
   ["source", "Source"],
   ["purchase", "Purchase"],
   ["sold", "Sold"],
@@ -112,6 +116,7 @@ const STOCK_COLUMN_WIDTH_LIMITS = {
   item: [90, 360],
   date: [70, 120],
   status: [80, 160],
+  seller: [80, 170],
   source: [80, 180],
   purchase: [54, 110],
   sold: [54, 110],
@@ -1263,7 +1268,7 @@ export default function ResellerItApp() {
   }), [stockTimelineItems]);
 
   const visibleStockColumnKeys = useMemo(() => {
-    const baseColumns = ["date", "item", "status", "source", "purchase", "sold"];
+    const baseColumns = ["date", "item", "status", "seller", "source", "purchase", "sold"];
     return stockViewMode === "Detailed view" ? [...baseColumns, "profit", "proof", "edit"] : [...baseColumns, "edit"];
   }, [stockViewMode]);
 
@@ -1710,6 +1715,9 @@ export default function ResellerItApp() {
                     <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
                     <Select label="Classification" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value, ebayFeeMode: e.target.value === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode })}>
                       {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+                    </Select>
+                    <Select label="Seller mode" value={form.sellerClassification || "private"} onChange={(e) => setForm({ ...form, sellerClassification: e.target.value })}>
+                      {sellerClassificationOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                     </Select>
                     <Select label="Source" value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })}>
                       <option>Flea market</option><option>Second-hand shop</option><option>Private seller</option><option>Online marketplace</option><option>Other</option>
@@ -2269,6 +2277,7 @@ export default function ResellerItApp() {
               inventoryStatus={inventoryStatus}
               inventoryTimelineMonth={inventoryTimelineMonth}
               classificationOptions={classificationOptions}
+              sellerClassificationLabel={sellerClassificationLabel}
               statusOptions={statusOptions}
               stockColumnLabelMap={STOCK_COLUMN_LABEL_MAP}
               money={money}
