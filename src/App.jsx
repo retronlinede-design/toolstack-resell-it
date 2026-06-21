@@ -86,7 +86,6 @@ import {
   quickStatusOptions,
   sellerClassificationLabel,
   sellerClassificationOptions,
-  shippingWorkflowStatuses,
   statusLabel,
   statusOptions,
   testedStatusOptions,
@@ -305,14 +304,11 @@ function quickProofStatus(item) {
 
 function statusBadgeClass(item) {
   const status = itemStatus(item);
-  if (status === "Completed") return "bg-lime-100 text-lime-800 border-lime-200";
+  if (status === "Complete") return "bg-lime-100 text-lime-800 border-lime-200";
   if (status === "Sold") return "bg-[#e06b2c]/15 text-[#8a3915] border-[#e06b2c]/25";
-  if (status === "Paid") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
-  if (status === "Ready to Pack") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
-  if (status === "Packed") return "bg-[#e06b2c]/20 text-[#8a3915] border-[#e06b2c]/30";
   if (status === "Shipped") return "bg-[#1f9d99]/15 text-[#0f5f5b] border-[#1f9d99]/25";
   if (status === "Ready to List" || status === "Listed") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
-  if (status === "Returned" || status === "Refunded" || status === "Written Off") return "bg-red-50 text-red-700 border-red-200";
+  if (status === "Returned") return "bg-red-50 text-red-700 border-red-200";
   return "bg-stone-100 text-stone-700 border-stone-200";
 }
 
@@ -328,10 +324,6 @@ function expectedListingValue(item) {
 
 function hasPriceResearch(item) {
   return Boolean(item.researchQuery || item.priceResearchLow || item.priceResearchMid || item.priceResearchHigh || item.researchedLowPrice || item.researchedMidPrice || item.researchedHighPrice || item.chosenListingPrice || item.priceResearchNotes);
-}
-
-function dhlTrackingUrl(trackingNumber) {
-  return `https://www.dhl.de/de/privatkunden/dhl-sendungsverfolgung.html?piececode=${encodeURIComponent(trackingNumber || "")}`;
 }
 
 function needsEigenbeleg(item) {
@@ -1024,8 +1016,8 @@ export default function ResellerItApp() {
     const panelKey = typeof panel === "string" ? panel : null;
     setActiveTab("sales");
     setActiveSalesPanel({
-      awaitingShipment: "awaiting_shipment",
-      shippedItems: "shipped_tracking",
+      awaitingShipment: "sold_items",
+      shippedItems: "sold_items",
       completedSales: "completed_sales",
       problemItems: "returns_refunds",
     }[panelKey] || panelKey);
@@ -1349,7 +1341,7 @@ export default function ResellerItApp() {
   const todayWorkflow = useMemo(() => ({
     toResearch: activeStockItems.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
     readyToList: activeStockItems.filter((item) => itemStatusValue(item) === "Ready to List"),
-    soldNotShipped: activeStockItems.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatusValue(item))),
+    soldNotShipped: activeStockItems.filter((item) => itemStatusValue(item) === "Sold"),
     missingProof: activeStockItems.filter(needsProofRecord),
     needsListing: activeStockItems.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
   }), [activeStockItems]);
@@ -1358,38 +1350,25 @@ export default function ResellerItApp() {
     const salesItems = activeStockItems.filter(isSoldStatus);
     return {
       items: salesItems,
-      awaitingShipment: salesItems.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatusValue(item))),
-      shippedItems: salesItems.filter((item) => itemStatusValue(item) === "Shipped" || item.trackingNumber || item.shippedDate),
-      completedSales: salesItems.filter((item) => itemStatusValue(item) === "Completed").slice(0, 6),
-      problemItems: salesItems.filter((item) => itemStatusValue(item) === "Returned" || itemStatusValue(item) === "Refunded" || itemStatusValue(item) === "Written Off"),
-      counts: shippingWorkflowStatuses.reduce((counts, status) => {
-        counts[status] = salesItems.filter((item) => itemStatusValue(item) === status).length;
-        return counts;
-      }, {}),
+      soldItems: salesItems.filter((item) => itemStatusValue(item) === "Sold"),
+      completedSales: salesItems.filter((item) => itemStatusValue(item) === "Complete"),
+      problemItems: salesItems.filter((item) => itemStatusValue(item) === "Returned"),
+      counts: {
+        Sold: salesItems.filter((item) => itemStatusValue(item) === "Sold").length,
+        Shipped: salesItems.filter((item) => itemStatusValue(item) === "Shipped").length,
+        Complete: salesItems.filter((item) => itemStatusValue(item) === "Complete").length,
+        Returned: salesItems.filter((item) => itemStatusValue(item) === "Returned").length,
+      },
     };
-  }, [activeStockItems]);
-
-  const shippingTrackerGroups = useMemo(() => {
-    const shipmentItems = activeStockItems.filter(isSoldStatus);
-    return [
-      ["Sold not shipped", shipmentItems.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatusValue(item)))],
-      ["Shipped / Tracking", shipmentItems.filter((item) => {
-        const status = itemStatusValue(item);
-        return status === "Shipped" || (Boolean(item.trackingNumber || item.shippedDate) && !["Sold", "Paid", "Ready to Pack", "Packed", "Completed", "Returned", "Refunded", "Written Off"].includes(status));
-      })],
-      ["Returned / Problem", shipmentItems.filter((item) => itemStatusValue(item) === "Returned" || itemStatusValue(item) === "Refunded" || itemStatusValue(item) === "Written Off")],
-    ];
   }, [activeStockItems]);
 
   const salesDataGapQueues = useMemo(() => {
     const salesItems = activeStockItems.filter(isSoldStatus);
-    const shippedItems = salesItems.filter((item) => itemStatusValue(item) === "Shipped" || item.shippedDate);
     return {
       missingSaleDate: salesItems.filter((item) => !item.saleDate),
       missingFinalSalePrice: salesItems.filter((item) => !finalSaleValue(item)),
       missingPlatformFees: salesItems.filter((item) => (item.buyerPlatform || "ebay") === "ebay" && !platformFees(item)),
       missingActualShippingCost: salesItems.filter((item) => !actualShippingValue(item) && (shippingChargedValue(item) || itemStatusValue(item) === "Shipped" || item.shippedDate)),
-      missingTracking: shippedItems.filter((item) => !item.trackingNumber),
       missingRefundReason: salesItems.filter((item) => number(item.refundAmount) > 0 && !String(item.refundReason || "").trim()),
     };
   }, [activeStockItems]);
@@ -1410,9 +1389,7 @@ export default function ResellerItApp() {
     const fees = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
     const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0);
     const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
-    const packedOrShippedToday = activeStockItems.filter((item) => (
-      itemStatusValue(item) === "Packed" || (itemStatusValue(item) === "Shipped" && item.shippedDate === CURRENT_DATE)
-    ));
+    const packedOrShippedToday = activeStockItems.filter((item) => itemStatusValue(item) === "Shipped" && item.shippedDate === CURRENT_DATE);
     return {
       stock: {
         inventoryValue: activeStockItems.filter((item) => !isSoldStatus(item)).reduce((sum, item) => sum + number(item.purchasePrice), 0),
@@ -1421,10 +1398,10 @@ export default function ResellerItApp() {
         recentSourcing: activeStockItems.filter((item) => inMonth(item.purchaseDate)).length,
       },
       sales: {
-        awaitingShipment: activeStockItems.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatusValue(item))).length,
+        awaitingShipment: activeStockItems.filter((item) => itemStatusValue(item) === "Sold").length,
         packedOrShippedToday: packedOrShippedToday.length,
-        returnsIssues: activeStockItems.filter((item) => itemStatusValue(item) === "Returned" || itemStatusValue(item) === "Refunded" || itemStatusValue(item) === "Written Off").length,
-        recentCompleted: activeStockItems.filter((item) => itemStatusValue(item) === "Completed").slice(0, 6).length,
+        returnsIssues: activeStockItems.filter((item) => itemStatusValue(item) === "Returned").length,
+        recentCompleted: activeStockItems.filter((item) => itemStatusValue(item) === "Complete").slice(0, 6).length,
       },
       finance: {
         revenue,
@@ -1614,7 +1591,7 @@ export default function ResellerItApp() {
     needsResearch: activeStockItems.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
     needsListing: activeStockItems.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
     readyToList: activeStockItems.filter((item) => itemStatusValue(item) === "Ready to List"),
-    needsShipping: activeStockItems.filter((item) => ["Sold", "Paid", "Ready to Pack", "Packed"].includes(itemStatusValue(item))),
+    needsShipping: activeStockItems.filter((item) => itemStatusValue(item) === "Sold"),
     needsTaxReview: activeStockItems.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION),
   }), [activeStockItems]);
 
@@ -1642,7 +1619,7 @@ export default function ResellerItApp() {
       if (activeTab === "dashboard") return [];
       if (activeTab === "stock" && stockSection === "needsAttention") return activeStockItems.filter((item) => needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
       if (activeTab === "stock" && stockSection === "readyToList") return activeStockItems.filter((item) => itemStatusValue(item) === "Ready to List");
-      if (activeTab === "sales") return activeStockItems.filter((item) => ["Sold", "Paid", "Shipped", "Completed", "Returned", "Refunded"].includes(itemStatusValue(item)) || isSoldStatus(item));
+      if (activeTab === "sales") return activeStockItems.filter((item) => ["Sold", "Shipped", "Complete", "Returned"].includes(itemStatusValue(item)) || isSoldStatus(item));
       if (activeTab === "finance" && financeSection === "taxRecords") return activeStockItems.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
       return items;
     })();
@@ -2782,7 +2759,7 @@ export default function ResellerItApp() {
                       <div className="flex flex-wrap gap-1.5 xl:max-w-sm xl:justify-end">
                         <button type="button" onClick={() => editItem(item)} className="rounded-xl border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
                         <button type="button" onClick={() => duplicateItem(item)} className="rounded-xl border border-neutral-300 px-3 py-1.5 text-xs font-semibold text-neutral-700 hover:bg-neutral-50">Duplicate</button>
-                        {["Ready to List", "Listed", "Sold", "Shipped", "Completed"].map((status) => (
+                        {["Ready to List", "Listed", "Sold", "Shipped", "Complete"].map((status) => (
                           <button key={status} type="button" onClick={() => updateItemStatus(item.id, status)} className={`rounded-xl border px-3 py-1.5 text-xs font-semibold ${itemStatusValue(item) === status ? statusBadgeClass({ status }) : "border-neutral-300 text-neutral-700 hover:bg-[#f0be45]/20"}`}>{statusLabel(status)}</button>
                         ))}
                       </div>
@@ -3332,8 +3309,8 @@ export default function ResellerItApp() {
               </div>
 
               <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <StatCard icon={Truck} label="Awaiting Shipment" value={salesWorkflow.awaitingShipment.length} accentClass="bg-[#e06b2c]" />
-                <StatCard icon={ShoppingCart} label="Completed Sales" value={salesWorkflow.counts.Completed || 0} accentClass="bg-[#e06b2c]" />
+                <StatCard icon={ShoppingCart} label="Sold" value={salesWorkflow.counts.Sold || 0} accentClass="bg-[#e06b2c]" />
+                <StatCard icon={ShoppingCart} label="Completed Sales" value={salesWorkflow.counts.Complete || 0} accentClass="bg-[#e06b2c]" />
                 <StatCard icon={RotateCcw} label="Returns / Refunds" value={salesWorkflow.problemItems.length} accentClass="bg-[#e06b2c]" />
                 <StatCard icon={Euro} label="Estimated Profit" value={money(summary.profit)} accentClass="bg-[#e06b2c]" />
               </section>
@@ -3342,19 +3319,23 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Fulfillment</h3>
-                      <p className="mt-1 text-xs text-neutral-500">Shipping and tracking work queues.</p>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Sales Activity</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Sold, completed, and returned item queues.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={() => setActiveSalesPanel("awaiting_shipment")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "awaiting_shipment" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
-                      <p className="text-sm font-semibold text-neutral-950">Awaiting Shipment</p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">Sold, paid, ready to pack, and packed items.</p>
+                    <button type="button" onClick={() => setActiveSalesPanel("sold_items")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "sold_items" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Sold Items</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Items marked sold but not complete.</p>
                     </button>
-                    <button type="button" onClick={() => setActiveSalesPanel("shipped_tracking")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "shipped_tracking" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
-                      <p className="text-sm font-semibold text-neutral-950">Shipped / Tracking</p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">Shipped items, tracking numbers, and carrier info.</p>
+                    <button type="button" onClick={() => setActiveSalesPanel("completed_sales")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "completed_sales" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Completed Sales</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Complete items with sales and profit information.</p>
+                    </button>
+                    <button type="button" onClick={() => setActiveSalesPanel("returns_refunds")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "returns_refunds" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Returns & Refunds</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Returned or reversed sales.</p>
                     </button>
                   </div>
                 </section>
@@ -3363,19 +3344,11 @@ export default function ResellerItApp() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Sales Review</h3>
-                      <p className="mt-1 text-xs text-neutral-500">Completed, returned, and profit review queues.</p>
+                      <p className="mt-1 text-xs text-neutral-500">Data quality and profit review queues.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={() => setActiveSalesPanel("completed_sales")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "completed_sales" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
-                      <p className="text-sm font-semibold text-neutral-950">Completed Sales</p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">Completed items with sales and profit information.</p>
-                    </button>
-                    <button type="button" onClick={() => setActiveSalesPanel("returns_refunds")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "returns_refunds" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
-                      <p className="text-sm font-semibold text-neutral-950">Returns & Refunds</p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">Returned, refunded, and written-off items.</p>
-                    </button>
                     <button type="button" onClick={() => setActiveSalesPanel("sales_data_gaps")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeSalesPanel === "sales_data_gaps" ? "border-[#e06b2c]/60 bg-[#e06b2c]/15" : "border-[#e06b2c]/25 bg-[#e06b2c]/8 hover:border-[#e06b2c]/45"}`}>
                       <p className="text-sm font-semibold text-neutral-950">Sales Data Gaps</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Existing field gaps for sold items.</p>
@@ -3411,8 +3384,7 @@ export default function ResellerItApp() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">Sales Panel</p>
                       <h3 className="mt-1 text-lg font-semibold text-neutral-950">
                         {{
-                          awaiting_shipment: "Awaiting Shipment",
-                          shipped_tracking: "Shipped / Tracking",
+                          sold_items: "Sold Items",
                           completed_sales: "Completed Sales",
                           returns_refunds: "Returns & Refunds",
                           sales_data_gaps: "Sales Data Gaps",
@@ -3423,13 +3395,12 @@ export default function ResellerItApp() {
                     <button type="button" onClick={() => setActiveSalesPanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
                   </div>
 
-                  {["awaiting_shipment", "shipped_tracking", "completed_sales", "returns_refunds"].includes(activeSalesPanel) && (
+                  {["sold_items", "completed_sales", "returns_refunds"].includes(activeSalesPanel) && (
                     <div className="grid gap-4">
                       {[
-                        activeSalesPanel === "awaiting_shipment" && ["Awaiting shipment", shippingTrackerGroups.find(([label]) => label === "Sold not shipped")?.[1] || salesWorkflow.awaitingShipment],
-                        activeSalesPanel === "shipped_tracking" && ["Shipped / Tracking", shippingTrackerGroups.find(([label]) => label === "Shipped / Tracking")?.[1] || salesWorkflow.shippedItems],
-                        activeSalesPanel === "completed_sales" && ["Completed sales", salesWorkflow.items.filter((item) => itemStatusValue(item) === "Completed")],
-                        activeSalesPanel === "returns_refunds" && ["Returns & Refunds", shippingTrackerGroups.find(([label]) => label === "Returned / Problem")?.[1] || salesWorkflow.problemItems],
+                        activeSalesPanel === "sold_items" && ["Sold items", salesWorkflow.soldItems],
+                        activeSalesPanel === "completed_sales" && ["Completed sales", salesWorkflow.completedSales],
+                        activeSalesPanel === "returns_refunds" && ["Returns & Refunds", salesWorkflow.problemItems],
                       ].filter(Boolean).map(([groupLabel, groupItems]) => (
                         <section key={groupLabel} className="rounded-2xl border border-[#eadfce] bg-[#fffaf0] p-4">
                           <div className="flex flex-col gap-1 border-b border-[#eadfce] pb-2 sm:flex-row sm:items-center sm:justify-between">
@@ -3459,13 +3430,12 @@ export default function ResellerItApp() {
                                     <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Packaging</span>{money(packagingCostValue(item))}</p>
                                     <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Refund</span>{refundValue(item) ? money(refundValue(item)) : "-"}</p>
                                     <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Net profit</span><strong className={itemProfitValue(item) >= 0 ? "text-lime-800" : "text-red-700"}>{money(itemProfitValue(item))}</strong></p>
-                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Carrier</span>{item.carrier || "-"}</p>
-                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Tracking</span>{item.trackingNumber || "-"}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Sale date</span>{item.saleDate || "-"}</p>
+                                    <p><span className="block font-semibold uppercase tracking-wide text-neutral-500">Platform</span>{buyerPlatformLabel(item.buyerPlatform)}</p>
                                   </div>
 
                                   <div className="flex flex-wrap justify-start gap-2 lg:justify-end">
                                     <button type="button" onClick={() => editItem(item)} className="rounded-lg border border-neutral-300 px-2.5 py-1.5 text-[11px] font-semibold text-neutral-700 hover:bg-neutral-50">Edit</button>
-                                    <a href={dhlTrackingUrl(item.trackingNumber)} target="_blank" rel="noreferrer" className={`rounded-lg px-2.5 py-1.5 text-[11px] font-semibold ${item.trackingNumber ? "bg-[#fff7ec] text-[#8a3915] hover:bg-[#f0be45]/30" : "pointer-events-none bg-neutral-100 text-neutral-400"}`}>Open DHL</a>
                                   </div>
                                 </div>
                               </article>
@@ -3483,7 +3453,6 @@ export default function ResellerItApp() {
                         ["Missing final sale price", salesDataGapQueues.missingFinalSalePrice],
                         ["Missing platform fees", salesDataGapQueues.missingPlatformFees],
                         ["Missing actual shipping cost", salesDataGapQueues.missingActualShippingCost],
-                        ["Missing tracking for shipped items", salesDataGapQueues.missingTracking],
                         ["Missing refund reason", salesDataGapQueues.missingRefundReason],
                       ].map(([label, queue]) => (
                         <div key={label} className="rounded-2xl border border-stone-200 bg-stone-50 p-3">

@@ -201,6 +201,24 @@ test("personal_collection status normalizes and displays correctly", () => {
   assert.equal(legacyItem.status, "personal_collection");
 });
 
+test("visible sales statuses are simplified while legacy statuses normalize safely", () => {
+  for (const status of ["Sold", "Shipped", "Complete", "Returned"]) {
+    assert.ok(statusOptions.includes(status));
+  }
+
+  for (const legacyStatus of ["Paid", "Ready to Pack", "Packed", "Completed", "Refunded", "Written Off"]) {
+    assert.equal(statusOptions.includes(legacyStatus), false);
+  }
+
+  assert.equal(normalizeSchemaItem({ status: "Paid" }).status, "Sold");
+  assert.equal(normalizeSchemaItem({ status: "Ready to Pack" }).status, "Sold");
+  assert.equal(normalizeSchemaItem({ status: "Packed" }).status, "Sold");
+  assert.equal(normalizeSchemaItem({ status: "Completed" }).status, "Complete");
+  assert.equal(normalizeSchemaItem({ status: "Refunded" }).status, "Returned");
+  assert.equal(normalizeSchemaItem({ status: "Written Off" }).status, "Returned");
+  assert.equal(isSoldStatus({ status: "Completed" }), true);
+});
+
 test("personal_collection items are excluded from active stock helpers", () => {
   assert.equal(isActiveStockItem({ status: "Draft" }), true);
   assert.equal(isActiveStockItem({ status: "personal_collection" }), false);
@@ -855,8 +873,7 @@ test("Sales Hub uses tile-driven panels without changing sales data ownership", 
   assert.match(source, /const salesPanelRef = useRef\(null\);/);
   assert.match(source, /salesPanelRef\.current\?\.scrollIntoView\(\{ behavior: "smooth", block: "start" \}\);/);
   assert.match(source, /Track sold items, profits, returns, refunds, and sales activity\./);
-  assert.match(source, /setActiveSalesPanel\("awaiting_shipment"\)/);
-  assert.match(source, /setActiveSalesPanel\("shipped_tracking"\)/);
+  assert.match(source, /setActiveSalesPanel\("sold_items"\)/);
   assert.match(source, /setActiveSalesPanel\("completed_sales"\)/);
   assert.match(source, /setActiveSalesPanel\("returns_refunds"\)/);
   assert.match(source, /setActiveSalesPanel\("sales_data_gaps"\)/);
@@ -869,13 +886,16 @@ test("Sales Hub uses tile-driven panels without changing sales data ownership", 
   assert.match(source, /salesDataGapQueues\.missingFinalSalePrice/);
   assert.match(source, /salesDataGapQueues\.missingPlatformFees/);
   assert.match(source, /salesDataGapQueues\.missingActualShippingCost/);
-  assert.match(source, /salesDataGapQueues\.missingTracking/);
   assert.match(source, /salesDataGapQueues\.missingRefundReason/);
   assert.match(source, /salesProfitReviewQueues\.negativeProfit/);
   assert.match(source, /salesProfitReviewQueues\.missingFeeShippingData/);
   assert.match(source, /salesProfitReviewQueues\.highCostOutliers/);
-  assert.match(source, /shippingTrackerGroups\.find/);
+  assert.match(source, /salesWorkflow\.soldItems/);
   assert.match(source, /editItem\(item\)/);
+  assert.doesNotMatch(source, /setActiveSalesPanel\("awaiting_shipment"\)/);
+  assert.doesNotMatch(source, /setActiveSalesPanel\("shipped_tracking"\)/);
+  assert.doesNotMatch(source, /Shipped \/ Tracking/);
+  assert.doesNotMatch(source, /missingTracking/);
 });
 
 test("Tools Compliance Center uses existing readiness data and opens item editor", () => {
