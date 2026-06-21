@@ -83,7 +83,7 @@ export const receiptStatusOptions = ["Receipt available", "No receipt", "Eigenbe
 export const evidenceTypeOptions = ["Receipt", "Invoice", "Eigenbeleg", "Seller message", "Marketplace listing screenshot", "Flea market photo", "Bank/payment record", "Cash withdrawal reference", "Transport receipt", "Other"];
 export const evidenceStatusOptions = ["Available", "External reference", "Needs review", "Missing", "Archived"];
 export const evidenceStorageTypeOptions = ["metadata_only", "indexeddb", "external_path", "external_url"];
-export const eigenbelegStatusOptions = ["Not needed", "Draft", "Generated", "Reviewed", "Final"];
+export const eigenbelegStatusOptions = ["Not needed", "draft", "Draft", "Generated", "Reviewed", "Final"];
 export const eigenbelegGenerationTypeOptions = ["item", "source_session", "selected_items"];
 
 export const emptyItem = {
@@ -617,6 +617,57 @@ export function getComplianceSummary(items = [], purchaseRecords = [], evidenceR
     incomplete: 0,
     needsEigenbeleg: 0,
     notApplicable: 0,
+  });
+}
+
+export function createDraftEigenbelegForItem(item, purchaseRecords = [], evidenceRecords = []) {
+  const normalizedItem = normalizeItem(item);
+  const purchaseRecord = normalizePurchaseRecords(purchaseRecords).find((record) => record.itemId === normalizedItem.id) || null;
+  const linkedEvidenceRecords = normalizeEvidenceRecords(evidenceRecords).filter((record) => record.itemId === normalizedItem.id);
+  const purchaseDate = purchaseRecord?.purchaseDate || item?.purchaseDate || item?.proofDate || normalizedItem.purchaseDate || CURRENT_DATE;
+  const amount = purchaseRecord?.allocatedPurchaseCost || purchaseRecord?.grossPurchasePrice || normalizedItem.proofAmount || normalizedItem.purchasePrice || "";
+  const paymentMethod = purchaseRecord?.paymentMethod || normalizedItem.paymentMethod || "Cash";
+  const sourceName = purchaseRecord?.sourceName || normalizedItem.sourceName || "";
+  const sourceLocation = purchaseRecord?.sourceLocation || normalizedItem.sourceLocation || "";
+  const sellerType = purchaseRecord?.sellerType || (normalizedItem.sourceType === "Flea market" ? "Private seller" : "");
+  const reasonNoReceipt = normalizedItem.noReceiptReason || "Purchased from a private seller. No receipt was available.";
+  const evidenceSummary = linkedEvidenceRecords.length
+    ? linkedEvidenceRecords.map((record) => [record.evidenceType, record.title || record.fileName || record.externalPath || record.evidenceStatus].filter(Boolean).join(": ")).join("\n")
+    : "No supporting evidence recorded.";
+  const generatedText = [
+    "Eigenbeleg / Self-Receipt",
+    "",
+    `Date: ${purchaseDate}`,
+    `Item: ${normalizedItem.name || "Unnamed item"}`,
+    `Amount: ${amount || "Not specified"} ${purchaseRecord?.currency || normalizedItem.currency || "EUR"}`,
+    `Payment method: ${paymentMethod}`,
+    `Source: ${sourceName || "Not specified"}`,
+    `Location: ${sourceLocation || "Not specified"}`,
+    `Seller type: ${sellerType || "Not specified"}`,
+    `Reason no receipt: ${reasonNoReceipt}`,
+    "",
+    "Evidence:",
+    evidenceSummary,
+    "",
+    "Signature: ______________________",
+  ].join("\n");
+
+  return normalizeEigenbeleg({
+    itemId: normalizedItem.id || "",
+    purchaseRecordId: purchaseRecord?.id || "",
+    sourceSessionId: purchaseRecord?.sourceSessionId || normalizedItem.sourceSessionId || "",
+    language: normalizedItem.language || DEFAULT_LANGUAGE,
+    generationType: "item",
+    sellerDescription: [sellerType, sourceName].filter(Boolean).join(" - "),
+    acquisitionDescription: [normalizedItem.name, sourceLocation].filter(Boolean).join(" / "),
+    reasonNoReceipt,
+    purchaseDate,
+    amount,
+    currency: purchaseRecord?.currency || "EUR",
+    paymentMethod,
+    evidenceIds: linkedEvidenceRecords.map((record) => record.id).filter(Boolean),
+    generatedText,
+    status: "draft",
   });
 }
 

@@ -48,6 +48,7 @@ export {
   itemRequiresEigenbeleg,
   getItemTaxReadiness,
   getComplianceSummary,
+  createDraftEigenbelegForItem,
   normalizeListingLanguageValue,
   languageLabel,
   normalizeBooleanRecord,

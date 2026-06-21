@@ -12,6 +12,7 @@ import {
   DEFAULT_EBAY_FEE_MODE,
   DEFAULT_LANGUAGE,
   DEFAULT_LISTING_LANGUAGE,
+  createDraftEigenbelegForItem,
   defaultEigenbeleg,
   defaultEvidenceRecord,
   defaultItem,
@@ -297,6 +298,85 @@ test("compliance summary counts item readiness states", () => {
     needsEigenbeleg: 1,
     notApplicable: 1,
   });
+});
+
+test("draft Eigenbeleg generation uses item data when no purchase record exists", () => {
+  const draft = createDraftEigenbelegForItem({
+    id: "item-1",
+    name: "Vintage camera",
+    sellerClassification: "business",
+    sourceType: "Flea market",
+    sourceName: "Sunday market",
+    sourceLocation: "Berlin",
+    purchaseDate: "2026-06-10",
+    purchasePrice: "25",
+    paymentMethod: "Cash",
+    hasReceipt: "No",
+    proofType: "Eigenbeleg",
+    receiptType: "Eigenbeleg needed",
+  }, [], []);
+
+  assert.equal(draft.itemId, "item-1");
+  assert.equal(draft.purchaseRecordId, "");
+  assert.equal(draft.purchaseDate, "2026-06-10");
+  assert.equal(draft.amount, "25");
+  assert.equal(draft.paymentMethod, "Cash");
+  assert.equal(draft.reasonNoReceipt, "Purchased from a private seller. No receipt was available.");
+  assert.equal(draft.status, "draft");
+  assert.match(draft.generatedText, /Vintage camera/);
+  assert.match(draft.generatedText, /Sunday market/);
+  assert.match(draft.generatedText, /Berlin/);
+  assert.match(draft.generatedText, /Private seller/);
+});
+
+test("draft Eigenbeleg generation links purchase and evidence records", () => {
+  const draft = createDraftEigenbelegForItem(
+    { id: "item-1", name: "Vintage camera", sellerClassification: "business", purchaseDate: "2026-06-10", purchasePrice: "25" },
+    [{
+      id: "purchase-1",
+      itemId: "item-1",
+      sourceSessionId: "session-1",
+      purchaseDate: "2026-06-05",
+      allocatedPurchaseCost: "22",
+      grossPurchasePrice: "24",
+      currency: "EUR",
+      paymentMethod: "Cash",
+      sellerType: "Private seller",
+      sourceName: "Seller A",
+      sourceLocation: "Munich",
+    }],
+    [{ id: "evidence-1", itemId: "item-1", evidenceType: "Seller message", evidenceStatus: "Available", title: "Chat screenshot" }],
+  );
+
+  assert.equal(draft.itemId, "item-1");
+  assert.equal(draft.purchaseRecordId, "purchase-1");
+  assert.equal(draft.sourceSessionId, "session-1");
+  assert.equal(draft.purchaseDate, "2026-06-05");
+  assert.equal(draft.amount, "22");
+  assert.equal(draft.currency, "EUR");
+  assert.deepEqual(draft.evidenceIds, ["evidence-1"]);
+  assert.equal(draft.sellerDescription, "Private seller - Seller A");
+  assert.match(draft.acquisitionDescription, /Vintage camera/);
+  assert.match(draft.acquisitionDescription, /Munich/);
+  assert.match(draft.generatedText, /Seller message: Chat screenshot/);
+});
+
+test("compliance readiness detects generated draft Eigenbeleg", () => {
+  const item = {
+    id: "item-1",
+    name: "Vintage camera",
+    sellerClassification: "business",
+    hasReceipt: "No",
+    proofType: "Eigenbeleg",
+    receiptType: "Eigenbeleg needed",
+  };
+  const purchaseRecords = [{ id: "purchase-1", itemId: "item-1", grossPurchasePrice: "20" }];
+  const evidenceRecords = [{ id: "evidence-1", itemId: "item-1", evidenceStatus: "Available" }];
+  const draft = createDraftEigenbelegForItem(item, purchaseRecords, evidenceRecords);
+  const readiness = getItemTaxReadiness(item, purchaseRecords, evidenceRecords, [draft]);
+
+  assert.equal(readiness.status, "ready");
+  assert.equal(readiness.eigenbelegPresent, true);
 });
 
 test("tax compliance schema defaults remain stable", () => {
@@ -638,6 +718,16 @@ test("App persistence shape includes eigenbelege without automatic Eigenbeleg mi
   assert.doesNotMatch(source, /eigenbelegFromLegacyItem\(/);
 });
 
+test("App draft Eigenbeleg action updates existing drafts without overwriting finalized records", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /function generateDraftEigenbeleg\(itemId\) {/);
+  assert.match(source, /createDraftEigenbelegForItem\(item, purchaseRecords, evidenceRecords\)/);
+  assert.match(source, /const existingDraft = eigenbelege\.find\(\(entry\) => entry\.itemId === itemId && \["draft", "Draft"\]\.includes\(entry\.status\)\);/);
+  assert.match(source, /eigenbelege\.map\(\(entry\) => \(entry\.id === existingDraft\.id \? { \.\.\.draft, id: existingDraft\.id, createdAt: entry\.createdAt \|\| draft\.createdAt } : entry\)\)/);
+  assert.match(source, /: \[draft, \.\.\.eigenbelege\];/);
+});
+
 test("seller classification is exposed in editor and inventory records without calculation wiring", () => {
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
@@ -656,6 +746,8 @@ test("compliance readiness is exposed as read-only UI", () => {
   assert.match(appSource, /getItemTaxReadiness\(form, purchaseRecords, evidenceRecords, eigenbelege\)/);
   assert.match(appSource, /Compliance Status/);
   assert.match(appSource, /complianceSummary\.needsEigenbeleg/);
+  assert.match(appSource, /Generate Draft Eigenbeleg/);
+  assert.match(appSource, /form\.id && isBusinessRelevant\(form\) && formTaxReadiness\.eigenbelegRequired/);
   assert.match(tableSource, /complianceReadinessByItemId\[item\.id\]\?\.status/);
   assert.match(tableSource, /complianceStatusLabel\(complianceStatus\)/);
 });

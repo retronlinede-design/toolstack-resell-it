@@ -51,6 +51,7 @@ import {
   buyerPlatformOptions,
   classificationOptions,
   conditionGradeOptions,
+  createDraftEigenbelegForItem,
   defaultDefectDisclosure,
   defaultPhotoChecklist,
   defectDisclosureItems,
@@ -794,6 +795,27 @@ export default function ResellerItApp() {
 
   function persistExpenses(nextExpenses) {
     return persistAll(items, nextExpenses);
+  }
+
+  function persistEigenbelege(nextEigenbelege) {
+    return persistAll(items, expenses, purchaseRecords, evidenceRecords, nextEigenbelege);
+  }
+
+  function generateDraftEigenbeleg(itemId) {
+    const item = items.find((entry) => entry.id === itemId);
+    if (!item) return;
+    const draft = {
+      ...createDraftEigenbelegForItem(item, purchaseRecords, evidenceRecords),
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const existingDraft = eigenbelege.find((entry) => entry.itemId === itemId && ["draft", "Draft"].includes(entry.status));
+    const nextEigenbelege = existingDraft
+      ? eigenbelege.map((entry) => (entry.id === existingDraft.id ? { ...draft, id: existingDraft.id, createdAt: entry.createdAt || draft.createdAt } : entry))
+      : [draft, ...eigenbelege];
+    if (!persistEigenbelege(nextEigenbelege)) return;
+    setToastMessage("Draft Eigenbeleg generated.");
   }
 
   function saveCurrentItem() {
@@ -1730,7 +1752,12 @@ export default function ResellerItApp() {
               <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
                 <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
                   <h3 className="text-sm font-semibold text-stone-950">Compliance Status</h3>
-                  <span className="w-fit rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-semibold text-stone-700">{taxReadinessStatusLabel(formTaxReadiness.status)}</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {form.id && isBusinessRelevant(form) && formTaxReadiness.eigenbelegRequired && (
+                      <button type="button" onClick={() => generateDraftEigenbeleg(form.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Generate Draft Eigenbeleg</button>
+                    )}
+                    <span className="w-fit rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-semibold text-stone-700">{taxReadinessStatusLabel(formTaxReadiness.status)}</span>
+                  </div>
                 </div>
                 <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
                   {[
