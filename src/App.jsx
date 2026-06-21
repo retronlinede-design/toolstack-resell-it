@@ -62,6 +62,9 @@ import {
   inMonth,
   inYear,
   isLegacyProofImageTooLarge,
+  getComplianceSummary,
+  getItemTaxReadiness,
+  isBusinessRelevant,
   itemClassification,
   languageLabel,
   languageOptions,
@@ -92,6 +95,7 @@ const DEFAULT_STOCK_COLUMN_WIDTHS = {
   item: 140,
   status: 80,
   seller: 92,
+  compliance: 104,
   source: 90,
   purchase: 58,
   sold: 58,
@@ -104,6 +108,7 @@ const STOCK_COLUMN_LABELS = [
   ["item", "Item"],
   ["status", "Status"],
   ["seller", "Seller"],
+  ["compliance", "Compliance"],
   ["source", "Source"],
   ["purchase", "Purchase"],
   ["sold", "Sold"],
@@ -117,6 +122,7 @@ const STOCK_COLUMN_WIDTH_LIMITS = {
   date: [70, 120],
   status: [80, 160],
   seller: [80, 170],
+  compliance: [92, 170],
   source: [80, 180],
   purchase: [54, 110],
   sold: [54, 110],
@@ -196,6 +202,19 @@ const financeSectionDetails = {
   reconciliation: ["Reconciliation", "Match sales, fees, payouts, and imported platform records."],
   yearEnd: ["Year-End / EÜR", "Year-end preparation for ELSTER or accountant reporting."],
 };
+
+function taxReadinessStatusLabel(status) {
+  return {
+    not_applicable: "N/A",
+    ready: "Ready",
+    incomplete: "Incomplete",
+    needs_eigenbeleg: "Needs Eigenbeleg",
+  }[status] || "Incomplete";
+}
+
+function yesNo(value) {
+  return value ? "Yes" : "No";
+}
 
 const demoItems = [
   {
@@ -1125,6 +1144,20 @@ export default function ResellerItApp() {
     return { purchaseTotal, ...soldPerformance, eigenbeleg };
   }, [items]);
 
+  const eigenbelege = useMemo(() => [], []);
+  const complianceSummary = useMemo(() => (
+    getComplianceSummary(items, purchaseRecords, evidenceRecords, eigenbelege)
+  ), [eigenbelege, evidenceRecords, items, purchaseRecords]);
+  const complianceReadinessByItemId = useMemo(() => (
+    Object.fromEntries(items.map((item) => [
+      item.id,
+      getItemTaxReadiness(item, purchaseRecords, evidenceRecords, eigenbelege),
+    ]))
+  ), [eigenbelege, evidenceRecords, items, purchaseRecords]);
+  const formTaxReadiness = useMemo(() => (
+    getItemTaxReadiness(form, purchaseRecords, evidenceRecords, eigenbelege)
+  ), [eigenbelege, evidenceRecords, form, purchaseRecords]);
+
   const classificationCounts = useMemo(() => (
     classificationOptions.reduce((counts, classification) => {
       counts[classification] = items.filter((item) => itemClassification(item) === classification).length;
@@ -1268,7 +1301,7 @@ export default function ResellerItApp() {
   }), [stockTimelineItems]);
 
   const visibleStockColumnKeys = useMemo(() => {
-    const baseColumns = ["date", "item", "status", "seller", "source", "purchase", "sold"];
+    const baseColumns = ["date", "item", "status", "seller", "compliance", "source", "purchase", "sold"];
     return stockViewMode === "Detailed view" ? [...baseColumns, "profit", "proof", "edit"] : [...baseColumns, "edit"];
   }, [stockViewMode]);
 
@@ -1670,6 +1703,29 @@ export default function ResellerItApp() {
                       <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Status</p><p className="font-semibold">{itemStatus(form)}</p></div>
                     </div>
                   </div>
+                </div>
+              </div>
+
+              <div className="rounded-3xl border border-stone-200 bg-white p-4 shadow-sm">
+                <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-sm font-semibold text-stone-950">Compliance Status</h3>
+                  <span className="w-fit rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-semibold text-stone-700">{taxReadinessStatusLabel(formTaxReadiness.status)}</span>
+                </div>
+                <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                  {[
+                    ["Seller mode", sellerClassificationLabel(form.sellerClassification)],
+                    ["Business relevant", yesNo(isBusinessRelevant(form))],
+                    ["Purchase record present", yesNo(formTaxReadiness.purchaseRecordPresent)],
+                    ["Evidence present", yesNo(formTaxReadiness.evidencePresent)],
+                    ["Eigenbeleg required", yesNo(formTaxReadiness.eigenbelegRequired)],
+                    ["Eigenbeleg present", yesNo(formTaxReadiness.eigenbelegPresent)],
+                    ["Status", taxReadinessStatusLabel(formTaxReadiness.status)],
+                  ].map(([label, value]) => (
+                    <div key={label} className="rounded-xl bg-stone-50 p-2">
+                      <p className="text-xs text-stone-500">{label}</p>
+                      <p className="mt-0.5 font-semibold text-stone-900">{value}</p>
+                    </div>
+                  ))}
                 </div>
               </div>
 
@@ -2277,6 +2333,8 @@ export default function ResellerItApp() {
               inventoryStatus={inventoryStatus}
               inventoryTimelineMonth={inventoryTimelineMonth}
               classificationOptions={classificationOptions}
+              complianceReadinessByItemId={complianceReadinessByItemId}
+              complianceStatusLabel={taxReadinessStatusLabel}
               sellerClassificationLabel={sellerClassificationLabel}
               statusOptions={statusOptions}
               stockColumnLabelMap={STOCK_COLUMN_LABEL_MAP}
@@ -2555,7 +2613,7 @@ export default function ResellerItApp() {
                 </div>
               </section>
 
-              <div className="grid gap-4 xl:grid-cols-3">
+              <div className="grid gap-4 xl:grid-cols-4">
                 <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
                   <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Snapshot</p>
                   <div className="mt-4 grid gap-3">
@@ -2580,6 +2638,16 @@ export default function ResellerItApp() {
                     <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Proof complete</span><span className="font-semibold text-stone-950">{proofSummary.proofComplete}</span></div>
                     <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Missing proof</span><span className="font-semibold text-stone-950">{proofSummary.missingProof}</span></div>
                     <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Eigenbeleg needed</span><span className="font-semibold text-stone-950">{proofSummary.needsEigenbeleg}</span></div>
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6d493d]">Compliance</p>
+                  <div className="mt-4 grid gap-3">
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Ready</span><span className="font-semibold text-stone-950">{complianceSummary.ready}</span></div>
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Incomplete</span><span className="font-semibold text-stone-950">{complianceSummary.incomplete}</span></div>
+                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Needs Eigenbeleg</span><span className="font-semibold text-stone-950">{complianceSummary.needsEigenbeleg}</span></div>
+                    <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Not applicable</span><span className="font-semibold text-stone-950">{complianceSummary.notApplicable}</span></div>
                   </div>
                 </section>
               </div>

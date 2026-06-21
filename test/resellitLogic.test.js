@@ -611,6 +611,18 @@ test("seller classification is exposed in editor and inventory records without c
   assert.match(tableSource, /sellerClassificationLabel\(item\.sellerClassification\)/);
 });
 
+test("compliance readiness is exposed as read-only UI", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /getComplianceSummary\(items, purchaseRecords, evidenceRecords, eigenbelege\)/);
+  assert.match(appSource, /getItemTaxReadiness\(form, purchaseRecords, evidenceRecords, eigenbelege\)/);
+  assert.match(appSource, /Compliance Status/);
+  assert.match(appSource, /complianceSummary\.needsEigenbeleg/);
+  assert.match(tableSource, /complianceReadinessByItemId\[item\.id\]\?\.status/);
+  assert.match(tableSource, /complianceStatusLabel\(complianceStatus\)/);
+});
+
 test("duplicate draft clears sale, shipping, refund, fee, tracking, platform fields", () => {
   const duplicate = duplicateItemForDraft({
     name: "Sold item",

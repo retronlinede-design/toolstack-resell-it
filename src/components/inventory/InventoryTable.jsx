@@ -20,6 +20,8 @@ export function InventoryTable({
   inventoryStatus,
   inventoryTimelineMonth,
   classificationOptions,
+  complianceReadinessByItemId,
+  complianceStatusLabel,
   sellerClassificationLabel,
   statusOptions,
   stockColumnLabelMap,
@@ -173,6 +175,7 @@ export function InventoryTable({
                     {groupItems.map((item) => {
                       const sold = isSoldStatus(item);
                       const proofStatus = quickProofStatus(item) === "Eigenbeleg needed" ? "Eigenbeleg" : needsProofRecord(item) ? "Missing" : "OK";
+                      const complianceStatus = complianceReadinessByItemId[item.id]?.status || "not_applicable";
                       const inputClass = "min-h-6 w-full rounded border border-transparent bg-transparent px-1 text-[11px] text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/30 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
                       return (
                         <tr key={item.id} className="border-b border-stone-100 last:border-b-0 hover:bg-[#fffaf0]/75">
@@ -190,6 +193,11 @@ export function InventoryTable({
                           <td className="px-1 py-0.5" style={{ width: stockColumnWidths.seller }}>
                             <span className="block truncate rounded border border-transparent px-1 py-1 text-[11px] font-semibold text-stone-700" title={sellerClassificationLabel(item.sellerClassification)}>
                               {sellerClassificationLabel(item.sellerClassification)}
+                            </span>
+                          </td>
+                          <td className="px-1 py-0.5" style={{ width: stockColumnWidths.compliance }}>
+                            <span className="block truncate rounded border border-transparent px-1 py-1 text-[11px] font-semibold text-stone-700" title={complianceStatusLabel(complianceStatus)}>
+                              {complianceStatusLabel(complianceStatus)}
                             </span>
                           </td>
                           <td className="px-1 py-0.5" style={{ width: stockColumnWidths.source }}>
