@@ -12,9 +12,29 @@ import {
   DEFAULT_EBAY_FEE_MODE,
   DEFAULT_LANGUAGE,
   DEFAULT_LISTING_LANGUAGE,
+  defaultEigenbeleg,
+  defaultEvidenceRecord,
   defaultItem,
+  defaultPurchaseRecord,
+  eigenbelegFromLegacyItem,
   emptyItem,
+  emptyEigenbeleg,
+  emptyEvidenceRecord,
+  emptyPurchaseRecord,
+  evidenceRecordFromLegacyItem,
+  isValidEigenbeleg,
+  isValidEvidenceRecord,
+  isValidPurchaseRecord,
+  normalizeEigenbeleg,
+  normalizeEvidenceRecord,
   normalizeItem as normalizeSchemaItem,
+  normalizePurchaseRecord,
+  normalizeRootAppData,
+  purchaseRecordFromLegacyItem,
+  scaffoldTaxComplianceRecordsFromItems,
+  validateEigenbeleg,
+  validateEvidenceRecord,
+  validatePurchaseRecord,
 } from "../src/resellitSchema.js";
 import {
   MAX_LEGACY_PROOF_IMAGE_BYTES,
@@ -148,6 +168,178 @@ test("schema normalization migrates legacy conditionText into ebay.conditionText
   assert.equal(item.ebay.conditionText, "Legacy condition description");
 });
 
+test("tax compliance schema defaults remain stable", () => {
+  assert.equal(defaultPurchaseRecord, emptyPurchaseRecord);
+  assert.equal(defaultEvidenceRecord, emptyEvidenceRecord);
+  assert.equal(defaultEigenbeleg, emptyEigenbeleg);
+
+  assert.deepEqual(Object.keys(emptyPurchaseRecord), [
+    "id",
+    "itemId",
+    "sourceSessionId",
+    "purchaseDate",
+    "purchaseType",
+    "sellerName",
+    "sellerType",
+    "sourceName",
+    "sourceLocation",
+    "sourcePlatform",
+    "grossPurchasePrice",
+    "allocatedPurchaseCost",
+    "currency",
+    "paymentMethod",
+    "receiptStatus",
+    "proofStatus",
+    "evidenceIds",
+    "notes",
+    "migratedFromLegacyItem",
+    "createdAt",
+    "updatedAt",
+  ]);
+  assert.deepEqual(Object.keys(emptyEvidenceRecord), [
+    "id",
+    "itemId",
+    "purchaseRecordId",
+    "sourceSessionId",
+    "expenseId",
+    "ebayTransactionId",
+    "evidenceType",
+    "evidenceStatus",
+    "title",
+    "documentDate",
+    "issuer",
+    "amount",
+    "currency",
+    "storageType",
+    "fileName",
+    "mimeType",
+    "fileSize",
+    "indexedDbBlobKey",
+    "externalPath",
+    "externalUrl",
+    "notes",
+    "migratedFromLegacyItem",
+    "createdAt",
+    "updatedAt",
+  ]);
+  assert.deepEqual(Object.keys(emptyEigenbeleg), [
+    "id",
+    "itemId",
+    "purchaseRecordId",
+    "sourceSessionId",
+    "language",
+    "generationType",
+    "sellerDescription",
+    "acquisitionDescription",
+    "reasonNoReceipt",
+    "purchaseDate",
+    "amount",
+    "currency",
+    "paymentMethod",
+    "evidenceIds",
+    "generatedText",
+    "generatedHtml",
+    "pdfEvidenceId",
+    "status",
+    "finalizedAt",
+    "migratedFromLegacyItem",
+    "createdAt",
+    "updatedAt",
+  ]);
+});
+
+test("tax compliance schema normalization keeps safe defaults and arrays", () => {
+  assert.deepEqual(normalizePurchaseRecord({ itemId: "item-1", grossPurchasePrice: "12", evidenceIds: [" proof-1 ", "", null] }), {
+    ...emptyPurchaseRecord,
+    itemId: "item-1",
+    grossPurchasePrice: "12",
+    allocatedPurchaseCost: "12",
+    evidenceIds: ["proof-1"],
+  });
+
+  assert.deepEqual(normalizeEvidenceRecord({ itemId: "item-1", storageType: "bad", evidenceType: "bad", evidenceStatus: "bad" }), {
+    ...emptyEvidenceRecord,
+    itemId: "item-1",
+  });
+
+  assert.deepEqual(normalizeEigenbeleg({ itemId: "item-1", purchaseRecordId: "purchase-1", language: "English", amount: "12", evidenceIds: ["evidence-1"] }), {
+    ...emptyEigenbeleg,
+    itemId: "item-1",
+    purchaseRecordId: "purchase-1",
+    language: "en",
+    amount: "12",
+    evidenceIds: ["evidence-1"],
+  });
+});
+
+test("tax compliance validation helpers report required fields", () => {
+  assert.deepEqual(validatePurchaseRecord(emptyPurchaseRecord), [
+    "itemId is required",
+    "grossPurchasePrice or allocatedPurchaseCost is required",
+  ]);
+  assert.deepEqual(validateEvidenceRecord({ ...emptyEvidenceRecord, itemId: "item-1", storageType: "indexeddb" }), [
+    "indexedDbBlobKey is required for indexeddb evidence",
+  ]);
+  assert.deepEqual(validateEigenbeleg(emptyEigenbeleg), [
+    "itemId is required",
+    "purchaseRecordId is required",
+    "reasonNoReceipt is required",
+    "amount is required",
+  ]);
+
+  assert.equal(isValidPurchaseRecord({ itemId: "item-1", grossPurchasePrice: "12" }), true);
+  assert.equal(isValidEvidenceRecord({ itemId: "item-1" }), true);
+  assert.equal(isValidEigenbeleg({ itemId: "item-1", purchaseRecordId: "purchase-1", reasonNoReceipt: "No receipt", amount: "12" }), true);
+});
+
+test("legacy item tax migration scaffolding creates item-linked records without persistence", () => {
+  const legacyItem = normalizeSchemaItem({
+    id: "item-1",
+    name: "Vintage camera",
+    sourceType: "Flea market",
+    sourceName: "Sunday market",
+    sourceLocation: "Berlin",
+    purchaseDate: "2026-06-01",
+    purchasePrice: "18",
+    paymentMethod: "Cash",
+    hasReceipt: "No",
+    proofType: "Eigenbeleg",
+    proofFileName: "camera-proof.txt",
+    proofFolderLocation: "Receipts/2026",
+    proofStoredExternally: "Yes",
+    noReceiptReason: "Private seller did not issue receipt",
+  });
+
+  const purchaseRecord = purchaseRecordFromLegacyItem(legacyItem, { id: "purchase-1" });
+  const evidenceRecord = evidenceRecordFromLegacyItem(legacyItem, { id: "evidence-1", purchaseRecordId: purchaseRecord.id });
+  const eigenbeleg = eigenbelegFromLegacyItem(legacyItem, purchaseRecord, { id: "eigenbeleg-1" });
+
+  assert.equal(purchaseRecord.itemId, "item-1");
+  assert.equal(purchaseRecord.receiptStatus, "Eigenbeleg needed");
+  assert.equal(purchaseRecord.proofStatus, "External proof recorded");
+  assert.equal(purchaseRecord.allocatedPurchaseCost, "18");
+  assert.equal(purchaseRecord.migratedFromLegacyItem, true);
+
+  assert.equal(evidenceRecord.itemId, "item-1");
+  assert.equal(evidenceRecord.purchaseRecordId, "purchase-1");
+  assert.equal(evidenceRecord.evidenceType, "Eigenbeleg");
+  assert.equal(evidenceRecord.storageType, "external_path");
+  assert.equal(evidenceRecord.externalPath, "Receipts/2026");
+  assert.equal(evidenceRecord.migratedFromLegacyItem, true);
+
+  assert.equal(eigenbeleg.itemId, "item-1");
+  assert.equal(eigenbeleg.purchaseRecordId, "purchase-1");
+  assert.equal(eigenbeleg.reasonNoReceipt, "Private seller did not issue receipt");
+  assert.equal(eigenbeleg.amount, "18");
+  assert.equal(eigenbeleg.status, "Draft");
+
+  const scaffold = scaffoldTaxComplianceRecordsFromItems([legacyItem]);
+  assert.equal(scaffold.purchaseRecords.length, 1);
+  assert.equal(scaffold.evidenceRecords.length, 1);
+  assert.equal(scaffold.eigenbelege.length, 1);
+  assert.equal(scaffold.purchaseRecords[0].itemId, "item-1");
+});
+
 test("legacy ebayFees are preserved as legacy platform fees during normalization", () => {
   const item = normalizeItem({
     name: "Legacy fee item",
@@ -180,9 +372,47 @@ test("sold-only performance excludes unsold inventory from profit", () => {
 
 test("partial JSON backup payloads are rejected", () => {
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [] }), true);
+  assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [], expenses: [], purchaseRecords: [] }), true);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", items: [] }), false);
   assert.equal(isFullBackupPayload({ type: "RESELLERIT_BACKUP", expenses: [] }), false);
   assert.equal(isFullBackupPayload({ type: "OTHER_BACKUP", items: [], expenses: [] }), false);
+});
+
+test("root app data normalization accepts old backups without purchaseRecords", () => {
+  const data = normalizeRootAppData({
+    type: "RESELLERIT_BACKUP",
+    version: 1,
+    items: [{ name: "Legacy item" }],
+    expenses: [{ description: "Tape", amount: "3" }],
+  });
+
+  assert.equal(data.version, 1);
+  assert.equal(data.items.length, 1);
+  assert.equal(data.items[0].name, "Legacy item");
+  assert.deepEqual(data.expenses, [{ description: "Tape", amount: "3" }]);
+  assert.deepEqual(data.purchaseRecords, []);
+});
+
+test("root app data normalization preserves new backup purchaseRecords", () => {
+  const data = normalizeRootAppData({
+    type: "RESELLERIT_BACKUP",
+    version: 2,
+    items: [{ id: "item-1", name: "Item" }],
+    expenses: [],
+    purchaseRecords: [{ itemId: "item-1", grossPurchasePrice: "12", receiptStatus: "Receipt available" }],
+  });
+
+  assert.equal(data.version, 2);
+  assert.equal(data.purchaseRecords.length, 1);
+  assert.equal(data.purchaseRecords[0].itemId, "item-1");
+  assert.equal(data.purchaseRecords[0].grossPurchasePrice, "12");
+  assert.equal(data.purchaseRecords[0].allocatedPurchaseCost, "12");
+  assert.equal(data.purchaseRecords[0].receiptStatus, "Receipt available");
+});
+
+test("missing purchaseRecords initialize to an empty collection", () => {
+  assert.deepEqual(normalizeRootAppData({ items: [], expenses: [] }).purchaseRecords, []);
+  assert.deepEqual(normalizeRootAppData({ items: [], expenses: [], purchaseRecords: "bad" }).purchaseRecords, []);
 });
 
 test("persistence failure guards preserve form/editor state before reset behavior", () => {
@@ -192,6 +422,16 @@ test("persistence failure guards preserve form/editor state before reset behavio
   assert.match(source, /if \(!persist\(\[newItem, \.\.\.items\]\)\) return;\s*setQuickAddItem\(/s);
   assert.match(source, /if \(!persistExpenses\(nextExpenses\)\) return;\s*setExpenseForm\(emptyExpense\);\s*setEditingExpenseId\(null\);/s);
   assert.match(source, /function persistExpenses\(nextExpenses\) {\s*return persistAll\(items, nextExpenses\);\s*}/s);
+});
+
+test("App persistence shape includes purchaseRecords without automatic scaffolding", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const \[purchaseRecords, setPurchaseRecords\] = useState\(loadInitialPurchaseRecords\);/);
+  assert.match(source, /purchaseRecords: normalizedPurchaseRecords/);
+  assert.match(source, /purchaseRecords: normalizePurchaseRecords\(purchaseRecords\)/);
+  assert.match(source, /const nextPurchaseRecords = normalizedData\.purchaseRecords;/);
+  assert.doesNotMatch(source, /scaffoldTaxComplianceRecordsFromItems\(/);
 });
 
 test("duplicate draft clears sale, shipping, refund, fee, tracking, platform fields", () => {

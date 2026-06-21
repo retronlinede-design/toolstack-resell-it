@@ -69,6 +69,14 @@ export const legacyStatusLabels = { "Written off": "Written Off", "Kept private"
 
 export const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
 export const researchConfidenceOptions = ["low", "medium", "high"];
+export const purchaseRecordTypeOptions = ["Single item", "Bulk lot item", "Source session allocation", "Retail purchase", "Online marketplace", "Other"];
+export const sellerTypeOptions = ["Private seller", "Business seller", "Retail store", "Marketplace seller", "Unknown"];
+export const receiptStatusOptions = ["Receipt available", "No receipt", "Eigenbeleg needed", "External proof recorded", "Missing proof"];
+export const evidenceTypeOptions = ["Receipt", "Invoice", "Eigenbeleg", "Seller message", "Marketplace listing screenshot", "Flea market photo", "Bank/payment record", "Cash withdrawal reference", "Transport receipt", "Other"];
+export const evidenceStatusOptions = ["Available", "External reference", "Needs review", "Missing", "Archived"];
+export const evidenceStorageTypeOptions = ["metadata_only", "indexeddb", "external_path", "external_url"];
+export const eigenbelegStatusOptions = ["Not needed", "Draft", "Generated", "Reviewed", "Final"];
+export const eigenbelegGenerationTypeOptions = ["item", "source_session", "selected_items"];
 
 export const emptyItem = {
   name: "",
@@ -181,7 +189,86 @@ export const emptyExpense = {
   linkedItemId: "",
 };
 
+export const emptyPurchaseRecord = {
+  id: "",
+  itemId: "",
+  sourceSessionId: "",
+  purchaseDate: CURRENT_DATE,
+  purchaseType: "Single item",
+  sellerName: "",
+  sellerType: "Unknown",
+  sourceName: "",
+  sourceLocation: "",
+  sourcePlatform: "",
+  grossPurchasePrice: "",
+  allocatedPurchaseCost: "",
+  currency: "EUR",
+  paymentMethod: "Cash",
+  receiptStatus: "Eigenbeleg needed",
+  proofStatus: "Missing proof",
+  evidenceIds: [],
+  notes: "",
+  migratedFromLegacyItem: false,
+  createdAt: "",
+  updatedAt: "",
+};
+
+export const emptyEvidenceRecord = {
+  id: "",
+  itemId: "",
+  purchaseRecordId: "",
+  sourceSessionId: "",
+  expenseId: "",
+  ebayTransactionId: "",
+  evidenceType: "Receipt",
+  evidenceStatus: "Missing",
+  title: "",
+  documentDate: "",
+  issuer: "",
+  amount: "",
+  currency: "EUR",
+  storageType: "metadata_only",
+  fileName: "",
+  mimeType: "",
+  fileSize: "",
+  indexedDbBlobKey: "",
+  externalPath: "",
+  externalUrl: "",
+  notes: "",
+  migratedFromLegacyItem: false,
+  createdAt: "",
+  updatedAt: "",
+};
+
+export const emptyEigenbeleg = {
+  id: "",
+  itemId: "",
+  purchaseRecordId: "",
+  sourceSessionId: "",
+  language: DEFAULT_LANGUAGE,
+  generationType: "item",
+  sellerDescription: "",
+  acquisitionDescription: "",
+  reasonNoReceipt: "",
+  purchaseDate: CURRENT_DATE,
+  amount: "",
+  currency: "EUR",
+  paymentMethod: "Cash",
+  evidenceIds: [],
+  generatedText: "",
+  generatedHtml: "",
+  pdfEvidenceId: "",
+  status: "Draft",
+  finalizedAt: "",
+  migratedFromLegacyItem: false,
+  createdAt: "",
+  updatedAt: "",
+};
+
 export const defaultItem = emptyItem;
+export const defaultPurchaseRecord = emptyPurchaseRecord;
+export const defaultEvidenceRecord = emptyEvidenceRecord;
+export const defaultEigenbeleg = emptyEigenbeleg;
 
 export function number(value) {
   return Number(String(value || "0").replace(",", ".")) || 0;
@@ -221,6 +308,15 @@ export function normalizeBooleanRecord(value, defaults) {
   }
   if (!value || typeof value !== "object") return { ...defaults };
   return Object.fromEntries(Object.keys(defaults).map((key) => [key, Boolean(value[key])]));
+}
+
+export function normalizeStringArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => String(entry || "").trim()).filter(Boolean);
+}
+
+function optionOrDefault(value, options, fallback) {
+  return options.includes(value) ? value : fallback;
 }
 
 export function isLegacyProofImageTooLarge(value) {
@@ -284,4 +380,241 @@ export function normalizeItem(item) {
 
 export function normalizeItems(items) {
   return Array.isArray(items) ? items.map(normalizeItem) : [];
+}
+
+export function normalizeRootAppData(data, fallbackItems = []) {
+  const parsed = data && typeof data === "object" ? data : {};
+  return {
+    version: Number(parsed.version) || 2,
+    items: Array.isArray(parsed.items) ? normalizeItems(parsed.items) : normalizeItems(fallbackItems),
+    expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+    purchaseRecords: normalizePurchaseRecords(parsed.purchaseRecords),
+    updatedAt: String(parsed.updatedAt || ""),
+  };
+}
+
+export function normalizePurchaseRecord(record) {
+  const next = { ...emptyPurchaseRecord, ...(record && typeof record === "object" ? record : {}) };
+  next.id = String(next.id || "");
+  next.itemId = String(next.itemId || "");
+  next.sourceSessionId = String(next.sourceSessionId || "");
+  next.purchaseDate = String(next.purchaseDate || CURRENT_DATE);
+  next.purchaseType = optionOrDefault(next.purchaseType, purchaseRecordTypeOptions, emptyPurchaseRecord.purchaseType);
+  next.sellerName = String(next.sellerName || "");
+  next.sellerType = optionOrDefault(next.sellerType, sellerTypeOptions, emptyPurchaseRecord.sellerType);
+  next.sourceName = String(next.sourceName || "");
+  next.sourceLocation = String(next.sourceLocation || "");
+  next.sourcePlatform = String(next.sourcePlatform || "");
+  next.grossPurchasePrice = String(next.grossPurchasePrice || "");
+  next.allocatedPurchaseCost = String(next.allocatedPurchaseCost || next.grossPurchasePrice || "");
+  next.currency = String(next.currency || "EUR").toUpperCase();
+  next.paymentMethod = String(next.paymentMethod || emptyPurchaseRecord.paymentMethod);
+  next.receiptStatus = optionOrDefault(next.receiptStatus, receiptStatusOptions, emptyPurchaseRecord.receiptStatus);
+  next.proofStatus = optionOrDefault(next.proofStatus, receiptStatusOptions, next.receiptStatus);
+  next.evidenceIds = normalizeStringArray(next.evidenceIds);
+  next.notes = String(next.notes || "");
+  next.migratedFromLegacyItem = Boolean(next.migratedFromLegacyItem);
+  next.createdAt = String(next.createdAt || "");
+  next.updatedAt = String(next.updatedAt || "");
+  return next;
+}
+
+export function normalizePurchaseRecords(records) {
+  return Array.isArray(records) ? records.map(normalizePurchaseRecord) : [];
+}
+
+export function validatePurchaseRecord(record) {
+  const next = normalizePurchaseRecord(record);
+  const errors = [];
+  if (!next.itemId) errors.push("itemId is required");
+  if (!next.purchaseDate) errors.push("purchaseDate is required");
+  if (!next.purchaseType) errors.push("purchaseType is required");
+  if (!next.paymentMethod) errors.push("paymentMethod is required");
+  if (!next.receiptStatus) errors.push("receiptStatus is required");
+  if (!next.grossPurchasePrice && !next.allocatedPurchaseCost) errors.push("grossPurchasePrice or allocatedPurchaseCost is required");
+  return errors;
+}
+
+export function isValidPurchaseRecord(record) {
+  return validatePurchaseRecord(record).length === 0;
+}
+
+export function normalizeEvidenceRecord(record) {
+  const next = { ...emptyEvidenceRecord, ...(record && typeof record === "object" ? record : {}) };
+  next.id = String(next.id || "");
+  next.itemId = String(next.itemId || "");
+  next.purchaseRecordId = String(next.purchaseRecordId || "");
+  next.sourceSessionId = String(next.sourceSessionId || "");
+  next.expenseId = String(next.expenseId || "");
+  next.ebayTransactionId = String(next.ebayTransactionId || "");
+  next.evidenceType = optionOrDefault(next.evidenceType, evidenceTypeOptions, emptyEvidenceRecord.evidenceType);
+  next.evidenceStatus = optionOrDefault(next.evidenceStatus, evidenceStatusOptions, emptyEvidenceRecord.evidenceStatus);
+  next.title = String(next.title || "");
+  next.documentDate = String(next.documentDate || "");
+  next.issuer = String(next.issuer || "");
+  next.amount = String(next.amount || "");
+  next.currency = String(next.currency || "EUR").toUpperCase();
+  next.storageType = optionOrDefault(next.storageType, evidenceStorageTypeOptions, emptyEvidenceRecord.storageType);
+  next.fileName = String(next.fileName || "");
+  next.mimeType = String(next.mimeType || "");
+  next.fileSize = String(next.fileSize || "");
+  next.indexedDbBlobKey = String(next.indexedDbBlobKey || "");
+  next.externalPath = String(next.externalPath || "");
+  next.externalUrl = String(next.externalUrl || "");
+  next.notes = String(next.notes || "");
+  next.migratedFromLegacyItem = Boolean(next.migratedFromLegacyItem);
+  next.createdAt = String(next.createdAt || "");
+  next.updatedAt = String(next.updatedAt || "");
+  return next;
+}
+
+export function normalizeEvidenceRecords(records) {
+  return Array.isArray(records) ? records.map(normalizeEvidenceRecord) : [];
+}
+
+export function validateEvidenceRecord(record) {
+  const next = normalizeEvidenceRecord(record);
+  const errors = [];
+  if (!next.itemId) errors.push("itemId is required");
+  if (!next.evidenceType) errors.push("evidenceType is required");
+  if (!next.evidenceStatus) errors.push("evidenceStatus is required");
+  if (!next.storageType) errors.push("storageType is required");
+  if (next.storageType === "indexeddb" && !next.indexedDbBlobKey) errors.push("indexedDbBlobKey is required for indexeddb evidence");
+  if (next.storageType === "external_path" && !next.externalPath) errors.push("externalPath is required for external_path evidence");
+  if (next.storageType === "external_url" && !next.externalUrl) errors.push("externalUrl is required for external_url evidence");
+  return errors;
+}
+
+export function isValidEvidenceRecord(record) {
+  return validateEvidenceRecord(record).length === 0;
+}
+
+export function normalizeEigenbeleg(record) {
+  const next = { ...emptyEigenbeleg, ...(record && typeof record === "object" ? record : {}) };
+  next.id = String(next.id || "");
+  next.itemId = String(next.itemId || "");
+  next.purchaseRecordId = String(next.purchaseRecordId || "");
+  next.sourceSessionId = String(next.sourceSessionId || "");
+  next.language = normalizeListingLanguageValue(next);
+  next.generationType = optionOrDefault(next.generationType, eigenbelegGenerationTypeOptions, emptyEigenbeleg.generationType);
+  next.sellerDescription = String(next.sellerDescription || "");
+  next.acquisitionDescription = String(next.acquisitionDescription || "");
+  next.reasonNoReceipt = String(next.reasonNoReceipt || "");
+  next.purchaseDate = String(next.purchaseDate || CURRENT_DATE);
+  next.amount = String(next.amount || "");
+  next.currency = String(next.currency || "EUR").toUpperCase();
+  next.paymentMethod = String(next.paymentMethod || emptyEigenbeleg.paymentMethod);
+  next.evidenceIds = normalizeStringArray(next.evidenceIds);
+  next.generatedText = String(next.generatedText || "");
+  next.generatedHtml = String(next.generatedHtml || "");
+  next.pdfEvidenceId = String(next.pdfEvidenceId || "");
+  next.status = optionOrDefault(next.status, eigenbelegStatusOptions, emptyEigenbeleg.status);
+  next.finalizedAt = String(next.finalizedAt || "");
+  next.migratedFromLegacyItem = Boolean(next.migratedFromLegacyItem);
+  next.createdAt = String(next.createdAt || "");
+  next.updatedAt = String(next.updatedAt || "");
+  return next;
+}
+
+export function normalizeEigenbelege(records) {
+  return Array.isArray(records) ? records.map(normalizeEigenbeleg) : [];
+}
+
+export function validateEigenbeleg(record) {
+  const next = normalizeEigenbeleg(record);
+  const errors = [];
+  if (!next.itemId) errors.push("itemId is required");
+  if (!next.purchaseRecordId) errors.push("purchaseRecordId is required");
+  if (!next.reasonNoReceipt) errors.push("reasonNoReceipt is required");
+  if (!next.purchaseDate) errors.push("purchaseDate is required");
+  if (!next.amount) errors.push("amount is required");
+  if (next.status === "Final" && !next.finalizedAt) errors.push("finalizedAt is required for final eigenbelege");
+  return errors;
+}
+
+export function isValidEigenbeleg(record) {
+  return validateEigenbeleg(record).length === 0;
+}
+
+export function purchaseRecordFromLegacyItem(item, overrides = {}) {
+  const normalizedItem = normalizeItem(item);
+  const hasReceipt = normalizedItem.hasReceipt === "Yes";
+  const needsEigenbeleg = normalizedItem.hasReceipt === "No" || (normalizedItem.proofType || normalizedItem.receiptType) === "Eigenbeleg";
+  return normalizePurchaseRecord({
+    itemId: normalizedItem.id || "",
+    sourceSessionId: normalizedItem.sourceSessionId || "",
+    purchaseDate: normalizedItem.purchaseDate || normalizedItem.proofDate || CURRENT_DATE,
+    purchaseType: "Single item",
+    sellerName: normalizedItem.sourceName || "",
+    sellerType: normalizedItem.sourceType === "Flea market" ? "Private seller" : "Unknown",
+    sourceName: normalizedItem.sourceName || "",
+    sourceLocation: normalizedItem.sourceLocation || "",
+    sourcePlatform: normalizedItem.sourceType || "",
+    grossPurchasePrice: normalizedItem.purchasePrice || normalizedItem.proofAmount || "",
+    allocatedPurchaseCost: normalizedItem.purchasePrice || normalizedItem.proofAmount || "",
+    paymentMethod: normalizedItem.paymentMethod || "Cash",
+    receiptStatus: hasReceipt ? "Receipt available" : needsEigenbeleg ? "Eigenbeleg needed" : "Missing proof",
+    proofStatus: normalizedItem.proofStoredExternally === "Yes" ? "External proof recorded" : hasReceipt ? "Receipt available" : needsEigenbeleg ? "Eigenbeleg needed" : "Missing proof",
+    notes: normalizedItem.proofNotes || normalizedItem.notes || "",
+    migratedFromLegacyItem: true,
+    ...overrides,
+  });
+}
+
+export function evidenceRecordFromLegacyItem(item, overrides = {}) {
+  const normalizedItem = normalizeItem(item);
+  const hasExternalProof = normalizedItem.proofStoredExternally === "Yes" || Boolean(normalizedItem.proofFileName || normalizedItem.proofFolderLocation);
+  const hasReceipt = normalizedItem.hasReceipt === "Yes";
+  const evidenceType = normalizedItem.proofType === "Invoice" || normalizedItem.receiptType === "Invoice" ? "Invoice" : normalizedItem.proofType === "Eigenbeleg" || normalizedItem.receiptType === "Eigenbeleg needed" ? "Eigenbeleg" : "Receipt";
+  return normalizeEvidenceRecord({
+    itemId: normalizedItem.id || "",
+    sourceSessionId: normalizedItem.sourceSessionId || "",
+    evidenceType,
+    evidenceStatus: hasExternalProof ? "External reference" : hasReceipt ? "Available" : "Missing",
+    title: normalizedItem.proofFileName || normalizedItem.proofImageName || normalizedItem.receiptType || normalizedItem.proofType || "",
+    documentDate: normalizedItem.proofDate || normalizedItem.purchaseDate || "",
+    issuer: normalizedItem.sourceName || "",
+    amount: normalizedItem.proofAmount || normalizedItem.purchasePrice || "",
+    storageType: hasExternalProof ? "external_path" : "metadata_only",
+    fileName: normalizedItem.proofFileName || normalizedItem.proofImageName || "",
+    externalPath: normalizedItem.proofFolderLocation || normalizedItem.proofFileName || "",
+    notes: normalizedItem.proofNotes || normalizedItem.noReceiptReason || "",
+    migratedFromLegacyItem: true,
+    ...overrides,
+  });
+}
+
+export function eigenbelegFromLegacyItem(item, purchaseRecord = {}, overrides = {}) {
+  const normalizedItem = normalizeItem(item);
+  const normalizedPurchase = normalizePurchaseRecord({
+    ...purchaseRecordFromLegacyItem(normalizedItem),
+    ...(purchaseRecord && typeof purchaseRecord === "object" ? purchaseRecord : {}),
+  });
+  return normalizeEigenbeleg({
+    itemId: normalizedItem.id || normalizedPurchase.itemId || "",
+    purchaseRecordId: normalizedPurchase.id || "",
+    sourceSessionId: normalizedPurchase.sourceSessionId || "",
+    language: normalizedItem.language || DEFAULT_LANGUAGE,
+    generationType: "item",
+    sellerDescription: [normalizedPurchase.sellerType, normalizedPurchase.sellerName].filter(Boolean).join(" - "),
+    acquisitionDescription: normalizedItem.name || "",
+    reasonNoReceipt: normalizedItem.noReceiptReason || "Private second-hand / flea-market purchase; no formal receipt available.",
+    purchaseDate: normalizedPurchase.purchaseDate,
+    amount: normalizedPurchase.allocatedPurchaseCost || normalizedPurchase.grossPurchasePrice,
+    paymentMethod: normalizedPurchase.paymentMethod,
+    evidenceIds: normalizedPurchase.evidenceIds,
+    status: "Draft",
+    migratedFromLegacyItem: true,
+    ...overrides,
+  });
+}
+
+export function scaffoldTaxComplianceRecordsFromItems(items) {
+  const normalizedItems = normalizeItems(items);
+  const purchaseRecords = normalizedItems.map((item) => purchaseRecordFromLegacyItem(item));
+  const evidenceRecords = normalizedItems.map((item) => evidenceRecordFromLegacyItem(item));
+  const eigenbelege = normalizedItems
+    .filter((item) => item.hasReceipt === "No" || (item.proofType || item.receiptType) === "Eigenbeleg")
+    .map((item) => eigenbelegFromLegacyItem(item, purchaseRecords.find((record) => record.itemId === item.id)));
+  return { purchaseRecords, evidenceRecords, eigenbelege };
 }
