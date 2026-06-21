@@ -815,9 +815,37 @@ test("Tools Hub uses tile-driven panels without rendering the generic item list"
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); exportJson\(\); \}\}/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openStockQueue\("needsAttention", "Missing listing draft"\); \}\}/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openFinanceQueue\("reconciliation"\); \}\}/);
-  assert.match(source, /activeTab !== "stock" && activeTab !== "sales" && activeTab !== "tools" && filtered\.map/);
+  assert.match(source, /activeTab !== "stock" && activeTab !== "sales" && activeTab !== "finance" && activeTab !== "tools" && filtered\.map/);
   assert.doesNotMatch(source, /setActiveToolPanel\("compliance_center"\)[^>]*disabled/s);
   assert.doesNotMatch(source, /setActiveToolPanel\("compliance_center"\)[^>]*pointer-events-none/s);
+});
+
+test("Finance Hub uses tile-driven panels without rendering finance detail content by default", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /const \[activeFinancePanel, setActiveFinancePanel\] = useState\(null\);/);
+  assert.match(source, /const financePanelRef = useRef\(null\);/);
+  assert.match(source, /financePanelRef\.current\?\.scrollIntoView\(\{ behavior: "smooth", block: "start" \}\);/);
+  assert.match(source, /Manage monthly closing, expenses, eBay imports, tax records, and year-end summaries\./);
+  assert.match(source, /setActiveFinancePanel\("monthly_closing"\)/);
+  assert.match(source, /setActiveFinancePanel\("expense_manager"\)/);
+  assert.match(source, /setActiveFinancePanel\("ebay_reconciliation"\)/);
+  assert.match(source, /setActiveFinancePanel\("tax_records"\)/);
+  assert.match(source, /setActiveFinancePanel\("year_end"\)/);
+  assert.match(source, /onClick=\{exportMonthlyClosingJson\}/);
+  assert.match(source, /activeFinancePanel === "monthly_closing"/);
+  assert.match(source, /activeFinancePanel === "expense_manager"/);
+  assert.match(source, /activeFinancePanel === "ebay_reconciliation"/);
+  assert.match(source, /activeFinancePanel === "tax_records"/);
+  assert.match(source, /activeFinancePanel === "year_end"/);
+  assert.match(source, /onClick=\{\(\) => setActiveFinancePanel\(null\)\}[^>]*>Close<\/button>/);
+  assert.match(source, /activeTab !== "stock" && activeTab !== "sales" && activeTab !== "finance" && activeTab !== "tools" && filtered\.map/);
+  assert.match(source, /Profit Report/);
+  assert.match(source, /Accountant Export/);
+  assert.match(source, /Payout Matching/);
+  assert.match(source, /<ExpenseManager/);
+  assert.doesNotMatch(source, /const financeSections =/);
+  assert.doesNotMatch(source, /financeSections\.map/);
 });
 
 test("Tools Compliance Center uses existing readiness data and opens item editor", () => {

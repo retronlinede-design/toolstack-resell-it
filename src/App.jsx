@@ -195,7 +195,6 @@ const modules = [
   ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#fff7e8]", "border-[#f0be45]/45 bg-[#f0be45]/16", "hover:border-[#f0be45]/45 hover:bg-[#f0be45]/12"],
   ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12"],
 ];
-const financeSections = [["thisMonth", "This Month"], ["taxRecords", "Tax Records"], ["reconciliation", "Reconciliation"], ["yearEnd", "Year-End / EÜR"]];
 const stockSectionDetails = {
   needsAttention: ["Needs Attention", "Items missing information, proof, pricing, or listing preparation."],
   inventory: ["Active Inventory", "Current inventory being managed and tracked."],
@@ -662,6 +661,7 @@ export default function ResellerItApp() {
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [activeToolPanel, setActiveToolPanel] = useState(null);
+  const [activeFinancePanel, setActiveFinancePanel] = useState(null);
   const [stockSection, setStockSection] = useState("needsAttention");
   const [financeSection, setFinanceSection] = useState("thisMonth");
   const [classificationFilter, setClassificationFilter] = useState("All classifications");
@@ -682,6 +682,7 @@ export default function ResellerItApp() {
   const [resizingColumnKey, setResizingColumnKey] = useState("");
   const stockColumnResizeRef = useRef(null);
   const toolPanelRef = useRef(null);
+  const financePanelRef = useRef(null);
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [stockFilterMenu, setStockFilterMenu] = useState("");
@@ -731,6 +732,11 @@ export default function ResellerItApp() {
     if (activeTab !== "tools" || !activeToolPanel) return;
     toolPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [activeTab, activeToolPanel]);
+
+  useEffect(() => {
+    if (activeTab !== "finance" || !activeFinancePanel) return;
+    financePanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [activeFinancePanel, activeTab]);
 
   useEffect(() => {
     try {
@@ -1014,6 +1020,13 @@ export default function ResellerItApp() {
   function openFinanceQueue(section) {
     setActiveTab("finance");
     setFinanceSection(section);
+    setActiveFinancePanel({
+      thisMonth: "monthly_closing",
+      taxRecords: "tax_records",
+      reconciliation: "ebay_reconciliation",
+      expenses: "expense_manager",
+      yearEnd: "year_end",
+    }[section] || section);
   }
 
   function deleteItem(id) {
@@ -1733,7 +1746,7 @@ export default function ResellerItApp() {
               </button>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                 {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
-                  <button key={key} onClick={() => setActiveTab(key)} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
+                  <button key={key} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
                     <div className="px-3 py-2.5 lg:px-2.5 lg:py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
@@ -2481,25 +2494,91 @@ export default function ResellerItApp() {
         )}
 
         {activeTab === "finance" && (
-          <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-2 shadow-[0_14px_38px_rgba(0,0,0,0.14)]">
-            <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
-              {financeSections.map(([key, label]) => (
-                <button key={key} type="button" onClick={() => setFinanceSection(key)} className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all duration-150 hover:-translate-y-0.5 ${financeSection === key ? "bg-[#e06b2c] text-[#24110e] shadow-sm" : "border border-stone-200 bg-white text-stone-700 hover:bg-[#f0be45]/20 hover:shadow-sm"}`}>{label}</button>
-              ))}
+          <div className="grid gap-4">
+            <div className="rounded-3xl border border-[#f0be45]/25 bg-white p-5 shadow-sm">
+              <div className="mb-4 h-1 w-12 rounded-full bg-[#f0be45]" />
+              <h2 className="text-2xl font-semibold text-neutral-950">Finance</h2>
+              <p className="mt-1 max-w-2xl text-sm text-neutral-600">Manage monthly closing, expenses, eBay imports, tax records, and year-end summaries.</p>
+            </div>
+
+            <div className="grid gap-4 xl:grid-cols-2">
+              <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Core Finance</h3>
+                    <p className="mt-1 text-xs text-neutral-500">Monthly, expense, and year-end work.</p>
+                  </div>
+                  <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => { setFinanceSection("thisMonth"); setActiveFinancePanel("monthly_closing"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "monthly_closing" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
+                    <p className="text-sm font-semibold text-neutral-950">Monthly Closing</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Month-end totals and checks.</p>
+                  </button>
+                  <button type="button" onClick={() => { setFinanceSection("reconciliation"); setActiveFinancePanel("expense_manager"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "expense_manager" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
+                    <p className="text-sm font-semibold text-neutral-950">Expense Manager</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Add and review expense records.</p>
+                  </button>
+                  <button type="button" onClick={() => { setFinanceSection("yearEnd"); setActiveFinancePanel("year_end"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "year_end" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
+                    <p className="text-sm font-semibold text-neutral-950">Year-End / EÜR</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Annual tax prep totals.</p>
+                  </button>
+                  <button type="button" onClick={exportMonthlyClosingJson} className="rounded-2xl border border-[#f0be45]/30 bg-[#f0be45]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#f0be45]/50 hover:shadow-sm">
+                    <p className="text-sm font-semibold text-neutral-950">Export Monthly JSON</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Download current monthly closing data.</p>
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Records & Reconciliation</h3>
+                    <p className="mt-1 text-xs text-neutral-500">Imports, tax records, and matching work.</p>
+                  </div>
+                  <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <button type="button" onClick={() => { setFinanceSection("reconciliation"); setActiveFinancePanel("ebay_reconciliation"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "ebay_reconciliation" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
+                    <p className="text-sm font-semibold text-neutral-950">eBay Reconciliation</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">CSV imports and saved batches.</p>
+                  </button>
+                  <button type="button" onClick={() => { setFinanceSection("taxRecords"); setActiveFinancePanel("tax_records"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "tax_records" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
+                    <p className="text-sm font-semibold text-neutral-950">Tax Records</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Tax documentation checks.</p>
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm xl:col-span-2">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Coming Soon</h3>
+                    <p className="mt-1 text-xs text-neutral-500">Future finance outputs and matching tools.</p>
+                  </div>
+                  <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Disabled</span>
+                </div>
+                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                  {[
+                    ["Profit Report", "Detailed reporting."],
+                    ["Accountant Export", "Accountant-ready package."],
+                    ["Payout Matching", "Match platform payouts."],
+                  ].map(([label, description]) => (
+                    <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
+                      <p className="text-sm font-semibold text-stone-700">{label}</p>
+                      <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                    </button>
+                  ))}
+                </div>
+              </section>
             </div>
           </div>
         )}
 
-        {activeTab === "finance" && (
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <StatCard icon={ShoppingCart} label="This month revenue" value={money(sectionSummaries.finance.revenue)} accentClass="bg-[#f0be45]" />
-            <StatCard icon={ReceiptText} label="Expenses" value={money(sectionSummaries.finance.expenses)} sub={CURRENT_MONTH} accentClass="bg-[#f0be45]" />
-            <StatCard icon={Euro} label="Estimated profit" value={money(sectionSummaries.finance.estimatedProfit)} accentClass="bg-[#f0be45]" />
-            <StatCard icon={FileText} label="Pending payout estimate" value={money(sectionSummaries.finance.pendingPayout)} sub="revenue minus fees/shipping" accentClass="bg-[#f0be45]" />
-          </section>
-        )}
-
-        {(activeTab === "finance" && financeSection === "taxRecords") && <div className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+        {(activeTab === "finance" && activeFinancePanel === "tax_records") && <div ref={financePanelRef} className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
+          <div className="mb-3 flex justify-end">
+            <button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+          </div>
           <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
             <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
               <option>All classifications</option>
@@ -2910,7 +2989,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {(activeTab === "finance" && financeSection === "taxRecords") && (
+          {activeTab === "finance" && activeFinancePanel === "tax_records" && (
             <div className="grid gap-5">
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -3012,7 +3091,7 @@ export default function ResellerItApp() {
                         </div>
                         <p className="mt-1 text-sm text-stone-600">{expense.date} / {expense.category} / {money(expense.amount)}</p>
                       </div>
-                      <button type="button" onClick={() => { editExpense(expense); openFinanceQueue("reconciliation"); }} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Edit expense</button>
+                      <button type="button" onClick={() => { editExpense(expense); openFinanceQueue("expenses"); }} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Edit expense</button>
                     </div>
                   </article>
                 ))}
@@ -3048,8 +3127,11 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "finance" && financeSection === "reconciliation" && (
-            <div className="grid gap-5">
+          {activeTab === "finance" && activeFinancePanel === "ebay_reconciliation" && (
+            <div ref={financePanelRef} className="grid gap-5">
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+              </div>
               <FinanceHeader title={financeSectionDetails.reconciliation[0]} subtitle={financeSectionDetails.reconciliation[1]} meta={`${ebayImportBatches.length} imported batches`} />
 
               <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
@@ -3161,7 +3243,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "finance" && financeSection === "taxRecords" && (
+          {activeTab === "finance" && activeFinancePanel === "tax_records" && (
             <div className="grid gap-5">
               <FinanceHeader title={financeSectionDetails.taxRecords[0]} subtitle={financeSectionDetails.taxRecords[1]} meta={`${workflowQueues.needsTaxReview.length + taxRecordQueues.expensesWithoutReceiptNote.length} open checks`} />
 
@@ -3180,7 +3262,7 @@ export default function ResellerItApp() {
                 <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <QueueCard icon={ReceiptText} label="Missing proof" value={taxRecordQueues.missingProof.length} sub="Items without receipt or proof location" onClick={() => openStockQueue("needsAttention", "Missing proof")} />
                   <QueueCard icon={FileText} label="Eigenbeleg needed" value={taxRecordQueues.eigenbelegNeeded.length} sub="Self-receipts to draft or file" onClick={() => openFinanceQueue("taxRecords")} tone="finance" />
-                  <QueueCard icon={ReceiptText} label="Expenses without receipt note" value={taxRecordQueues.expensesWithoutReceiptNote.length} sub="Add missing receipt context" onClick={() => openFinanceQueue("reconciliation")} tone="finance" />
+                  <QueueCard icon={ReceiptText} label="Expenses without receipt note" value={taxRecordQueues.expensesWithoutReceiptNote.length} sub="Add missing receipt context" onClick={() => openFinanceQueue("expenses")} tone="finance" />
                   <QueueCard icon={Info} label="Unsure / Review Later" value={taxRecordQueues.reviewLater.length} sub="Classification needs decision" onClick={() => openFinanceQueue("taxRecords")} tone="finance" />
                 </div>
               </div>
@@ -3196,7 +3278,7 @@ export default function ResellerItApp() {
                           <p className="font-semibold text-neutral-950">{expense.description}</p>
                           <p className="mt-1 text-sm text-neutral-600">{expense.date} / {expense.category} / {expense.paymentMethod}</p>
                         </div>
-                        <button type="button" onClick={() => { editExpense(expense); openFinanceQueue("reconciliation"); }} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Edit expense</button>
+                        <button type="button" onClick={() => { editExpense(expense); openFinanceQueue("expenses"); }} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Edit expense</button>
                       </div>
                     </article>
                   ))}
@@ -3272,8 +3354,11 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "finance" && financeSection === "thisMonth" && (
-            <div id="monthly-closing-summary" className="grid gap-5 print:block">
+          {activeTab === "finance" && activeFinancePanel === "monthly_closing" && (
+            <div ref={financePanelRef} id="monthly-closing-summary" className="grid gap-5 print:block">
+              <div className="flex justify-end print:hidden">
+                <button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+              </div>
               <FinanceHeader title={financeSectionDetails.thisMonth[0]} subtitle={financeSectionDetails.thisMonth[1]} meta={CURRENT_MONTH} />
 
               <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
@@ -3360,8 +3445,12 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "finance" && financeSection === "reconciliation" && (
-            <ExpenseManager
+          {activeTab === "finance" && activeFinancePanel === "expense_manager" && (
+            <div ref={financePanelRef} className="grid gap-3">
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+              </div>
+              <ExpenseManager
               expenseForm={expenseForm}
               editingExpenseId={editingExpenseId}
               expenseMonthFilter={expenseMonthFilter}
@@ -3378,11 +3467,15 @@ export default function ResellerItApp() {
               onSetExpenseCategoryFilter={setExpenseCategoryFilter}
               onEditExpense={editExpense}
               onDeleteExpense={deleteExpense}
-            />
+              />
+            </div>
           )}
 
-          {activeTab === "finance" && financeSection === "yearEnd" && (
-            <div className="grid gap-5">
+          {activeTab === "finance" && activeFinancePanel === "year_end" && (
+            <div ref={financePanelRef} className="grid gap-5">
+              <div className="flex justify-end">
+                <button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+              </div>
               <FinanceHeader title={financeSectionDetails.yearEnd[0]} subtitle={financeSectionDetails.yearEnd[1]} meta={CURRENT_YEAR} />
 
               <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
@@ -3643,7 +3736,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab !== "stock" && activeTab !== "sales" && activeTab !== "tools" && filtered.map((item) => {
+          {activeTab !== "stock" && activeTab !== "sales" && activeTab !== "finance" && activeTab !== "tools" && filtered.map((item) => {
             const itemProfit = itemProfitValue(item);
             const classification = itemClassification(item);
             const proofExpanded = expandedProofId === item.id;
