@@ -61,6 +61,85 @@ import {
   sanitizeHtmlPreview,
   summarizeSoldPerformance,
 } from "../src/resellitLogic.js";
+import {
+  STORAGE_KEY,
+  STORAGE_LOAD_WARNING,
+  loadInitialAppData,
+  loadInitialBrowserAppData,
+} from "../src/resellitStorage.js";
+
+function memoryStorage(initial = {}) {
+  const values = new Map(Object.entries(initial));
+  const writes = [];
+  return {
+    writes,
+    getItem(key) {
+      return values.has(key) ? values.get(key) : null;
+    },
+    setItem(key, value) {
+      writes.push([key, value]);
+      values.set(key, value);
+    },
+  };
+}
+
+test("first run without storage starts with empty application data", () => {
+  const storage = memoryStorage();
+  const result = loadInitialAppData(storage);
+
+  assert.deepEqual(result.data.items, []);
+  assert.deepEqual(result.data.expenses, []);
+  assert.deepEqual(result.data.purchaseRecords, []);
+  assert.deepEqual(result.data.evidenceRecords, []);
+  assert.deepEqual(result.data.eigenbelege, []);
+  assert.equal(result.warning, "");
+  assert.deepEqual(storage.writes, []);
+});
+
+test("valid storage loads existing application data normally", () => {
+  const storedItem = { id: "saved-1", name: "Saved inventory", status: "Listed" };
+  const storage = memoryStorage({
+    [STORAGE_KEY]: JSON.stringify({ version: 2, items: [storedItem], expenses: [], purchaseRecords: [], evidenceRecords: [], eigenbelege: [] }),
+  });
+  const result = loadInitialAppData(storage);
+
+  assert.equal(result.data.items.length, 1);
+  assert.equal(result.data.items[0].id, "saved-1");
+  assert.equal(result.data.items[0].name, "Saved inventory");
+  assert.equal(result.warning, "");
+  assert.deepEqual(storage.writes, []);
+});
+
+test("malformed storage returns empty data, preserves the payload, and exposes recovery state", () => {
+  const malformedPayload = "{not valid JSON";
+  const storage = memoryStorage({ [STORAGE_KEY]: malformedPayload });
+  const result = loadInitialAppData(storage);
+
+  assert.deepEqual(result.data.items, []);
+  assert.deepEqual(result.data.expenses, []);
+  assert.deepEqual(result.data.purchaseRecords, []);
+  assert.deepEqual(result.data.evidenceRecords, []);
+  assert.deepEqual(result.data.eigenbelege, []);
+  assert.equal(result.warning, STORAGE_LOAD_WARNING);
+  assert.match(result.warning, /could not be loaded/i);
+  assert.match(result.warning, /preserved/i);
+  assert.match(result.warning, /restore from a recent backup/i);
+  assert.deepEqual(storage.writes, []);
+  assert.equal(storage.getItem(STORAGE_KEY), malformedPayload);
+});
+
+test("unavailable browser storage exposes empty recovery state", () => {
+  const browserWindow = {};
+  Object.defineProperty(browserWindow, "localStorage", {
+    get() {
+      throw new Error("Storage access denied");
+    },
+  });
+
+  const result = loadInitialBrowserAppData(browserWindow);
+  assert.deepEqual(result.data.items, []);
+  assert.equal(result.warning, STORAGE_LOAD_WARNING);
+});
 
 test("emptyItem and defaultItem schema shape remains stable", () => {
   const expectedKeys = [
@@ -733,7 +812,7 @@ test("persistence failure guards preserve form/editor state before reset behavio
 test("App persistence shape includes purchaseRecords without automatic scaffolding", () => {
   const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 
-  assert.match(source, /const \[purchaseRecords, setPurchaseRecords\] = useState\(loadInitialPurchaseRecords\);/);
+  assert.match(source, /const \[purchaseRecords, setPurchaseRecords\] = useState\(initialAppLoad\.data\.purchaseRecords\);/);
   assert.match(source, /purchaseRecords: normalizedPurchaseRecords/);
   assert.match(source, /purchaseRecords: normalizePurchaseRecords\(purchaseRecords\)/);
   assert.match(source, /const nextPurchaseRecords = normalizedData\.purchaseRecords;/);
@@ -743,7 +822,7 @@ test("App persistence shape includes purchaseRecords without automatic scaffoldi
 test("App persistence shape includes evidenceRecords without automatic evidence migration", () => {
   const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 
-  assert.match(source, /const \[evidenceRecords, setEvidenceRecords\] = useState\(loadInitialEvidenceRecords\);/);
+  assert.match(source, /const \[evidenceRecords, setEvidenceRecords\] = useState\(initialAppLoad\.data\.evidenceRecords\);/);
   assert.match(source, /evidenceRecords: normalizedEvidenceRecords/);
   assert.match(source, /evidenceRecords: normalizeEvidenceRecords\(evidenceRecords\)/);
   assert.match(source, /const nextEvidenceRecords = normalizedData\.evidenceRecords;/);
@@ -753,7 +832,7 @@ test("App persistence shape includes evidenceRecords without automatic evidence 
 test("App persistence shape includes eigenbelege without automatic Eigenbeleg migration", () => {
   const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 
-  assert.match(source, /const \[eigenbelege, setEigenbelege\] = useState\(loadInitialEigenbelege\);/);
+  assert.match(source, /const \[eigenbelege, setEigenbelege\] = useState\(initialAppLoad\.data\.eigenbelege\);/);
   assert.match(source, /eigenbelege: normalizedEigenbelege/);
   assert.match(source, /eigenbelege: normalizeEigenbelege\(eigenbelege\)/);
   assert.match(source, /const nextEigenbelege = normalizedData\.eigenbelege;/);

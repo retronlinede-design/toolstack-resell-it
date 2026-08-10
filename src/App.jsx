@@ -6,6 +6,7 @@ import { InventoryTable } from "./components/inventory/InventoryTable.jsx";
 import { EbayStudio } from "./components/item-editor/EbayStudio.jsx";
 import { StatCard, QueueCard } from "./components/shared/Cards.jsx";
 import { Input, Select } from "./components/shared/FormControls.jsx";
+import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import {
   generateHtmlDescription,
   generateListingDraft,
@@ -90,8 +91,6 @@ import {
   testedStatusOptions,
 } from "./resellitSchema.js";
 
-const STORAGE_KEY = "toolstack.resellit.v1";
-const OLD_STORAGE_KEY = "toolstack.resellerit.v1";
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
 const STOCK_COLUMN_WIDTHS_KEY = "resellit.stockColumnWidths.v1";
 const DEFAULT_STOCK_COLUMN_WIDTHS = {
@@ -218,51 +217,6 @@ function yesNo(value) {
   return value ? "Yes" : "No";
 }
 
-const demoItems = [
-  {
-    id: crypto.randomUUID(),
-    name: "Vintage Sony CD Player",
-    category: "Electronics",
-    sourceType: "Flea market",
-    sourceName: "Private seller",
-    sourceLocation: "Landshut Flohmarkt",
-    purchaseDate: "2026-05-16",
-    purchasePrice: "15",
-    hasReceipt: "No",
-    receiptType: "Eigenbeleg needed",
-    paymentMethod: "Cash",
-    expectedSalePrice: "49",
-    status: "Listed",
-    ebayTitle: "Sony CD Player Vintage - Tested",
-    saleDate: "",
-    salePrice: "",
-    ebayFees: "",
-    shippingCost: "",
-    notes: "No receipt available. Private flea-market purchase.",
-  },
-  {
-    id: crypto.randomUUID(),
-    name: "Leather Jacket",
-    category: "Clothing",
-    sourceType: "Second-hand shop",
-    sourceName: "Local second-hand shop",
-    sourceLocation: "Landshut",
-    purchaseDate: "2026-05-15",
-    purchasePrice: "22",
-    hasReceipt: "Yes",
-    receiptType: "Shop receipt",
-    paymentMethod: "Card",
-    expectedSalePrice: "65",
-    status: "Sold",
-    ebayTitle: "Men's Leather Jacket Brown Size L",
-    saleDate: "2026-05-18",
-    salePrice: "59",
-    ebayFees: "7.50",
-    shippingCost: "5.49",
-    notes: "Receipt kept in receipt folder.",
-  },
-];
-
 function money(value) {
   const n = Number(value || 0);
   return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
@@ -358,100 +312,6 @@ function listingResearchLinks(item) {
     ["Search Kleinanzeigen", query ? `https://www.kleinanzeigen.de/s-suchanfrage.html?keywords=${query}` : "https://www.kleinanzeigen.de/"],
     ["Open ChatGPT", "https://chatgpt.com/"],
   ];
-}
-
-function loadInitialItems() {
-  try {
-    let raw = localStorage.getItem(STORAGE_KEY);
-    let shouldMigrateOldData = false;
-    if (!raw) {
-      const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
-      if (oldRaw) {
-        raw = oldRaw;
-        shouldMigrateOldData = true;
-      }
-    }
-    if (!raw) return normalizeItems(demoItems);
-    const parsed = JSON.parse(raw);
-    const normalizedData = normalizeRootAppData(parsed, demoItems);
-    if (shouldMigrateOldData) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        ...parsed,
-        version: normalizedData.version,
-        items: normalizedData.items,
-        expenses: normalizedData.expenses,
-        purchaseRecords: normalizedData.purchaseRecords,
-        evidenceRecords: normalizedData.evidenceRecords,
-        eigenbelege: normalizedData.eigenbelege,
-        updatedAt: new Date().toISOString(),
-      }));
-    }
-    return normalizedData.items;
-  } catch {
-    return normalizeItems(demoItems);
-  }
-}
-
-function loadInitialExpenses() {
-  try {
-    let raw = localStorage.getItem(STORAGE_KEY);
-    let shouldMigrateOldData = false;
-    if (!raw) {
-      const oldRaw = localStorage.getItem(OLD_STORAGE_KEY);
-      if (oldRaw) {
-        raw = oldRaw;
-        shouldMigrateOldData = true;
-      }
-    }
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (shouldMigrateOldData) localStorage.setItem(STORAGE_KEY, raw);
-    return normalizeRootAppData(parsed).expenses;
-  } catch {
-    return [];
-  }
-}
-
-function loadInitialPurchaseRecords() {
-  try {
-    let raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      raw = localStorage.getItem(OLD_STORAGE_KEY);
-    }
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return normalizeRootAppData(parsed).purchaseRecords;
-  } catch {
-    return [];
-  }
-}
-
-function loadInitialEvidenceRecords() {
-  try {
-    let raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      raw = localStorage.getItem(OLD_STORAGE_KEY);
-    }
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return normalizeRootAppData(parsed).evidenceRecords;
-  } catch {
-    return [];
-  }
-}
-
-function loadInitialEigenbelege() {
-  try {
-    let raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      raw = localStorage.getItem(OLD_STORAGE_KEY);
-    }
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return normalizeRootAppData(parsed).eigenbelege;
-  } catch {
-    return [];
-  }
 }
 
 function loadEbayImportBatches() {
@@ -628,11 +488,12 @@ function TranslationButtons({ onTranslate }) {
 }
 
 export default function ResellerItApp() {
-  const [items, setItems] = useState(loadInitialItems);
-  const [expenses, setExpenses] = useState(loadInitialExpenses);
-  const [purchaseRecords, setPurchaseRecords] = useState(loadInitialPurchaseRecords);
-  const [evidenceRecords, setEvidenceRecords] = useState(loadInitialEvidenceRecords);
-  const [eigenbelege, setEigenbelege] = useState(loadInitialEigenbelege);
+  const [initialAppLoad] = useState(() => loadInitialBrowserAppData(window));
+  const [items, setItems] = useState(initialAppLoad.data.items);
+  const [expenses, setExpenses] = useState(initialAppLoad.data.expenses);
+  const [purchaseRecords, setPurchaseRecords] = useState(initialAppLoad.data.purchaseRecords);
+  const [evidenceRecords, setEvidenceRecords] = useState(initialAppLoad.data.evidenceRecords);
+  const [eigenbelege, setEigenbelege] = useState(initialAppLoad.data.eigenbelege);
   const [expenseForm, setExpenseForm] = useState(emptyExpense);
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [expenseMonthFilter, setExpenseMonthFilter] = useState(CURRENT_MONTH);
@@ -680,7 +541,8 @@ export default function ResellerItApp() {
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [stockFilterMenu, setStockFilterMenu] = useState("");
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
-  const [backupMessage, setBackupMessage] = useState("");
+  const [backupMessage, setBackupMessage] = useState(initialAppLoad.warning);
+  const [startupLoadWarning, setStartupLoadWarning] = useState(initialAppLoad.warning);
   const [backupMenuOpen, setBackupMenuOpen] = useState(false);
   const [expandedEigenbelegId, setExpandedEigenbelegId] = useState(null);
   const [activeWorkflowSection, setActiveWorkflowSection] = useState("source");
@@ -1174,6 +1036,7 @@ export default function ResellerItApp() {
       }
 
       if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords, nextEigenbelege)) return;
+      setStartupLoadWarning("");
       setForm(emptyItem);
       setExpenseForm(emptyExpense);
       setEditingId(null);
@@ -1826,6 +1689,12 @@ export default function ResellerItApp() {
               <p className="max-w-xl text-sm text-stone-600">{activeTab === "stock" ? "Master inventory ledger for all sourced, owned, listed, and sold stock." : "Clean local workspace for stock, sales, finance, and tax-prep records."}</p>
             </div>
           </div>
+
+          {startupLoadWarning && (
+            <div role="alert" className="rounded-2xl border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-900 shadow-sm">
+              {startupLoadWarning}
+            </div>
+          )}
 
         {(editingId || itemFormOpen) && (
           <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1f120f]/75 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) closeItemEditor(); }}>
