@@ -881,7 +881,10 @@ test("Sales Hub uses tile-driven panels without changing sales data ownership", 
   assert.match(source, /openFinanceQueue\("reconciliation"\)/);
   assert.match(source, /activeSalesPanel && \(/);
   assert.match(source, /<section ref=\{salesPanelRef\}/);
-  assert.match(source, /onClick=\{\(\) => setActiveSalesPanel\(null\)\}[^>]*>Close<\/button>/);
+  const salesPanelCloseButton = source.match(/<button\b[^>]*onClick=\{\(\) => \{([^}]*)\}\}[^>]*>Close<\/button>/);
+  assert.ok(salesPanelCloseButton, "Sales panel exposes a Close button with a state-reset handler");
+  assert.match(salesPanelCloseButton[1], /setActiveSalesPanel\(null\)/);
+  assert.match(salesPanelCloseButton[1], /setSalesEditItemId\(null\)/);
   assert.match(source, /salesDataGapQueues\.missingSaleDate/);
   assert.match(source, /salesDataGapQueues\.missingFinalSalePrice/);
   assert.match(source, /salesDataGapQueues\.missingPlatformFees/);
