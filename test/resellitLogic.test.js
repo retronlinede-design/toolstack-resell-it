@@ -998,6 +998,25 @@ test("Tools Compliance Center uses existing readiness data and opens item editor
   assert.match(source, /onClick=\{\(\) => editItem\(item\)\}[^>]*>Open Item<\/button>/);
 });
 
+test("Tools Canonical Field Audit renders current item conflicts and reuses item editing", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /import \{ auditCanonicalFieldConflicts \} from "\.\/canonicalFieldAudit\.js";/);
+  assert.match(source, /const canonicalFieldAudit = useMemo\(\(\) => auditCanonicalFieldConflicts\(items\), \[items\]\);/);
+  assert.match(source, /setActiveToolPanel\("canonical_field_audit"\)/);
+  assert.match(source, /activeToolPanel === "canonical_field_audit"/);
+  assert.match(source, /Diagnostic only\. No data is changed\./);
+  assert.match(source, /pair\.counts\.neitherPopulated/);
+  assert.match(source, /pair\.counts\.legacyOnly/);
+  assert.match(source, /pair\.counts\.canonicalOnly/);
+  assert.match(source, /pair\.counts\.equal/);
+  assert.match(source, /pair\.counts\.conflicting/);
+  assert.match(source, /canonicalFieldAudit\.classification\.conflicts/);
+  assert.match(source, /canonicalFieldAudit\.classification\.reviewRequired/);
+  assert.match(source, /onClick=\{\(\) => editItem\(auditedItem\)\}/);
+  assert.doesNotMatch(source, /canonical_field_audit[\s\S]{0,200}persist\(/);
+});
+
 test("seller classification is exposed in editor and inventory records without calculation wiring", () => {
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");

@@ -7,6 +7,7 @@ import { EbayStudio } from "./components/item-editor/EbayStudio.jsx";
 import { StatCard, QueueCard } from "./components/shared/Cards.jsx";
 import { Input, Select } from "./components/shared/FormControls.jsx";
 import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
+import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
 import {
   generateHtmlDescription,
   generateListingDraft,
@@ -220,6 +221,11 @@ function yesNo(value) {
 function money(value) {
   const n = Number(value || 0);
   return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+}
+
+function auditValue(value) {
+  if (value === undefined || value === null || String(value).trim() === "") return "(empty)";
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
 
 function timelineGroupLabel(date, grouping) {
@@ -1148,6 +1154,7 @@ export default function ResellerItApp() {
   const complianceSummary = useMemo(() => (
     getComplianceSummary(items, purchaseRecords, evidenceRecords, eigenbelege)
   ), [eigenbelege, evidenceRecords, items, purchaseRecords]);
+  const canonicalFieldAudit = useMemo(() => auditCanonicalFieldConflicts(items), [items]);
   const complianceReadinessByItemId = useMemo(() => (
     Object.fromEntries(items.map((item) => [
       item.id,
@@ -3661,6 +3668,22 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Diagnostics</h3>
+                      <p className="mt-1 text-xs text-neutral-500">Read-only data consistency checks.</p>
+                    </div>
+                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
+                  </div>
+                  <div className="mt-4 grid gap-3">
+                    <button type="button" aria-expanded={activeToolPanel === "canonical_field_audit"} aria-controls="tools-panel-canonical-field-audit" onClick={() => setActiveToolPanel("canonical_field_audit")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "canonical_field_audit" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Canonical Field Audit</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Inspect legacy and canonical field conflicts without changing data.</p>
+                    </button>
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
                       <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Settings & Help</h3>
                       <p className="mt-1 text-xs text-neutral-500">App information and guidance.</p>
                     </div>
@@ -3758,6 +3781,90 @@ export default function ResellerItApp() {
                             ))}
                           </div>
                         </>
+                      )}
+                      {activeToolPanel === "canonical_field_audit" && (
+                        <div id="tools-panel-canonical-field-audit" className="mt-1 min-w-0">
+                          <h3 className="text-lg font-semibold text-neutral-950">Canonical Field Audit</h3>
+                          <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">Diagnostic only. No data is changed.</p>
+                          <p className="mt-2 text-sm text-neutral-600">Audited {canonicalFieldAudit.itemCount} current in-memory items.</p>
+
+                          <div className="mt-4 overflow-x-auto rounded-2xl border border-stone-200">
+                            <table className="min-w-full text-left text-xs">
+                              <thead className="bg-stone-100 text-stone-600">
+                                <tr>
+                                  <th className="px-3 py-2 font-semibold">Legacy → canonical</th>
+                                  <th className="px-3 py-2 font-semibold">Neither</th>
+                                  <th className="px-3 py-2 font-semibold">Legacy only</th>
+                                  <th className="px-3 py-2 font-semibold">Canonical only</th>
+                                  <th className="px-3 py-2 font-semibold">Equal</th>
+                                  <th className="px-3 py-2 font-semibold text-red-700">Conflicting</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-stone-200 bg-white">
+                                {Object.values(canonicalFieldAudit.pairs).map((pair) => (
+                                  <tr key={pair.legacyPath} className={pair.counts.conflicting ? "bg-red-50" : ""}>
+                                    <td className="px-3 py-2 font-mono text-[11px] font-semibold text-stone-800">{pair.legacyPath} → {pair.canonicalPath}</td>
+                                    <td className="px-3 py-2 tabular-nums">{pair.counts.neitherPopulated}</td>
+                                    <td className="px-3 py-2 tabular-nums">{pair.counts.legacyOnly}</td>
+                                    <td className="px-3 py-2 tabular-nums">{pair.counts.canonicalOnly}</td>
+                                    <td className="px-3 py-2 tabular-nums">{pair.counts.equal}</td>
+                                    <td className={`px-3 py-2 tabular-nums font-bold ${pair.counts.conflicting ? "text-red-700" : "text-stone-500"}`}>{pair.counts.conflicting}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          <div className="mt-5 space-y-3">
+                            <h4 className="text-sm font-semibold uppercase tracking-wide text-stone-700">True alias conflicts</h4>
+                            {Object.values(canonicalFieldAudit.pairs).every((pair) => pair.conflicts.length === 0) && <p className="rounded-xl bg-lime-50 p-3 text-sm text-lime-900">No conflicting alias values found.</p>}
+                            {Object.values(canonicalFieldAudit.pairs).flatMap((pair) => pair.conflicts.map((conflict) => ({ ...conflict, legacyPath: pair.legacyPath, canonicalPath: pair.canonicalPath }))).map((conflict) => {
+                              const auditedItem = items[conflict.itemIndex];
+                              return (
+                                <article key={`${conflict.legacyPath}:${conflict.itemId}:${conflict.itemIndex}`} className="rounded-2xl border border-red-200 bg-red-50 p-3">
+                                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-semibold text-red-950">{conflict.itemName || "Untitled item"}</p>
+                                      <p className="mt-1 break-all text-xs text-red-800">Item ID: {conflict.itemId || "(missing)"}</p>
+                                      <div className="mt-2 grid gap-2 lg:grid-cols-2">
+                                        <p className="break-all rounded-xl bg-white p-2 text-xs text-stone-700"><strong>{conflict.legacyPath}:</strong> {auditValue(conflict.legacyValue)}</p>
+                                        <p className="break-all rounded-xl bg-white p-2 text-xs text-stone-700"><strong>{conflict.canonicalPath}:</strong> {auditValue(conflict.canonicalValue)}</p>
+                                      </div>
+                                    </div>
+                                    {auditedItem && <button type="button" onClick={() => editItem(auditedItem)} className="shrink-0 rounded-lg border border-red-300 bg-white px-3 py-2 text-xs font-semibold text-red-800 hover:bg-red-100">Open Item</button>}
+                                  </div>
+                                </article>
+                              );
+                            })}
+                          </div>
+
+                          <div className="mt-5 rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                            <h4 className="text-sm font-semibold uppercase tracking-wide text-stone-700">Classification</h4>
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                              {Object.entries(canonicalFieldAudit.classification.counts).map(([label, count]) => (
+                                <p key={label} className={`rounded-xl bg-white p-2 text-xs ${label === "conflicting" && count ? "font-bold text-red-700" : "text-stone-700"}`}>{label}: <strong>{count}</strong></p>
+                              ))}
+                            </div>
+                            <div className="mt-3 space-y-2">
+                              {[...canonicalFieldAudit.classification.conflicts.map((entry) => ({ ...entry, auditResult: "Conflict" })), ...canonicalFieldAudit.classification.reviewRequired.map((entry) => ({ ...entry, auditResult: "Ambiguous / review required" }))].map((entry) => {
+                                const auditedItem = items[entry.itemIndex];
+                                return (
+                                  <article key={`${entry.auditResult}:${entry.itemId}:${entry.itemIndex}`} className={`rounded-xl border p-3 ${entry.auditResult === "Conflict" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}>
+                                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                                      <div>
+                                        <p className="text-sm font-semibold text-stone-950">{entry.itemName || "Untitled item"} — {entry.auditResult}</p>
+                                        <p className="mt-1 break-all text-xs text-stone-600">Item ID: {entry.itemId || "(missing)"}</p>
+                                        <p className="mt-2 text-xs text-stone-700"><strong>classification:</strong> {auditValue(entry.classification)}</p>
+                                        <p className="mt-1 text-xs text-stone-700"><strong>sellerClassification:</strong> {auditValue(entry.sellerClassification)}</p>
+                                      </div>
+                                      {auditedItem && <button type="button" onClick={() => editItem(auditedItem)} className="shrink-0 rounded-lg border border-stone-300 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-100">Open Item</button>}
+                                    </div>
+                                  </article>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </div>
                     <button type="button" onClick={() => setActiveToolPanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
