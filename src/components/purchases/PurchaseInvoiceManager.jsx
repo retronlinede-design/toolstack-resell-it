@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FileText, Plus, Search, X } from "lucide-react";
 import {
+  classificationOptions,
   emptyEvidenceRecord,
   emptyPurchaseAllocation,
   emptyPurchaseTransaction,
@@ -10,6 +11,7 @@ import {
   validatePurchaseIntegrity,
 } from "../../resellitSchema.js";
 import { purchaseReconciliationStatus } from "../../purchaseManager.js";
+import { calculateDraftAllocationSummary, createStockRowDraft, validateStockRowDrafts } from "../../purchaseBatch.js";
 import { Input, Select } from "../shared/FormControls.jsx";
 
 const transactionTypes = ["Purchase", "Invoice", "Receipt", "Bulk Lot", "Private Purchase", "Other"];
@@ -41,6 +43,7 @@ export function PurchaseInvoiceManager({
   onSaveAllocation,
   onRemoveAllocation,
   onSaveEvidence,
+  onCreatePurchaseWithItems,
 }) {
   const [view, setView] = useState("list");
   const [selectedTransactionId, setSelectedTransactionId] = useState("");
@@ -53,18 +56,35 @@ export function PurchaseInvoiceManager({
   const [evidenceFormOpen, setEvidenceFormOpen] = useState(false);
   const [editingEvidenceId, setEditingEvidenceId] = useState("");
   const [evidenceForm, setEvidenceForm] = useState({ ...emptyEvidenceRecord, evidenceType: "Invoice", evidenceStatus: "Available" });
+  const [batchMode, setBatchMode] = useState(false);
+  const [stockRows, setStockRows] = useState([]);
+  const [nextTempRowNumber, setNextTempRowNumber] = useState(1);
+  const [requireBalanced, setRequireBalanced] = useState(true);
 
   const selectedTransaction = transactions.find((record) => record.id === selectedTransactionId) || null;
   const selectedAllocations = allocations.filter((record) => record.purchaseTransactionId === selectedTransactionId);
   const selectedEvidence = evidenceRecords.filter((record) => record.purchaseTransactionId === selectedTransactionId);
   const integrity = validatePurchaseIntegrity({ purchaseTransactions: transactions, purchaseAllocations: allocations, items, evidenceRecords });
   const integrityIssueCount = Object.values(integrity).reduce((sum, issues) => sum + issues.length, 0);
+  const batchReconciliation = calculateDraftAllocationSummary(transactionForm, stockRows);
   const linkedItemIds = new Set(selectedAllocations.map((record) => record.itemId));
   const stockQuery = stockSearch.trim().toLowerCase();
   const availableItems = items.filter((item) => !linkedItemIds.has(item.id) && (!stockQuery || [item.name, item.category, item.sourceName].join(" ").toLowerCase().includes(stockQuery)));
 
   function openNew() {
+    setBatchMode(false);
     setTransactionForm({ ...emptyPurchaseTransaction, grossTotal: "" });
+    setSelectedTransactionId("");
+    setFormError("");
+    setView("form");
+  }
+
+  function openNewWithItems() {
+    setBatchMode(true);
+    setTransactionForm({ ...emptyPurchaseTransaction, grossTotal: "" });
+    setStockRows([createStockRowDraft("row-1")]);
+    setNextTempRowNumber(2);
+    setRequireBalanced(true);
     setSelectedTransactionId("");
     setFormError("");
     setView("form");
@@ -89,12 +109,57 @@ export function PurchaseInvoiceManager({
       setFormError("Purchase Date, Currency, and Gross Total are required.");
       return;
     }
+    if (batchMode) {
+      setFormError("");
+      setView("batch_items");
+      return;
+    }
     const saved = onSaveTransaction(transactionForm, Boolean(selectedTransactionId));
     if (!saved?.ok) {
       setFormError(saved?.errors?.join(" · ") || "Purchase could not be saved.");
       return;
     }
     setSelectedTransactionId(saved.record.id);
+    setView("detail");
+  }
+
+  function addStockRow(values = {}) {
+    setStockRows((current) => [...current, createStockRowDraft(`row-${nextTempRowNumber}`, values)]);
+    setNextTempRowNumber((current) => current + 1);
+  }
+
+  function updateStockRow(tempId, field, value) {
+    setStockRows((current) => current.map((row) => (row.tempId === tempId ? { ...row, [field]: value } : row)));
+  }
+
+  function duplicateStockRow(row) {
+    const values = { ...row };
+    delete values.tempId;
+    addStockRow(values);
+  }
+
+  function removeStockRow(tempId) {
+    setStockRows((current) => current.filter((row) => row.tempId !== tempId));
+  }
+
+  function continueToReview() {
+    const errors = validateStockRowDrafts(stockRows);
+    if (errors.length) {
+      setFormError(errors.join(" · "));
+      return;
+    }
+    setFormError("");
+    setView("batch_review");
+  }
+
+  function commitPurchaseWithItems() {
+    const result = onCreatePurchaseWithItems(transactionForm, stockRows, requireBalanced);
+    if (!result?.ok) {
+      setFormError(result?.errors?.join(" · ") || "Purchase and items could not be created.");
+      return;
+    }
+    setSelectedTransactionId(result.transaction.id);
+    setBatchMode(false);
     setView("detail");
   }
 
@@ -157,7 +222,7 @@ export function PurchaseInvoiceManager({
           {integrityIssueCount > 0 && <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">Purchase data integrity review: {integrityIssueCount} issue{integrityIssueCount === 1 ? "" : "s"}. No records were changed automatically.</p>}
           {view === "list" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3"><div><h3 className="text-lg font-semibold text-stone-950">Purchase Records</h3><p className="text-sm text-stone-600">{transactions.length} recorded purchases</p></div><button type="button" onClick={openNew} className="inline-flex items-center gap-2 rounded-xl bg-[#b7412e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#963424]"><Plus size={16} /> New Purchase</button></div>
+              <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-semibold text-stone-950">Purchase Records</h3><p className="text-sm text-stone-600">{transactions.length} recorded purchases</p></div><div className="flex flex-wrap gap-2"><button type="button" onClick={openNew} className="inline-flex items-center gap-2 rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 hover:bg-stone-50"><Plus size={16} /> New Purchase</button><button type="button" onClick={openNewWithItems} className="inline-flex items-center gap-2 rounded-xl bg-[#b7412e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#963424]"><Plus size={16} /> New Purchase With Items</button></div></div>
               {transactions.length === 0 ? <div className="rounded-2xl border border-dashed border-stone-300 bg-white p-8 text-center"><FileText className="mx-auto text-stone-400" /><p className="mt-3 text-sm text-stone-600">No purchase records yet.</p><button type="button" onClick={openNew} className="mt-4 rounded-xl bg-[#b7412e] px-4 py-2 text-sm font-semibold text-white">New Purchase</button></div> : (
                 <div className="grid gap-3">
                   {transactions.map((transaction) => {
@@ -171,13 +236,35 @@ export function PurchaseInvoiceManager({
 
           {view === "form" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between"><div><h3 className="text-lg font-semibold text-stone-950">{selectedTransactionId ? "Edit Purchase" : "New Purchase"}</h3><p className="text-sm text-stone-600">Supplier and invoice details are encouraged but optional.</p></div><button type="button" onClick={() => setView(selectedTransactionId ? "detail" : "list")} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700">Cancel</button></div>
+              <div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">{batchMode ? "Step 1 of 3 · Purchase Details" : "Purchase Details"}</p><h3 className="text-lg font-semibold text-stone-950">{selectedTransactionId ? "Edit Purchase" : batchMode ? "New Purchase With Items" : "New Purchase"}</h3><p className="text-sm text-stone-600">Supplier and invoice details are encouraged but optional.</p></div><button type="button" onClick={() => setView(selectedTransactionId ? "detail" : "list")} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700">Cancel</button></div>
               {formError && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
               <section className="rounded-2xl border border-stone-200 bg-white p-4"><h4 className="font-semibold text-stone-950">Purchase Details</h4><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Input label="Purchase Date" type="date" value={transactionForm.purchaseDate} onChange={(e) => setTransactionForm({ ...transactionForm, purchaseDate: e.target.value })} /><Select label="Transaction Type" value={transactionForm.transactionType} onChange={(e) => setTransactionForm({ ...transactionForm, transactionType: e.target.value })}>{transactionTypes.map((value) => <option key={value}>{value}</option>)}</Select><Input label="Invoice Date" type="date" value={transactionForm.invoiceDate} onChange={(e) => setTransactionForm({ ...transactionForm, invoiceDate: e.target.value })} /><Input label="Invoice Number" value={transactionForm.invoiceNumber} onChange={(e) => setTransactionForm({ ...transactionForm, invoiceNumber: e.target.value })} /></div></section>
               <section className="rounded-2xl border border-stone-200 bg-white p-4"><h4 className="font-semibold text-stone-950">Supplier</h4><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"><Input label="Supplier Name" value={transactionForm.supplierName} onChange={(e) => setTransactionForm({ ...transactionForm, supplierName: e.target.value })} /><Select label="Seller Type" value={transactionForm.sellerType} onChange={(e) => setTransactionForm({ ...transactionForm, sellerType: e.target.value })}>{sellerTypeOptions.map((value) => <option key={value}>{value}</option>)}</Select><Input label="Source Type" value={transactionForm.sourceType} onChange={(e) => setTransactionForm({ ...transactionForm, sourceType: e.target.value })} /><Input label="Source Platform" value={transactionForm.sourcePlatform} onChange={(e) => setTransactionForm({ ...transactionForm, sourcePlatform: e.target.value })} /><Input label="Purchase Location" value={transactionForm.sourceLocation} onChange={(e) => setTransactionForm({ ...transactionForm, sourceLocation: e.target.value })} /><Input label="Address Line 1" value={transactionForm.supplierAddressLine1} onChange={(e) => setTransactionForm({ ...transactionForm, supplierAddressLine1: e.target.value })} /><Input label="Address Line 2" value={transactionForm.supplierAddressLine2} onChange={(e) => setTransactionForm({ ...transactionForm, supplierAddressLine2: e.target.value })} /><Input label="Postal Code" value={transactionForm.supplierPostalCode} onChange={(e) => setTransactionForm({ ...transactionForm, supplierPostalCode: e.target.value })} /><Input label="City" value={transactionForm.supplierCity} onChange={(e) => setTransactionForm({ ...transactionForm, supplierCity: e.target.value })} /><Input label="Country" value={transactionForm.supplierCountry} onChange={(e) => setTransactionForm({ ...transactionForm, supplierCountry: e.target.value })} /></div></section>
               <section className="rounded-2xl border border-stone-200 bg-white p-4"><h4 className="font-semibold text-stone-950">Amounts</h4><div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><Input label="Currency" value={transactionForm.currency} onChange={(e) => setTransactionForm({ ...transactionForm, currency: e.target.value })} /><Input label="Gross Total" type="number" step="0.01" value={transactionForm.grossTotal} onChange={(e) => setTransactionForm({ ...transactionForm, grossTotal: e.target.value })} /><Select label="Payment Method" value={transactionForm.paymentMethod} onChange={(e) => setTransactionForm({ ...transactionForm, paymentMethod: e.target.value })}><option>Cash</option><option>Card</option><option>PayPal</option><option>Bank transfer</option><option>Other</option></Select><Select label="Receipt Status" value={transactionForm.receiptStatus} onChange={(e) => setTransactionForm({ ...transactionForm, receiptStatus: e.target.value })}>{receiptStatusOptions.map((value) => <option key={value}>{value}</option>)}</Select></div><details className="mt-4 rounded-xl border border-stone-200 bg-stone-50"><summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-stone-700">Advanced Amount Breakdown</summary><div className="grid gap-3 border-t border-stone-200 p-3 sm:grid-cols-2 lg:grid-cols-4"><Input label="Subtotal" type="number" step="0.01" value={transactionForm.subtotal} onChange={(e) => setTransactionForm({ ...transactionForm, subtotal: e.target.value })} /><Input label="Tax Amount" type="number" step="0.01" value={transactionForm.taxAmount} onChange={(e) => setTransactionForm({ ...transactionForm, taxAmount: e.target.value })} /><Input label="Shipping Amount" type="number" step="0.01" value={transactionForm.shippingAmount} onChange={(e) => setTransactionForm({ ...transactionForm, shippingAmount: e.target.value })} /><Input label="Discount Amount" type="number" step="0.01" value={transactionForm.discountAmount} onChange={(e) => setTransactionForm({ ...transactionForm, discountAmount: e.target.value })} /></div></details></section>
               <section className="rounded-2xl border border-stone-200 bg-white p-4"><Textarea label="Notes" value={transactionForm.notes} onChange={(e) => setTransactionForm({ ...transactionForm, notes: e.target.value })} /></section>
-              <div className="flex justify-end"><button type="button" onClick={saveTransaction} className="rounded-xl bg-[#b7412e] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#963424]">Save Purchase</button></div>
+              <div className="flex justify-end"><button type="button" onClick={saveTransaction} className="rounded-xl bg-[#b7412e] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[#963424]">{batchMode ? "Next: Stock Items" : "Save Purchase"}</button></div>
+            </div>
+          )}
+
+          {view === "batch_items" && (
+            <div className="space-y-4">
+              <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">Step 2 of 3 · Stock Items</p><h3 className="text-lg font-semibold text-stone-950">Add Stock Items</h3><p className="text-sm text-stone-600">Enter one compact row per stock item. Items will be created as Draft.</p></div><button type="button" onClick={() => setView("form")} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700">Back</button></div>
+              {formError && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
+              <section className="grid grid-cols-2 gap-2 rounded-2xl border border-stone-200 bg-white p-3 sm:grid-cols-5">{[["Invoice Total", money(batchReconciliation.grossTotal, transactionForm.currency)], ["Allocated Total", money(batchReconciliation.allocatedTotal, transactionForm.currency)], ["Difference", money(batchReconciliation.difference, transactionForm.currency)], ["Item Count", stockRows.length], ["Status", batchReconciliation.isBalanced ? "Balanced" : batchReconciliation.difference > 0 ? "Under-allocated" : "Over-allocated"]].map(([label, value]) => <div key={label} className="rounded-xl bg-stone-50 p-3"><p className="text-[10px] font-semibold uppercase tracking-wide text-stone-500">{label}</p><p className="mt-1 text-sm font-semibold text-stone-950">{value}</p></div>)}</section>
+              <section className="overflow-hidden rounded-2xl border border-stone-200 bg-white"><div className="flex items-center justify-between border-b border-stone-200 px-3 py-2"><p className="text-sm font-semibold text-stone-950">Stock Item Rows</p><button type="button" onClick={() => addStockRow()} className="rounded-lg bg-[#e06b2c] px-3 py-2 text-xs font-semibold text-[#24110e]"><Plus size={13} className="mr-1 inline" /> Add Row</button></div><div className="max-h-[55vh] overflow-auto"><table className="min-w-[1120px] table-fixed border-collapse text-xs"><thead className="sticky top-0 bg-[#fff8ea] text-left text-[10px] uppercase tracking-wide text-stone-500"><tr>{[["Item Name", 210], ["Category", 130], ["Qty", 60], ["Invoice Line", 105], ["Allocated Cost", 115], ["Classification", 190], ["Notes", 190], ["Actions", 100]].map(([label, width]) => <th key={label} className="border-b border-stone-200 px-2 py-2" style={{ width }}>{label}</th>)}</tr></thead><tbody>{stockRows.map((row, index) => <tr key={row.tempId} className="border-b border-stone-100 hover:bg-stone-50"><td className="p-1.5"><input autoFocus={index === stockRows.length - 1} value={row.name} onChange={(e) => updateStockRow(row.tempId, "name", e.target.value)} className="h-8 w-full rounded-lg border border-stone-200 px-2" placeholder="Required" /></td><td className="p-1.5"><input value={row.category} onChange={(e) => updateStockRow(row.tempId, "category", e.target.value)} className="h-8 w-full rounded-lg border border-stone-200 px-2" /></td><td className="p-1.5"><input type="number" min="1" step="1" value={row.quantity} onChange={(e) => updateStockRow(row.tempId, "quantity", e.target.value)} className="h-8 w-full rounded-lg border border-stone-200 px-2 text-right" /></td><td className="p-1.5"><input type="number" step="0.01" value={row.invoiceLineAmount} onChange={(e) => updateStockRow(row.tempId, "invoiceLineAmount", e.target.value)} className="h-8 w-full rounded-lg border border-stone-200 px-2 text-right" /></td><td className="p-1.5"><input type="number" step="0.01" value={row.allocatedPurchaseCost} onChange={(e) => updateStockRow(row.tempId, "allocatedPurchaseCost", e.target.value)} className="h-8 w-full rounded-lg border border-stone-200 px-2 text-right" placeholder="Required" /></td><td className="p-1.5"><select value={row.classification} onChange={(e) => updateStockRow(row.tempId, "classification", e.target.value)} className="h-8 w-full rounded-lg border border-stone-200 bg-white px-2">{classificationOptions.map((value) => <option key={value}>{value}</option>)}</select></td><td className="p-1.5"><input value={row.notes} onChange={(e) => updateStockRow(row.tempId, "notes", e.target.value)} className="h-8 w-full rounded-lg border border-stone-200 px-2" /></td><td className="p-1.5"><div className="flex gap-2"><button type="button" onClick={() => duplicateStockRow(row)} className="font-semibold text-[#8f3124]">Duplicate</button><button type="button" onClick={() => removeStockRow(row.tempId)} className="font-semibold text-red-700">Remove</button></div></td></tr>)}</tbody></table></div></section>
+              <div className="flex flex-wrap justify-between gap-2"><button type="button" onClick={() => addStockRow()} className="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700">Add Row</button><button type="button" onClick={continueToReview} className="rounded-xl bg-[#b7412e] px-5 py-2.5 text-sm font-semibold text-white">Review Purchase</button></div>
+            </div>
+          )}
+
+          {view === "batch_review" && (
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">Step 3 of 3 · Review</p><h3 className="text-lg font-semibold text-stone-950">Review & Create</h3><p className="text-sm text-stone-600">No records exist until you confirm this step.</p></div><button type="button" onClick={() => setView("batch_items")} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700">Back</button></div>
+              {formError && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{formError}</p>}
+              <div className="grid gap-4 lg:grid-cols-2"><section className="rounded-2xl border border-stone-200 bg-white p-4"><h4 className="font-semibold text-stone-950">Purchase</h4><dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-stone-500">Supplier</dt><dd className="font-semibold">{transactionForm.supplierName || "Not recorded"}</dd></div><div><dt className="text-xs text-stone-500">Invoice</dt><dd className="font-semibold">{transactionForm.invoiceNumber || "Not recorded"}</dd></div><div><dt className="text-xs text-stone-500">Date</dt><dd className="font-semibold">{transactionForm.purchaseDate}</dd></div><div><dt className="text-xs text-stone-500">Gross Total</dt><dd className="font-semibold">{money(batchReconciliation.grossTotal, transactionForm.currency)}</dd></div></dl></section><section className="rounded-2xl border border-stone-200 bg-white p-4"><h4 className="font-semibold text-stone-950">Stock</h4><dl className="mt-3 grid grid-cols-2 gap-3 text-sm"><div><dt className="text-xs text-stone-500">Item Count</dt><dd className="font-semibold">{stockRows.length}</dd></div><div><dt className="text-xs text-stone-500">Allocated Total</dt><dd className="font-semibold">{money(batchReconciliation.allocatedTotal, transactionForm.currency)}</dd></div><div><dt className="text-xs text-stone-500">Difference</dt><dd className="font-semibold">{money(batchReconciliation.difference, transactionForm.currency)}</dd></div><div><dt className="text-xs text-stone-500">Status</dt><dd className="font-semibold">{batchReconciliation.isBalanced ? "Balanced" : batchReconciliation.difference > 0 ? "Under-allocated" : "Over-allocated"}</dd></div></dl></section></div>
+              <section className="rounded-2xl border border-stone-200 bg-white p-4"><h4 className="font-semibold text-stone-950">Items to Create</h4><div className="mt-3 max-h-72 overflow-auto">{stockRows.map((row) => <div key={row.tempId} className="grid grid-cols-[1fr_auto] gap-3 border-b border-stone-100 py-2 text-sm last:border-0"><div><p className="font-semibold text-stone-950">{row.name}</p><p className="text-xs text-stone-500">{row.classification}</p></div><p className="font-semibold">{money(row.allocatedPurchaseCost, transactionForm.currency)}</p></div>)}</div></section>
+              <label className="flex items-start gap-3 rounded-2xl border border-stone-200 bg-white p-4"><input type="checkbox" checked={requireBalanced} onChange={(e) => setRequireBalanced(e.target.checked)} className="mt-1" /><span><span className="block text-sm font-semibold text-stone-950">Require Balanced Before Create</span><span className="block text-xs text-stone-500">Block creation unless allocated costs reconcile to the invoice total.</span></span></label>
+              {!batchReconciliation.isBalanced && !requireBalanced && <p className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">Warning: this purchase is not balanced. Creation is allowed because Require Balanced is off.</p>}
+              <div className="flex justify-end"><button type="button" disabled={requireBalanced && !batchReconciliation.isBalanced} onClick={commitPurchaseWithItems} className="rounded-xl bg-[#b7412e] px-5 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40">Create Purchase & Items</button></div>
             </div>
           )}
 

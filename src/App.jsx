@@ -19,6 +19,7 @@ import {
   updatePurchaseTransactionRecord,
   updateTransactionEvidenceRecord,
 } from "./purchaseManager.js";
+import { preparePurchaseWithItems } from "./purchaseBatch.js";
 import {
   generateHtmlDescription,
   generateListingDraft,
@@ -783,6 +784,24 @@ export default function ResellerItApp() {
       : [result.record, ...evidenceRecords];
     if (!persistAll(items, expenses, purchaseRecords, nextEvidenceRecords, eigenbelege, purchaseTransactions, purchaseAllocations)) return { ok: false, errors: ["Document metadata could not be persisted."] };
     return { ok: true, record: result.record };
+  }
+
+  function createPurchaseWithItems(transactionDraft, stockRows, requireBalanced) {
+    const prepared = preparePurchaseWithItems({
+      transactionDraft,
+      stockRows,
+      requireBalanced,
+      generateId: () => crypto.randomUUID(),
+      timestamp: new Date().toISOString(),
+    });
+    if (!prepared.ok) return prepared;
+    const nextItems = [...prepared.items, ...items];
+    const nextTransactions = [prepared.transaction, ...purchaseTransactions];
+    const nextAllocations = [...prepared.allocations, ...purchaseAllocations];
+    if (!persistAll(nextItems, expenses, purchaseRecords, evidenceRecords, eigenbelege, nextTransactions, nextAllocations)) {
+      return { ...prepared, ok: false, errors: ["Purchase and items could not be persisted."] };
+    }
+    return prepared;
   }
 
   function generateDraftEigenbeleg(itemId) {
@@ -2602,6 +2621,7 @@ export default function ResellerItApp() {
             onSaveAllocation={savePurchaseAllocation}
             onRemoveAllocation={unlinkPurchaseAllocation}
             onSaveEvidence={savePurchaseEvidence}
+            onCreatePurchaseWithItems={createPurchaseWithItems}
           />
         )}
 
