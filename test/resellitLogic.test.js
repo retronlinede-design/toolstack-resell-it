@@ -34,6 +34,7 @@ import {
   migrateLegacySalePrice,
   normalizeEigenbeleg,
   normalizeEvidenceRecord,
+  normalizeExpense,
   normalizeItem as normalizeSchemaItem,
   normalizePurchaseRecord,
   normalizeRootAppData,
@@ -813,7 +814,7 @@ test("root app data normalization accepts old backups without purchaseRecords", 
   assert.equal(data.version, 1);
   assert.equal(data.items.length, 1);
   assert.equal(data.items[0].name, "Legacy item");
-  assert.deepEqual(data.expenses, [{ description: "Tape", amount: "3" }]);
+  assert.deepEqual(data.expenses, [normalizeExpense({ description: "Tape", amount: "3" })]);
   assert.deepEqual(data.purchaseRecords, []);
   assert.deepEqual(data.evidenceRecords, []);
   assert.deepEqual(data.eigenbelege, []);

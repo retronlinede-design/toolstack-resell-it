@@ -90,6 +90,7 @@ export const legacyStatusLabels = {
 };
 
 export const expenseCategories = ["Packaging", "Shipping supplies", "Fuel / travel", "Flea-market fees", "Storage", "Office supplies", "Platform/service costs", "Other"];
+export const expenseBusinessClassifications = ["private", "business", "mixed", "review"];
 export const researchConfidenceOptions = ["low", "medium", "high"];
 export const purchaseRecordTypeOptions = ["Single item", "Bulk lot item", "Source session allocation", "Retail purchase", "Online marketplace", "Other"];
 export const sellerTypeOptions = ["Private seller", "Business seller", "Retail store", "Marketplace seller", "Unknown"];
@@ -203,14 +204,28 @@ export const emptyItem = {
 };
 
 export const emptyExpense = {
+  id: "",
   date: CURRENT_DATE,
+  documentDate: "",
   category: "Packaging",
   description: "",
+  vendorName: "",
+  vendorAddress: "",
   amount: "",
+  currency: "EUR",
   paymentMethod: "Cash",
+  businessClassification: "review",
+  reportingCategory: "",
   receiptAvailable: "No",
+  documentNumber: "",
+  evidenceIds: [],
   receiptNotes: "",
   linkedItemId: "",
+  purchaseTransactionId: "",
+  ebayTransactionId: "",
+  notes: "",
+  createdAt: "",
+  updatedAt: "",
 };
 
 export const emptyPurchaseRecord = {
@@ -487,12 +502,43 @@ export function normalizeItems(items) {
   return Array.isArray(items) ? items.map(normalizeItem) : [];
 }
 
+export function normalizeExpense(record) {
+  const next = { ...emptyExpense, ...(record && typeof record === "object" ? record : {}) };
+  next.id = String(next.id || "");
+  next.date = String(next.date || CURRENT_DATE);
+  next.documentDate = String(next.documentDate || "");
+  next.category = String(next.category || emptyExpense.category);
+  next.description = String(next.description || "");
+  next.vendorName = String(next.vendorName || "");
+  next.vendorAddress = String(next.vendorAddress || "");
+  next.amount = String(next.amount ?? "");
+  next.currency = String(next.currency || "EUR").toUpperCase();
+  next.paymentMethod = String(next.paymentMethod || emptyExpense.paymentMethod);
+  next.businessClassification = expenseBusinessClassifications.includes(next.businessClassification) ? next.businessClassification : "review";
+  next.reportingCategory = String(next.reportingCategory || "");
+  next.receiptAvailable = next.receiptAvailable === "Yes" ? "Yes" : "No";
+  next.documentNumber = String(next.documentNumber || "");
+  next.evidenceIds = [...new Set(normalizeStringArray(next.evidenceIds))];
+  next.receiptNotes = String(next.receiptNotes || "");
+  next.linkedItemId = String(next.linkedItemId || "");
+  next.purchaseTransactionId = String(next.purchaseTransactionId || "");
+  next.ebayTransactionId = String(next.ebayTransactionId || "");
+  next.notes = String(next.notes || next.receiptNotes || "");
+  next.createdAt = String(next.createdAt || "");
+  next.updatedAt = String(next.updatedAt || "");
+  return next;
+}
+
+export function normalizeExpenses(records) {
+  return Array.isArray(records) ? records.map(normalizeExpense) : [];
+}
+
 export function normalizeRootAppData(data, fallbackItems = []) {
   const parsed = data && typeof data === "object" ? data : {};
   return {
     version: Number(parsed.version) || 2,
     items: Array.isArray(parsed.items) ? normalizeItems(parsed.items) : normalizeItems(fallbackItems),
-    expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
+    expenses: normalizeExpenses(parsed.expenses),
     purchaseRecords: normalizePurchaseRecords(parsed.purchaseRecords),
     purchaseTransactions: normalizePurchaseTransactions(parsed.purchaseTransactions),
     purchaseAllocations: normalizePurchaseAllocations(parsed.purchaseAllocations),
@@ -728,7 +774,7 @@ export function normalizeEvidenceRecords(records) {
 export function validateEvidenceRecord(record) {
   const next = normalizeEvidenceRecord(record);
   const errors = [];
-  if (!next.itemId && !next.purchaseTransactionId) errors.push("itemId or purchaseTransactionId is required");
+  if (!next.itemId && !next.purchaseTransactionId && !next.expenseId) errors.push("itemId, purchaseTransactionId, or expenseId is required");
   if (!next.evidenceType) errors.push("evidenceType is required");
   if (!next.evidenceStatus) errors.push("evidenceStatus is required");
   if (!next.storageType) errors.push("storageType is required");

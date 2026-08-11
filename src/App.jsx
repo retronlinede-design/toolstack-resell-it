@@ -10,6 +10,7 @@ import { Input, Select } from "./components/shared/FormControls.jsx";
 import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
 import { buildPurchaseFinanceDiagnostics } from "./financeDiagnostics.js";
+import { createExpenseEvidenceRecord, expenseTotal, filterExpenses, updateExpenseEvidenceRecord } from "./expenseManager.js";
 import {
   createPurchaseAllocationRecord,
   createPurchaseTransactionRecord,
@@ -88,6 +89,8 @@ import {
   languageOptions,
   normalizeBooleanRecord,
   normalizeEigenbeleg,
+  normalizeExpense,
+  normalizeExpenses,
   normalizeEvidenceRecords,
   normalizeEigenbelege,
   normalizeItem,
@@ -536,6 +539,8 @@ export default function ResellerItApp() {
   const [editingExpenseId, setEditingExpenseId] = useState(null);
   const [expenseMonthFilter, setExpenseMonthFilter] = useState(CURRENT_MONTH);
   const [expenseCategoryFilter, setExpenseCategoryFilter] = useState("All categories");
+  const [expenseBusinessClassificationFilter, setExpenseBusinessClassificationFilter] = useState("All classifications");
+  const [expenseProofFilter, setExpenseProofFilter] = useState("All proof statuses");
   const [ebayImportBatches, setEbayImportBatches] = useState(loadEbayImportBatches);
   const [importMonth, setImportMonth] = useState(CURRENT_MONTH);
   const [csvPreview, setCsvPreview] = useState(null);
@@ -681,7 +686,8 @@ export default function ResellerItApp() {
     const normalizedPurchaseAllocations = normalizePurchaseAllocations(purchaseAllocations);
     const normalizedEvidenceRecords = normalizeEvidenceRecords(evidenceRecords);
     const normalizedEigenbelege = normalizeEigenbelege(eigenbelege);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
+    const normalizedExpenses = normalizeExpenses(expenses);
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: normalizedExpenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -690,6 +696,7 @@ export default function ResellerItApp() {
       return false;
     }
     setItems(normalizedItems);
+    setExpenses(normalizedExpenses);
     setPurchaseRecords(normalizedPurchaseRecords);
     setPurchaseTransactions(normalizedPurchaseTransactions);
     setPurchaseAllocations(normalizedPurchaseAllocations);
@@ -700,12 +707,13 @@ export default function ResellerItApp() {
 
   function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords, nextEvidenceRecords = evidenceRecords, nextEigenbelege = eigenbelege, nextPurchaseTransactions = purchaseTransactions, nextPurchaseAllocations = purchaseAllocations) {
     const normalizedItems = normalizeItems(nextItems);
+    const normalizedExpenses = normalizeExpenses(nextExpenses);
     const normalizedPurchaseRecords = normalizePurchaseRecords(nextPurchaseRecords);
     const normalizedPurchaseTransactions = normalizePurchaseTransactions(nextPurchaseTransactions);
     const normalizedPurchaseAllocations = normalizePurchaseAllocations(nextPurchaseAllocations);
     const normalizedEvidenceRecords = normalizeEvidenceRecords(nextEvidenceRecords);
     const normalizedEigenbelege = normalizeEigenbelege(nextEigenbelege);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: nextExpenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: normalizedExpenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -714,7 +722,7 @@ export default function ResellerItApp() {
       return false;
     }
     setItems(normalizedItems);
-    setExpenses(nextExpenses);
+    setExpenses(normalizedExpenses);
     setPurchaseRecords(normalizedPurchaseRecords);
     setPurchaseTransactions(normalizedPurchaseTransactions);
     setPurchaseAllocations(normalizedPurchaseAllocations);
@@ -1052,7 +1060,9 @@ export default function ResellerItApp() {
   function saveExpense(e) {
     e.preventDefault();
     if (!expenseForm.description.trim() || !expenseForm.amount) return;
-    const clean = { ...expenseForm, description: expenseForm.description.trim() };
+    const timestamp = new Date().toISOString();
+    const current = editingExpenseId ? expenses.find((expense) => expense.id === editingExpenseId) : null;
+    const clean = normalizeExpense({ ...expenseForm, id: current?.id || crypto.randomUUID(), description: expenseForm.description.trim(), createdAt: current?.createdAt || timestamp, updatedAt: timestamp });
     const nextExpenses = editingExpenseId
       ? expenses.map((expense) => (expense.id === editingExpenseId ? { ...expense, ...clean } : expense))
       : [{ id: crypto.randomUUID(), ...clean }, ...expenses];
@@ -1067,7 +1077,27 @@ export default function ResellerItApp() {
   }
 
   function deleteExpense(id) {
-    persistExpenses(expenses.filter((expense) => expense.id !== id));
+    const expense = expenses.find((entry) => entry.id === id);
+    if (!expense || !window.confirm(`Delete expense "${expense.description || "this record"}"? Linked evidence records will be preserved.`)) return;
+    persistExpenses(expenses.filter((entry) => entry.id !== id));
+  }
+
+  function saveExpenseEvidence(values, expenseId, editingEvidenceId = "") {
+    const timestamp = new Date().toISOString();
+    const current = editingEvidenceId ? evidenceRecords.find((record) => record.id === editingEvidenceId && record.expenseId === expenseId) : null;
+    const result = current
+      ? updateExpenseEvidenceRecord(current, values, timestamp)
+      : createExpenseEvidenceRecord(values, expenseId, crypto.randomUUID(), timestamp);
+    if (result.errors.length) return { ok: false, errors: result.errors };
+    const nextEvidenceRecords = current
+      ? evidenceRecords.map((record) => (record.id === current.id ? result.record : record))
+      : [result.record, ...evidenceRecords];
+    const nextExpenses = expenses.map((expense) => expense.id === expenseId
+      ? normalizeExpense({ ...expense, evidenceIds: Array.from(new Set([...(expense.evidenceIds || []), result.record.id])), updatedAt: timestamp })
+      : expense);
+    if (!persistAll(items, nextExpenses, purchaseRecords, nextEvidenceRecords)) return { ok: false, errors: ["Evidence could not be persisted."] };
+    setExpenseForm((currentForm) => currentForm.id === expenseId ? { ...currentForm, evidenceIds: Array.from(new Set([...(currentForm.evidenceIds || []), result.record.id])) } : currentForm);
+    return { ok: true, record: result.record };
   }
 
   function updateItemStatus(id, status) {
@@ -1632,16 +1662,15 @@ export default function ResellerItApp() {
   const purchaseCostIssues = purchaseFinanceDiagnostics.costAlignment.filter((entry) => entry.status !== "Aligned");
   const salesIssueCount = new Set(Object.values(salesDataGapQueues).flat()).size;
 
-  const filteredExpenses = useMemo(() => {
-    return expenses.filter((expense) => {
-      if (expenseMonthFilter && !inMonth(expense.date, expenseMonthFilter)) return false;
-      if (expenseCategoryFilter !== "All categories" && expense.category !== expenseCategoryFilter) return false;
-      return true;
-    });
-  }, [expenseCategoryFilter, expenseMonthFilter, expenses]);
+  const filteredExpenses = useMemo(() => filterExpenses(expenses, {
+    month: expenseMonthFilter,
+    category: expenseCategoryFilter,
+    businessClassification: expenseBusinessClassificationFilter,
+    proofStatus: expenseProofFilter,
+  }), [expenseBusinessClassificationFilter, expenseCategoryFilter, expenseMonthFilter, expenseProofFilter, expenses]);
 
   const filteredExpenseTotal = useMemo(() => (
-    filteredExpenses.reduce((sum, expense) => sum + number(expense.amount), 0)
+    expenseTotal(filteredExpenses)
   ), [filteredExpenses]);
 
   const filtered = useMemo(() => {
@@ -3659,18 +3688,25 @@ export default function ResellerItApp() {
               editingExpenseId={editingExpenseId}
               expenseMonthFilter={expenseMonthFilter}
               expenseCategoryFilter={expenseCategoryFilter}
+              expenseBusinessClassificationFilter={expenseBusinessClassificationFilter}
+              expenseProofFilter={expenseProofFilter}
               filteredExpenses={filteredExpenses}
               filteredExpenseTotal={filteredExpenseTotal}
               expenseCategories={expenseCategories}
               items={items}
+              purchaseTransactions={purchaseTransactions}
+              evidenceRecords={evidenceRecords}
               money={money}
               onSaveExpense={saveExpense}
               onSetExpenseForm={setExpenseForm}
               onCancelExpenseEdit={() => { setEditingExpenseId(null); setExpenseForm(emptyExpense); }}
               onSetExpenseMonthFilter={setExpenseMonthFilter}
               onSetExpenseCategoryFilter={setExpenseCategoryFilter}
+              onSetExpenseBusinessClassificationFilter={setExpenseBusinessClassificationFilter}
+              onSetExpenseProofFilter={setExpenseProofFilter}
               onEditExpense={editExpense}
               onDeleteExpense={deleteExpense}
+              onSaveExpenseEvidence={saveExpenseEvidence}
               />
             </div>
           )}
