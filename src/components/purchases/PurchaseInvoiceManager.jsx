@@ -44,9 +44,10 @@ export function PurchaseInvoiceManager({
   onRemoveAllocation,
   onSaveEvidence,
   onCreatePurchaseWithItems,
+  initialTransactionId = "",
 }) {
-  const [view, setView] = useState("list");
-  const [selectedTransactionId, setSelectedTransactionId] = useState("");
+  const [view, setView] = useState(initialTransactionId ? "detail" : "list");
+  const [selectedTransactionId, setSelectedTransactionId] = useState(initialTransactionId);
   const [transactionForm, setTransactionForm] = useState({ ...emptyPurchaseTransaction });
   const [formError, setFormError] = useState("");
   const [stockSearch, setStockSearch] = useState("");

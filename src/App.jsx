@@ -5,10 +5,11 @@ import { ExpenseManager } from "./components/finance/ExpenseManager.jsx";
 import { InventoryTable } from "./components/inventory/InventoryTable.jsx";
 import { EbayStudio } from "./components/item-editor/EbayStudio.jsx";
 import { PurchaseInvoiceManager } from "./components/purchases/PurchaseInvoiceManager.jsx";
-import { StatCard, QueueCard } from "./components/shared/Cards.jsx";
+import { StatCard } from "./components/shared/Cards.jsx";
 import { Input, Select } from "./components/shared/FormControls.jsx";
 import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
+import { buildPurchaseFinanceDiagnostics } from "./financeDiagnostics.js";
 import {
   createPurchaseAllocationRecord,
   createPurchaseTransactionRecord,
@@ -224,10 +225,9 @@ const stockSectionDetails = {
   listingStudio: ["eBay Listing", "Create and manage listing titles, descriptions, and HTML templates."],
 };
 const financeSectionDetails = {
-  thisMonth: ["This Month", "Current month reseller activity and estimated performance."],
-  taxRecords: ["Tax Records", "Items and expenses requiring tax documentation or review."],
-  reconciliation: ["Reconciliation", "Match sales, fees, payouts, and imported platform records."],
-  yearEnd: ["Year-End & EÜR", "Year-end preparation for ELSTER or accountant reporting."],
+  taxRecords: ["Financial Data Issues", "Review missing documents, unreconciled purchases, sales gaps, and expense record issues."],
+  reconciliation: ["eBay Import & Review", "Import and review eBay reports. Automatic matching and reconciliation are not yet implemented."],
+  yearEnd: ["Year-End & EÜR Estimate", "Year-end preparation estimate for later reporting work."],
 };
 
 function taxReadinessStatusLabel(status) {
@@ -246,6 +246,12 @@ function yesNo(value) {
 function money(value) {
   const n = Number(value || 0);
   return n.toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+}
+
+function monthLabel(month) {
+  if (!/^\d{4}-\d{2}$/.test(String(month || ""))) return month || "Selected month";
+  const [year, monthNumber] = month.split("-").map(Number);
+  return new Date(year, monthNumber - 1, 1).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
 }
 
 function auditValue(value) {
@@ -549,7 +555,6 @@ export default function ResellerItApp() {
   const [salesEditItemId, setSalesEditItemId] = useState(null);
   const [stockSection, setStockSection] = useState("needsAttention");
   const [financeSection, setFinanceSection] = useState("thisMonth");
-  const [classificationFilter, setClassificationFilter] = useState("All classifications");
   const [expandedProofId, setExpandedProofId] = useState(null);
   const [advancedFeesOpen, setAdvancedFeesOpen] = useState(false);
   const [activeAdvancedSection, setActiveAdvancedSection] = useState("");
@@ -571,6 +576,7 @@ export default function ResellerItApp() {
   const salesPanelRef = useRef(null);
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [purchaseManagerOpen, setPurchaseManagerOpen] = useState(false);
+  const [purchaseManagerInitialTransactionId, setPurchaseManagerInitialTransactionId] = useState("");
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [stockFilterMenu, setStockFilterMenu] = useState("");
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
@@ -1400,36 +1406,6 @@ export default function ResellerItApp() {
     };
   }, [activeStockItems]);
 
-  const sectionSummaries = useMemo(() => {
-    const monthlyExpenses = expenses.filter((expense) => inMonth(expense.date));
-    const monthlySales = items.filter((item) => isSoldStatus(item) && inMonth(item.saleDate));
-    const revenue = monthlySales.reduce((sum, item) => sum + finalSaleValue(item) + shippingChargedValue(item), 0);
-    const fees = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
-    const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0);
-    const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
-    const packedOrShippedToday = activeStockItems.filter((item) => item.shippedDate === CURRENT_DATE);
-    return {
-      stock: {
-        inventoryValue: activeStockItems.filter((item) => !isSoldStatus(item)).reduce((sum, item) => sum + number(item.purchasePrice), 0),
-        readyToList: activeStockItems.filter((item) => !isSoldStatus(item) && listingReadiness(item) === "Ready").length,
-        missingProof: activeStockItems.filter(needsProofRecord).length,
-        recentSourcing: activeStockItems.filter((item) => inMonth(item.purchaseDate)).length,
-      },
-      sales: {
-        awaitingShipment: activeStockItems.filter((item) => itemStatusValue(item) === "Sold").length,
-        packedOrShippedToday: packedOrShippedToday.length,
-        returnsIssues: activeStockItems.filter((item) => itemStatusValue(item) === "Returned").length,
-        recentCompleted: activeStockItems.filter((item) => itemStatusValue(item) === "Complete").slice(0, 6).length,
-      },
-      finance: {
-        revenue,
-        expenses: expenseTotal,
-        estimatedProfit: profit - expenseTotal,
-        pendingPayout: Math.max(0, revenue - fees),
-      },
-    };
-  }, [activeStockItems, expenses, items]);
-
   const inventoryManagerItems = useMemo(() => {
     const query = inventorySearch.trim().toLowerCase();
     const filteredItems = items.filter((item) => {
@@ -1611,6 +1587,8 @@ export default function ResellerItApp() {
     const refundTotal = soldItems.reduce((sum, item) => sum + refundValue(item), 0);
     const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
     const profitEstimate = soldItems.reduce((sum, item) => sum + itemProfitValue(item), 0) - expenseTotal;
+    const grossRevenue = salesTotal + shippingCharged;
+    const estimatedProceedsAfterFeesShipping = Math.max(0, grossRevenue - platformFeeTotal - actualShippingCosts);
     const missingProofItems = activityItems.filter(needsProofRecord);
     const reviewItems = activityItems.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION);
 
@@ -1625,6 +1603,8 @@ export default function ResellerItApp() {
       refundTotal,
       expenseTotal,
       profitEstimate,
+      grossRevenue,
+      estimatedProceedsAfterFeesShipping,
       classificationBreakdown,
       missingProofItems,
       reviewItems,
@@ -1635,21 +1615,22 @@ export default function ResellerItApp() {
     };
   })();
 
-  const workflowQueues = useMemo(() => ({
-    needsProof: activeStockItems.filter(needsProofRecord),
-    needsResearch: activeStockItems.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
-    needsListing: activeStockItems.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
-    readyToList: activeStockItems.filter((item) => !isSoldStatus(item) && listingReadiness(item) === "Ready"),
-    needsShipping: activeStockItems.filter((item) => itemStatusValue(item) === "Sold"),
-    needsTaxReview: activeStockItems.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION),
-  }), [activeStockItems]);
-
   const taxRecordQueues = useMemo(() => ({
     missingProof: activeStockItems.filter(needsProofRecord),
     eigenbelegNeeded: activeStockItems.filter(needsEigenbeleg),
     expensesWithoutReceiptNote: expenses.filter((expense) => expense.receiptAvailable === "No" && !String(expense.receiptNotes || "").trim()),
     reviewLater: activeStockItems.filter((item) => itemClassification(item) === DEFAULT_CLASSIFICATION),
   }), [activeStockItems, expenses]);
+
+  const purchaseFinanceDiagnostics = useMemo(() => buildPurchaseFinanceDiagnostics({
+    purchaseTransactions,
+    purchaseAllocations,
+    items,
+    evidenceRecords,
+  }), [evidenceRecords, items, purchaseAllocations, purchaseTransactions]);
+
+  const purchaseCostIssues = purchaseFinanceDiagnostics.costAlignment.filter((entry) => entry.status !== "Aligned");
+  const salesIssueCount = new Set(Object.values(salesDataGapQueues).flat()).size;
 
   const filteredExpenses = useMemo(() => {
     return expenses.filter((expense) => {
@@ -1673,9 +1654,8 @@ export default function ResellerItApp() {
       return items;
     })();
 
-    if (classificationFilter === "All classifications") return nextItems;
-    return nextItems.filter((item) => itemClassification(item) === classificationFilter);
-  }, [activeStockItems, activeTab, classificationFilter, financeSection, items, stockSection]);
+    return nextItems;
+  }, [activeStockItems, activeTab, financeSection, items, stockSection]);
 
   const eigenbelegText = (item) => `Eigenbeleg / Self-Receipt\n\nDate: ${item.proofDate || item.purchaseDate}\nItem: ${item.name}\nClassification: ${itemClassification(item)}\nSource: ${item.sourceType} - ${item.sourceName || "private seller"}\nLocation: ${item.sourceLocation}\nPurchase price / proof amount: ${money(item.proofAmount || item.purchasePrice)}\nPayment method: ${item.paymentMethod}\nReason no invoice: ${item.noReceiptReason || "Private second-hand / flea-market purchase; no formal receipt available."}\nProof notes: ${item.proofNotes || item.notes || "-"}\n\nSigned: ______________________`;
 
@@ -2518,7 +2498,7 @@ export default function ResellerItApp() {
             <div className="rounded-3xl border border-[#f0be45]/25 bg-white p-5 shadow-sm">
               <div className="mb-4 h-1 w-12 rounded-full bg-[#f0be45]" />
               <h2 className="text-2xl font-semibold text-neutral-950">Finance</h2>
-              <p className="mt-1 max-w-2xl text-sm text-neutral-600">Manage monthly closing, expenses, eBay imports, tax records, and year-end summaries.</p>
+              <p className="mt-1 max-w-2xl text-sm text-neutral-600">Review monthly performance, expenses, purchase records, imported platform data, and preparation issues.</p>
             </div>
 
             <div className="grid gap-4 xl:grid-cols-2">
@@ -2526,7 +2506,7 @@ export default function ResellerItApp() {
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Core Finance</h3>
-                    <p className="mt-1 text-xs text-neutral-500">Monthly, expense, and year-end work.</p>
+                    <p className="mt-1 text-xs text-neutral-500">Monthly, expense, purchase, and import work.</p>
                   </div>
                   <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                 </div>
@@ -2539,13 +2519,13 @@ export default function ResellerItApp() {
                     <p className="text-sm font-semibold text-neutral-950">Expense Manager</p>
                     <p className="mt-1 text-xs leading-5 text-neutral-600">Add and review expense records.</p>
                   </button>
-                  <button type="button" onClick={() => { setFinanceSection("yearEnd"); setActiveFinancePanel("year_end"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "year_end" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
-                    <p className="text-sm font-semibold text-neutral-950">Year-End & EÜR</p>
-                    <p className="mt-1 text-xs leading-5 text-neutral-600">Annual tax prep totals.</p>
+                  <button type="button" onClick={() => { setPurchaseManagerInitialTransactionId(""); setPurchaseManagerOpen(true); }} className="rounded-2xl border border-[#f0be45]/30 bg-[#f0be45]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#f0be45]/50 hover:shadow-sm">
+                    <p className="text-sm font-semibold text-neutral-950">Purchases & Invoices</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Open the existing purchase manager.</p>
                   </button>
-                  <button type="button" onClick={exportMonthlyClosingJson} className="rounded-2xl border border-[#f0be45]/30 bg-[#f0be45]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#f0be45]/50 hover:shadow-sm">
-                    <p className="text-sm font-semibold text-neutral-950">Export Monthly JSON</p>
-                    <p className="mt-1 text-xs leading-5 text-neutral-600">Download current monthly closing data.</p>
+                  <button type="button" onClick={() => { setFinanceSection("reconciliation"); setActiveFinancePanel("ebay_reconciliation"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "ebay_reconciliation" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
+                    <p className="text-sm font-semibold text-neutral-950">eBay Import & Review</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Import and review CSV report batches.</p>
                   </button>
                 </div>
               </section>
@@ -2553,40 +2533,39 @@ export default function ResellerItApp() {
               <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Records & Reconciliation</h3>
-                    <p className="mt-1 text-xs text-neutral-500">Imports, tax records, and matching work.</p>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Review & Preparation</h3>
+                    <p className="mt-1 text-xs text-neutral-500">Data quality and year-end estimates.</p>
                   </div>
                   <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                 </div>
                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <button type="button" onClick={() => { setFinanceSection("reconciliation"); setActiveFinancePanel("ebay_reconciliation"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "ebay_reconciliation" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
-                    <p className="text-sm font-semibold text-neutral-950">eBay Reconciliation</p>
-                    <p className="mt-1 text-xs leading-5 text-neutral-600">CSV imports and saved batches.</p>
-                  </button>
                   <button type="button" onClick={() => { setFinanceSection("taxRecords"); setActiveFinancePanel("tax_records"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "tax_records" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
-                    <p className="text-sm font-semibold text-neutral-950">Tax Records</p>
-                    <p className="mt-1 text-xs leading-5 text-neutral-600">Tax documentation checks.</p>
+                    <p className="text-sm font-semibold text-neutral-950">Financial Data Issues</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Review missing documents, unreconciled purchases, sales gaps, and expense record issues.</p>
+                  </button>
+                  <button type="button" onClick={() => { setFinanceSection("yearEnd"); setActiveFinancePanel("year_end"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "year_end" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
+                    <p className="text-sm font-semibold text-neutral-950">Year-End & EÜR Estimate</p>
+                    <p className="mt-1 text-xs leading-5 text-neutral-600">Preparation estimate using current item-based totals.</p>
                   </button>
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm xl:col-span-2">
+              <section className="rounded-3xl border border-neutral-200 bg-stone-50 p-4 xl:col-span-2">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Coming Soon</h3>
+                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">Planned</h3>
                     <p className="mt-1 text-xs text-neutral-500">Future finance outputs and matching tools.</p>
                   </div>
                   <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Disabled</span>
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                <div className="mt-3 flex flex-wrap gap-2">
                   {[
                     ["Profit Report", "Detailed reporting."],
                     ["Accountant Export", "Accountant-ready package."],
                     ["Payout Matching", "Match platform payouts."],
                   ].map(([label, description]) => (
-                    <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
-                      <p className="text-sm font-semibold text-stone-700">{label}</p>
-                      <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                    <button key={label} type="button" disabled title={description} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-left opacity-70">
+                      <p className="text-xs font-semibold text-stone-600">{label}</p>
                     </button>
                   ))}
                 </div>
@@ -2595,26 +2574,13 @@ export default function ResellerItApp() {
           </div>
         )}
 
-        {(activeTab === "finance" && activeFinancePanel === "tax_records") && <div ref={financePanelRef} className="rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-4 shadow-[0_18px_50px_rgba(0,0,0,0.16)]">
-          <div className="mb-3 flex justify-end">
-            <button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
-          </div>
-          <div className="grid gap-3 md:grid-cols-[0.7fr_1.3fr] md:items-end">
-            <Select label="Filter by classification" value={classificationFilter} onChange={(e) => setClassificationFilter(e.target.value)}>
-              <option>All classifications</option>
-              {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
-            </Select>
-            <p className="text-sm leading-6 text-neutral-600">Use classification to keep personal collection sales separate from stock bought for resale, legacy business stock, and items that need later review.</p>
-          </div>
-        </div>}
-
         {purchaseManagerOpen && (
           <PurchaseInvoiceManager
             items={items}
             transactions={purchaseTransactions}
             allocations={purchaseAllocations}
             evidenceRecords={evidenceRecords}
-            onClose={() => setPurchaseManagerOpen(false)}
+            onClose={() => { setPurchaseManagerOpen(false); setPurchaseManagerInitialTransactionId(""); }}
             onSaveTransaction={savePurchaseTransaction}
             onDeleteTransaction={deletePurchaseTransaction}
             onAddAllocations={addPurchaseAllocations}
@@ -2622,6 +2588,7 @@ export default function ResellerItApp() {
             onRemoveAllocation={unlinkPurchaseAllocation}
             onSaveEvidence={savePurchaseEvidence}
             onCreatePurchaseWithItems={createPurchaseWithItems}
+            initialTransactionId={purchaseManagerInitialTransactionId}
           />
         )}
 
@@ -2666,7 +2633,7 @@ export default function ResellerItApp() {
               expectedListingValue={expectedListingValue}
               stockResizeHandle={stockResizeHandle}
               onOpenNewItemEditor={openNewItemEditor}
-              onOpenPurchaseManager={() => setPurchaseManagerOpen(true)}
+              onOpenPurchaseManager={() => { setPurchaseManagerInitialTransactionId(""); setPurchaseManagerOpen(true); }}
               onCreateQuickLedgerItem={createQuickLedgerItem}
               onSetQuickAddItem={setQuickAddItem}
               onSetStockFilterMenu={setStockFilterMenu}
@@ -3048,7 +3015,7 @@ export default function ResellerItApp() {
             </div>
           )}
 
-          {activeTab === "finance" && activeFinancePanel === "tax_records" && (
+          {DISABLED_LEGACY_UI && (
             <div className="grid gap-5">
               <div className="rounded-3xl border border-stone-200 bg-[#fffdf8] p-5 shadow-[0_12px_32px_rgba(41,37,36,0.05)]">
                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
@@ -3196,13 +3163,13 @@ export default function ResellerItApp() {
               <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
                 <div className="mb-4 grid gap-3 sm:grid-cols-3">
                   <StatCard icon={Download} label="Unresolved imported records" value={ebayImportBatches.reduce((sum, batch) => sum + batch.rows.length, 0)} sub="CSV rows saved for matching" accentClass="bg-[#f0be45]" />
-                  <StatCard icon={Euro} label="Fee reconciliation" value={money(monthlyClosing.platformFeeTotal)} sub="Compare against platform reports" accentClass="bg-[#f0be45]" />
-                  <StatCard icon={FileText} label="Payout matching" value={money(sectionSummaries.finance.pendingPayout)} sub="Placeholder estimate" accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Euro} label="Imported Fee Review" value={money(monthlyClosing.platformFeeTotal)} sub="Item-derived fees for comparison" accentClass="bg-[#f0be45]" />
+                  <StatCard icon={FileText} label="Estimated Proceeds After Fees & Shipping" value={money(monthlyClosing.estimatedProceedsAfterFeesShipping)} sub="Estimate only; not reconciled to actual eBay payouts" accentClass="bg-[#f0be45]" />
                 </div>
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">eBay import tools</h2>
-                    <p className="mt-1 max-w-3xl text-sm text-neutral-600">Upload monthly eBay CSV reports locally so sales, fees, payouts, and imported platform records can be checked together.</p>
+                    <h2 className="text-lg font-semibold text-neutral-950">eBay Import & Review</h2>
+                    <p className="mt-1 max-w-3xl text-sm text-neutral-600">Import and review eBay reports. Automatic matching and reconciliation are not yet implemented.</p>
                   </div>
                   <div className="rounded-2xl bg-neutral-50 p-4 text-sm">
                     <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Stored batches</p>
@@ -3303,45 +3270,51 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "finance" && activeFinancePanel === "tax_records" && (
-            <div className="grid gap-5">
-              <FinanceHeader title={financeSectionDetails.taxRecords[0]} subtitle={financeSectionDetails.taxRecords[1]} meta={`${workflowQueues.needsTaxReview.length + taxRecordQueues.expensesWithoutReceiptNote.length} open checks`} />
+            <div ref={financePanelRef} className="grid gap-5">
+              <div className="flex justify-end"><button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button></div>
+              <FinanceHeader title={financeSectionDetails.taxRecords[0]} subtitle={financeSectionDetails.taxRecords[1]} meta={`${purchaseFinanceDiagnostics.integrityIssueCount + purchaseCostIssues.length + salesIssueCount + taxRecordQueues.expensesWithoutReceiptNote.length + taxRecordQueues.missingProof.length} open checks`} />
 
-              <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
-                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-neutral-950">Tax readiness</h2>
-                    <p className="mt-1 text-sm text-neutral-600">See what is ready, what needs a receipt record, and what needs a classification decision.</p>
-                  </div>
+              <section className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-neutral-950">Purchase Health</h2>
+                <p className="mt-1 text-sm text-neutral-600">Read-only diagnostics. Transaction totals are not added to Finance totals, and no values are synchronized.</p>
+                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+                  <StatCard icon={ReceiptText} label="Purchase Transactions" value={purchaseFinanceDiagnostics.counts.total} />
+                  <StatCard icon={FileText} label="Balanced" value={purchaseFinanceDiagnostics.counts.balanced} />
+                  <StatCard icon={Info} label="Under-allocated" value={purchaseFinanceDiagnostics.counts.underAllocated} />
+                  <StatCard icon={Info} label="Over-allocated" value={purchaseFinanceDiagnostics.counts.overAllocated} />
+                  <StatCard icon={Info} label="Integrity Issues" value={purchaseFinanceDiagnostics.integrityIssueCount} />
+                  <StatCard icon={Euro} label="Cost Conflicts" value={purchaseFinanceDiagnostics.counts.costConflicts} />
                 </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                  <StatCard icon={ReceiptText} label="Tax Ready" value={Math.max(0, items.length - workflowQueues.needsTaxReview.length)} sub="No open item tax checks" accentClass="bg-[#f0be45]" />
-                  <StatCard icon={FileText} label="Needs Record" value={taxRecordQueues.missingProof.length + taxRecordQueues.eigenbelegNeeded.length + taxRecordQueues.expensesWithoutReceiptNote.length} sub="Proof, Eigenbeleg, or expense note" accentClass="bg-[#f0be45]" />
-                  <StatCard icon={Info} label="Review Needed" value={taxRecordQueues.reviewLater.length} sub="Unsure / Review Later" accentClass="bg-[#f0be45]" />
-                </div>
-                <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <QueueCard icon={ReceiptText} label="Missing proof" value={taxRecordQueues.missingProof.length} sub="Items without receipt or proof location" onClick={() => openStockQueue("needsAttention", "Missing proof")} />
-                  <QueueCard icon={FileText} label="Eigenbeleg needed" value={taxRecordQueues.eigenbelegNeeded.length} sub="Self-receipts to draft or file" onClick={() => openFinanceQueue("taxRecords")} tone="finance" />
-                  <QueueCard icon={ReceiptText} label="Expenses without receipt note" value={taxRecordQueues.expensesWithoutReceiptNote.length} sub="Add missing receipt context" onClick={() => openFinanceQueue("expenses")} tone="finance" />
-                  <QueueCard icon={Info} label="Unsure / Review Later" value={taxRecordQueues.reviewLater.length} sub="Classification needs decision" onClick={() => openFinanceQueue("taxRecords")} tone="finance" />
-                </div>
-              </div>
-
-              <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
-                <h3 className="text-sm font-semibold text-neutral-950">Expense receipt-note gaps</h3>
-                <div className="mt-3 grid gap-2">
-                  {taxRecordQueues.expensesWithoutReceiptNote.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No expenses without receipt notes.</p>}
-                  {taxRecordQueues.expensesWithoutReceiptNote.map((expense) => (
-                    <article key={expense.id} className="rounded-2xl bg-neutral-50 p-3">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <div>
-                          <p className="font-semibold text-neutral-950">{expense.description}</p>
-                          <p className="mt-1 text-sm text-neutral-600">{expense.date} / {expense.category} / {expense.paymentMethod}</p>
-                        </div>
-                        <button type="button" onClick={() => { editExpense(expense); openFinanceQueue("expenses"); }} className="rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Edit expense</button>
-                      </div>
+                <div className="mt-4 grid gap-2">
+                  {purchaseFinanceDiagnostics.reconciliations.filter((entry) => entry.status !== "Balanced").map((entry) => (
+                    <article key={entry.transaction.id} className="flex flex-col gap-2 rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div><p className="font-semibold text-neutral-950">{entry.transaction.invoiceNumber || entry.transaction.supplierName || entry.transaction.purchaseDate}</p><p className="text-sm text-neutral-600">{entry.status} · Difference {money(entry.difference)}</p></div>
+                      <button type="button" onClick={() => { setPurchaseManagerInitialTransactionId(entry.transaction.id); setPurchaseManagerOpen(true); }} className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900">Open Purchase</button>
                     </article>
                   ))}
+                  {purchaseFinanceDiagnostics.reconciliations.every((entry) => entry.status === "Balanced") && purchaseFinanceDiagnostics.integrityIssueCount === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No purchase reconciliation or integrity issues.</p>}
+                  {Object.entries(purchaseFinanceDiagnostics.integrity).flatMap(([type, issues]) => issues.map((issue, index) => {
+                    const transactionId = issue.purchaseTransactionId || issue.transactionId || (type === "duplicateTransactionIds" ? issue : "");
+                    return <article key={`${type}-${index}`} className="flex flex-col gap-2 rounded-2xl bg-neutral-50 p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold text-neutral-950">{type.replace(/([A-Z])/g, " $1")}</p><p className="text-sm text-neutral-600">{transactionId || issue.id || "Reference needs review"}</p></div>{purchaseTransactions.some((transaction) => transaction.id === transactionId) && <button type="button" onClick={() => { setPurchaseManagerInitialTransactionId(transactionId); setPurchaseManagerOpen(true); }} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold">Open Purchase</button>}</article>;
+                  }))}
                 </div>
+              </section>
+
+              <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
+                <h3 className="text-lg font-semibold text-neutral-950">Item & Allocation Cost Review</h3>
+                <p className="mt-1 text-sm text-neutral-600">Compares allocated purchase cost with the authoritative item purchase cost. Numeric equivalents such as 10 and 10.00 are aligned.</p>
+                <div className="mt-4 grid gap-2">
+                  {purchaseCostIssues.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No item/allocation cost conflicts.</p>}
+                  {purchaseCostIssues.map((issue) => (
+                    <article key={issue.allocationId} className="rounded-2xl border border-orange-100 bg-orange-50/50 p-3"><div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"><div><p className="font-semibold text-neutral-950">{issue.itemName} · {issue.status}</p><p className="mt-1 text-sm text-neutral-600">Item cost: {issue.itemPurchaseCost === "" ? "Missing" : money(issue.itemPurchaseCost)} · Allocated: {issue.allocatedPurchaseCost === "" ? "Missing" : money(issue.allocatedPurchaseCost)} · Purchase: {issue.purchaseLabel}</p></div><div className="flex gap-2">{items.some((item) => item.id === issue.itemId) && <button type="button" onClick={() => editItem(items.find((item) => item.id === issue.itemId))} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold">Open Item</button>}{purchaseTransactions.some((transaction) => transaction.id === issue.purchaseTransactionId) && <button type="button" onClick={() => { setPurchaseManagerInitialTransactionId(issue.purchaseTransactionId); setPurchaseManagerOpen(true); }} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold">Open Purchase</button>}</div></div></article>
+                  ))}
+                </div>
+              </section>
+
+              <div className="grid gap-4 lg:grid-cols-3">
+                <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h3 className="font-semibold text-neutral-950">Sales Issues</h3><p className="mt-2 text-3xl font-semibold">{salesIssueCount}</p><button type="button" onClick={() => openSalesQueue("sales_data_gaps")} className="mt-3 text-sm font-semibold text-[#9c481b]">Open Sales Data Gaps</button></section>
+                <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h3 className="font-semibold text-neutral-950">Expense Issues</h3><p className="mt-2 text-3xl font-semibold">{taxRecordQueues.expensesWithoutReceiptNote.length}</p><button type="button" onClick={() => openFinanceQueue("expenses")} className="mt-3 text-sm font-semibold text-[#9c481b]">Open Expense Manager</button></section>
+                <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h3 className="font-semibold text-neutral-950">Record & Proof Issues</h3><p className="mt-2 text-3xl font-semibold">{taxRecordQueues.missingProof.length}</p><p className="mt-1 text-sm text-neutral-600">Transaction documents missing: {purchaseFinanceDiagnostics.counts.missingDocuments}. This is readiness information, not a requirement for private purchases.</p><div className="mt-3 flex flex-wrap gap-2">{purchaseFinanceDiagnostics.evidenceReadiness.map((entry) => <button key={entry.transactionId} type="button" onClick={() => { setPurchaseManagerInitialTransactionId(entry.transactionId); setPurchaseManagerOpen(true); }} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${entry.documentPresent ? "border-lime-200 bg-lime-50 text-lime-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{entry.documentPresent ? "Document Present" : "Missing Document"}</button>)}</div><button type="button" onClick={() => openStockQueue("needsAttention", "Missing proof")} className="mt-3 text-sm font-semibold text-[#9c481b]">Open Missing Proof</button></section>
               </div>
             </div>
           )}
@@ -3416,8 +3389,8 @@ export default function ResellerItApp() {
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <button type="button" onClick={() => { setActiveSalesPanel(null); openFinanceQueue("reconciliation"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
-                      <p className="text-sm font-semibold text-orange-950">eBay Reconciliation</p>
-                      <p className="mt-1 text-xs leading-5 text-orange-900/75">Open existing Finance eBay CSV reconciliation.</p>
+                      <p className="text-sm font-semibold text-orange-950">eBay Import & Review</p>
+                      <p className="mt-1 text-xs leading-5 text-orange-900/75">Open the existing Finance CSV import and review area.</p>
                     </button>
                   </div>
                 </section>
@@ -3589,7 +3562,7 @@ export default function ResellerItApp() {
               <div className="flex justify-end print:hidden">
                 <button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
               </div>
-              <FinanceHeader title={financeSectionDetails.thisMonth[0]} subtitle={financeSectionDetails.thisMonth[1]} meta={CURRENT_MONTH} />
+              <FinanceHeader title={`Monthly Closing — ${monthLabel(closingMonth)}`} subtitle="Selected-month reseller activity and estimated performance." meta={closingMonth} />
 
               <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex flex-col gap-1 border-b border-[#f0be45]/20 pb-3">
@@ -3597,11 +3570,11 @@ export default function ResellerItApp() {
                   <p className="text-sm text-neutral-600">Fast view of what came in, what went out, and what may still need matching.</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <StatCard icon={ShoppingCart} label="Gross Revenue" value={money(sectionSummaries.finance.revenue)} accentClass="bg-[#f0be45]" />
-                  <StatCard icon={ReceiptText} label="Expenses" value={money(sectionSummaries.finance.expenses)} accentClass="bg-[#f0be45]" />
-                  <StatCard icon={Euro} label="Estimated Net Profit" value={money(sectionSummaries.finance.estimatedProfit)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={ShoppingCart} label="Gross Revenue" value={money(monthlyClosing.grossRevenue)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={ReceiptText} label="Expenses" value={money(monthlyClosing.expenseTotal)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Euro} label="Estimated Net Profit" value={money(monthlyClosing.profitEstimate)} accentClass="bg-[#f0be45]" />
                   <StatCard icon={Package} label="Sold Items" value={monthlyClosing.soldCount} accentClass="bg-[#f0be45]" />
-                  <StatCard icon={FileText} label="Pending Payouts Estimate" value={money(sectionSummaries.finance.pendingPayout)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={FileText} label="Estimated Proceeds After Fees & Shipping" value={money(monthlyClosing.estimatedProceedsAfterFeesShipping)} sub="Estimate only; not reconciled to actual eBay payouts" accentClass="bg-[#f0be45]" />
                 </div>
               </div>
 
@@ -3631,6 +3604,7 @@ export default function ResellerItApp() {
                   <StatCard icon={ReceiptText} label="Missing Proof" value={monthlyClosing.missingProofItems.length} />
                   <StatCard icon={FileText} label="Review Later" value={monthlyClosing.reviewItems.length} sub="Unsure / Review Later" />
                 </div>
+                <p className="mt-4 rounded-xl bg-stone-50 p-3 text-sm text-stone-600">Returns and refunds are currently grouped by the original sale month.</p>
               </div>
 
               <div className="grid gap-4 lg:grid-cols-2">
@@ -3706,7 +3680,9 @@ export default function ResellerItApp() {
               <div className="flex justify-end">
                 <button type="button" onClick={() => setActiveFinancePanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
               </div>
-              <FinanceHeader title={financeSectionDetails.yearEnd[0]} subtitle={financeSectionDetails.yearEnd[1]} meta={CURRENT_YEAR} />
+              <FinanceHeader title="Year-End & EÜR Estimate" subtitle={financeSectionDetails.yearEnd[1]} meta={CURRENT_YEAR} />
+
+              <p className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Preparation estimate only. Figures are not yet based on fully reconciled purchase transactions, classified expenses, or dated refund events.</p>
 
               <div className="rounded-3xl border border-[#f0be45]/20 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex flex-col gap-1 border-b border-[#f0be45]/20 pb-3">
@@ -3725,7 +3701,7 @@ export default function ResellerItApp() {
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex flex-col gap-1 border-b border-neutral-100 pb-3">
                   <h3 className="text-lg font-semibold text-neutral-950">Business-only view</h3>
-                  <p className="text-sm text-neutral-600">Uses items classified as Business Stock where possible.</p>
+                  <p className="text-sm text-neutral-600">Business-only figures currently use Operational Classification.</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <StatCard icon={ShoppingCart} label="Business sales" value={money(yearlyBusinessSummary.salesTotal)} sub={`${yearlyBusinessSummary.soldCount} sold items`} />
@@ -3829,7 +3805,7 @@ export default function ResellerItApp() {
                       <p className="mt-1 text-xs leading-5 text-orange-900/75">Show items missing listing drafts.</p>
                     </button>
                     <button type="button" onClick={() => { setActiveToolPanel(null); openFinanceQueue("reconciliation"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
-                      <p className="text-sm font-semibold text-orange-950">Open eBay Reconciliation</p>
+                      <p className="text-sm font-semibold text-orange-950">Open eBay Import & Review</p>
                       <p className="mt-1 text-xs leading-5 text-orange-900/75">Open existing CSV import tools.</p>
                     </button>
                   </div>
