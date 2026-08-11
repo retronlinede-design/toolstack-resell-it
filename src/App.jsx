@@ -80,7 +80,9 @@ import {
   normalizeItem,
   normalizeItems,
   normalizeListingLanguageValue,
+  normalizePurchaseAllocations,
   normalizePurchaseRecords,
+  normalizePurchaseTransactions,
   normalizeRootAppData,
   number,
   photoChecklistItems,
@@ -508,6 +510,8 @@ export default function ResellerItApp() {
   const [items, setItems] = useState(initialAppLoad.data.items);
   const [expenses, setExpenses] = useState(initialAppLoad.data.expenses);
   const [purchaseRecords, setPurchaseRecords] = useState(initialAppLoad.data.purchaseRecords);
+  const [purchaseTransactions, setPurchaseTransactions] = useState(initialAppLoad.data.purchaseTransactions);
+  const [purchaseAllocations, setPurchaseAllocations] = useState(initialAppLoad.data.purchaseAllocations);
   const [evidenceRecords, setEvidenceRecords] = useState(initialAppLoad.data.evidenceRecords);
   const [eigenbelege, setEigenbelege] = useState(initialAppLoad.data.eigenbelege);
   const [expenseForm, setExpenseForm] = useState(emptyExpense);
@@ -654,9 +658,11 @@ export default function ResellerItApp() {
   function persist(nextItems) {
     const normalizedItems = normalizeItems(nextItems);
     const normalizedPurchaseRecords = normalizePurchaseRecords(purchaseRecords);
+    const normalizedPurchaseTransactions = normalizePurchaseTransactions(purchaseTransactions);
+    const normalizedPurchaseAllocations = normalizePurchaseAllocations(purchaseAllocations);
     const normalizedEvidenceRecords = normalizeEvidenceRecords(evidenceRecords);
     const normalizedEigenbelege = normalizeEigenbelege(eigenbelege);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses, purchaseRecords: normalizedPurchaseRecords, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -666,17 +672,21 @@ export default function ResellerItApp() {
     }
     setItems(normalizedItems);
     setPurchaseRecords(normalizedPurchaseRecords);
+    setPurchaseTransactions(normalizedPurchaseTransactions);
+    setPurchaseAllocations(normalizedPurchaseAllocations);
     setEvidenceRecords(normalizedEvidenceRecords);
     setEigenbelege(normalizedEigenbelege);
     return true;
   }
 
-  function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords, nextEvidenceRecords = evidenceRecords, nextEigenbelege = eigenbelege) {
+  function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords, nextEvidenceRecords = evidenceRecords, nextEigenbelege = eigenbelege, nextPurchaseTransactions = purchaseTransactions, nextPurchaseAllocations = purchaseAllocations) {
     const normalizedItems = normalizeItems(nextItems);
     const normalizedPurchaseRecords = normalizePurchaseRecords(nextPurchaseRecords);
+    const normalizedPurchaseTransactions = normalizePurchaseTransactions(nextPurchaseTransactions);
+    const normalizedPurchaseAllocations = normalizePurchaseAllocations(nextPurchaseAllocations);
     const normalizedEvidenceRecords = normalizeEvidenceRecords(nextEvidenceRecords);
     const normalizedEigenbelege = normalizeEigenbelege(nextEigenbelege);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: nextExpenses, purchaseRecords: normalizedPurchaseRecords, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: nextExpenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -687,6 +697,8 @@ export default function ResellerItApp() {
     setItems(normalizedItems);
     setExpenses(nextExpenses);
     setPurchaseRecords(normalizedPurchaseRecords);
+    setPurchaseTransactions(normalizedPurchaseTransactions);
+    setPurchaseAllocations(normalizedPurchaseAllocations);
     setEvidenceRecords(normalizedEvidenceRecords);
     setEigenbelege(normalizedEigenbelege);
     return true;
@@ -1014,7 +1026,7 @@ export default function ResellerItApp() {
   }
 
   function exportJson() {
-    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 2, items, expenses, purchaseRecords: normalizePurchaseRecords(purchaseRecords), evidenceRecords: normalizeEvidenceRecords(evidenceRecords), eigenbelege: normalizeEigenbelege(eigenbelege), exportedAt: new Date().toISOString() }, null, 2);
+    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 2, items, expenses, purchaseRecords: normalizePurchaseRecords(purchaseRecords), purchaseTransactions: normalizePurchaseTransactions(purchaseTransactions), purchaseAllocations: normalizePurchaseAllocations(purchaseAllocations), evidenceRecords: normalizeEvidenceRecords(evidenceRecords), eigenbelege: normalizeEigenbelege(eigenbelege), exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1047,6 +1059,8 @@ export default function ResellerItApp() {
       const nextItems = normalizedData.items;
       const nextExpenses = normalizedData.expenses;
       const nextPurchaseRecords = normalizedData.purchaseRecords;
+      const nextPurchaseTransactions = normalizedData.purchaseTransactions;
+      const nextPurchaseAllocations = normalizedData.purchaseAllocations;
       const nextEvidenceRecords = normalizedData.evidenceRecords;
       const nextEigenbelege = normalizedData.eigenbelege;
       const ok = window.confirm(`Restore this ResellIt backup?\n\nCurrent data will be replaced with ${nextItems.length} items and ${nextExpenses.length} expenses.`);
@@ -1055,7 +1069,7 @@ export default function ResellerItApp() {
         return;
       }
 
-      if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords, nextEigenbelege)) return;
+      if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords, nextEigenbelege, nextPurchaseTransactions, nextPurchaseAllocations)) return;
       setStartupLoadWarning("");
       setForm(emptyItem);
       setExpenseForm(emptyExpense);

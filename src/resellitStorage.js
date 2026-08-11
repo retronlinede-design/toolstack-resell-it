@@ -11,6 +11,8 @@ function emptyAppData() {
     items: [],
     expenses: [],
     purchaseRecords: [],
+    purchaseTransactions: [],
+    purchaseAllocations: [],
     evidenceRecords: [],
     eigenbelege: [],
   });
@@ -47,6 +49,8 @@ export function loadInitialAppData(storage) {
           items: data.items,
           expenses: data.expenses,
           purchaseRecords: data.purchaseRecords,
+          purchaseTransactions: data.purchaseTransactions,
+          purchaseAllocations: data.purchaseAllocations,
           evidenceRecords: data.evidenceRecords,
           eigenbelege: data.eigenbelege,
           updatedAt: new Date().toISOString(),

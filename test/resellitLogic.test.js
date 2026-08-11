@@ -93,6 +93,8 @@ test("first run without storage starts with empty application data", () => {
   assert.deepEqual(result.data.items, []);
   assert.deepEqual(result.data.expenses, []);
   assert.deepEqual(result.data.purchaseRecords, []);
+  assert.deepEqual(result.data.purchaseTransactions, []);
+  assert.deepEqual(result.data.purchaseAllocations, []);
   assert.deepEqual(result.data.evidenceRecords, []);
   assert.deepEqual(result.data.eigenbelege, []);
   assert.equal(result.warning, "");
@@ -121,6 +123,8 @@ test("malformed storage returns empty data, preserves the payload, and exposes r
   assert.deepEqual(result.data.items, []);
   assert.deepEqual(result.data.expenses, []);
   assert.deepEqual(result.data.purchaseRecords, []);
+  assert.deepEqual(result.data.purchaseTransactions, []);
+  assert.deepEqual(result.data.purchaseAllocations, []);
   assert.deepEqual(result.data.evidenceRecords, []);
   assert.deepEqual(result.data.eigenbelege, []);
   assert.equal(result.warning, STORAGE_LOAD_WARNING);
@@ -564,12 +568,14 @@ test("tax compliance schema defaults remain stable", () => {
     "id",
     "itemId",
     "purchaseRecordId",
+    "purchaseTransactionId",
     "sourceSessionId",
     "expenseId",
     "ebayTransactionId",
     "evidenceType",
     "evidenceStatus",
     "title",
+    "documentNumber",
     "documentDate",
     "issuer",
     "amount",

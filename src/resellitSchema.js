@@ -99,6 +99,7 @@ export const evidenceStatusOptions = ["Available", "External reference", "Needs 
 export const evidenceStorageTypeOptions = ["metadata_only", "indexeddb", "external_path", "external_url"];
 export const eigenbelegStatusOptions = ["Not needed", "draft", "Draft", "Generated", "Reviewed", "Final"];
 export const eigenbelegGenerationTypeOptions = ["item", "source_session", "selected_items"];
+export const PURCHASE_RECONCILIATION_TOLERANCE = 0.005;
 
 export const emptyItem = {
   name: "",
@@ -236,16 +237,63 @@ export const emptyPurchaseRecord = {
   updatedAt: "",
 };
 
+export const emptyPurchaseTransaction = {
+  id: "",
+  transactionType: "Purchase",
+  purchaseDate: CURRENT_DATE,
+  invoiceDate: "",
+  invoiceNumber: "",
+  supplierName: "",
+  supplierAddressLine1: "",
+  supplierAddressLine2: "",
+  supplierPostalCode: "",
+  supplierCity: "",
+  supplierCountry: "",
+  sellerType: "Unknown",
+  sourceType: "",
+  sourcePlatform: "",
+  sourceLocation: "",
+  currency: "EUR",
+  grossTotal: "",
+  subtotal: "",
+  taxAmount: "",
+  shippingAmount: "",
+  discountAmount: "",
+  paymentMethod: "Cash",
+  receiptStatus: "Eigenbeleg needed",
+  evidenceIds: [],
+  notes: "",
+  createdAt: "",
+  updatedAt: "",
+  migratedFromLegacyItem: false,
+};
+
+export const emptyPurchaseAllocation = {
+  id: "",
+  purchaseTransactionId: "",
+  itemId: "",
+  description: "",
+  quantity: "1",
+  invoiceLineAmount: "",
+  allocatedPurchaseCost: "",
+  allocationMethod: "",
+  allocationNotes: "",
+  createdAt: "",
+  updatedAt: "",
+};
+
 export const emptyEvidenceRecord = {
   id: "",
   itemId: "",
   purchaseRecordId: "",
+  purchaseTransactionId: "",
   sourceSessionId: "",
   expenseId: "",
   ebayTransactionId: "",
   evidenceType: "Receipt",
   evidenceStatus: "Missing",
   title: "",
+  documentNumber: "",
   documentDate: "",
   issuer: "",
   amount: "",
@@ -290,6 +338,8 @@ export const emptyEigenbeleg = {
 
 export const defaultItem = emptyItem;
 export const defaultPurchaseRecord = emptyPurchaseRecord;
+export const defaultPurchaseTransaction = emptyPurchaseTransaction;
+export const defaultPurchaseAllocation = emptyPurchaseAllocation;
 export const defaultEvidenceRecord = emptyEvidenceRecord;
 export const defaultEigenbeleg = emptyEigenbeleg;
 
@@ -444,9 +494,153 @@ export function normalizeRootAppData(data, fallbackItems = []) {
     items: Array.isArray(parsed.items) ? normalizeItems(parsed.items) : normalizeItems(fallbackItems),
     expenses: Array.isArray(parsed.expenses) ? parsed.expenses : [],
     purchaseRecords: normalizePurchaseRecords(parsed.purchaseRecords),
+    purchaseTransactions: normalizePurchaseTransactions(parsed.purchaseTransactions),
+    purchaseAllocations: normalizePurchaseAllocations(parsed.purchaseAllocations),
     evidenceRecords: normalizeEvidenceRecords(parsed.evidenceRecords),
     eigenbelege: normalizeEigenbelege(parsed.eigenbelege),
     updatedAt: String(parsed.updatedAt || ""),
+  };
+}
+
+export function normalizePurchaseTransaction(record) {
+  const next = { ...emptyPurchaseTransaction, ...(record && typeof record === "object" ? record : {}) };
+  next.id = String(next.id || "");
+  next.transactionType = String(next.transactionType || emptyPurchaseTransaction.transactionType);
+  next.purchaseDate = String(next.purchaseDate || CURRENT_DATE);
+  next.invoiceDate = String(next.invoiceDate || "");
+  next.invoiceNumber = String(next.invoiceNumber || "");
+  next.supplierName = String(next.supplierName || "");
+  next.supplierAddressLine1 = String(next.supplierAddressLine1 || "");
+  next.supplierAddressLine2 = String(next.supplierAddressLine2 || "");
+  next.supplierPostalCode = String(next.supplierPostalCode || "");
+  next.supplierCity = String(next.supplierCity || "");
+  next.supplierCountry = String(next.supplierCountry || "");
+  next.sellerType = optionOrDefault(next.sellerType, sellerTypeOptions, emptyPurchaseTransaction.sellerType);
+  next.sourceType = String(next.sourceType || "");
+  next.sourcePlatform = String(next.sourcePlatform || "");
+  next.sourceLocation = String(next.sourceLocation || "");
+  next.currency = String(next.currency || "EUR").toUpperCase();
+  next.grossTotal = String(next.grossTotal || "");
+  next.subtotal = String(next.subtotal || "");
+  next.taxAmount = String(next.taxAmount || "");
+  next.shippingAmount = String(next.shippingAmount || "");
+  next.discountAmount = String(next.discountAmount || "");
+  next.paymentMethod = String(next.paymentMethod || emptyPurchaseTransaction.paymentMethod);
+  next.receiptStatus = optionOrDefault(next.receiptStatus, receiptStatusOptions, emptyPurchaseTransaction.receiptStatus);
+  next.evidenceIds = [...new Set(normalizeStringArray(next.evidenceIds))];
+  next.notes = String(next.notes || "");
+  next.createdAt = String(next.createdAt || "");
+  next.updatedAt = String(next.updatedAt || "");
+  next.migratedFromLegacyItem = Boolean(next.migratedFromLegacyItem);
+  return next;
+}
+
+export function normalizePurchaseTransactions(records) {
+  return Array.isArray(records) ? records.map(normalizePurchaseTransaction) : [];
+}
+
+export function validatePurchaseTransaction(record) {
+  const next = normalizePurchaseTransaction(record);
+  const errors = [];
+  if (!next.id) errors.push("id is required");
+  if (!next.purchaseDate) errors.push("purchaseDate is required");
+  if (!next.currency) errors.push("currency is required");
+  return errors;
+}
+
+export function isValidPurchaseTransaction(record) {
+  return validatePurchaseTransaction(record).length === 0;
+}
+
+export function normalizePurchaseAllocation(record) {
+  const next = { ...emptyPurchaseAllocation, ...(record && typeof record === "object" ? record : {}) };
+  next.id = String(next.id || "");
+  next.purchaseTransactionId = String(next.purchaseTransactionId || "");
+  next.itemId = String(next.itemId || "");
+  next.description = String(next.description || "");
+  next.quantity = String(next.quantity || emptyPurchaseAllocation.quantity);
+  next.invoiceLineAmount = String(next.invoiceLineAmount || "");
+  next.allocatedPurchaseCost = String(next.allocatedPurchaseCost || "");
+  next.allocationMethod = String(next.allocationMethod || "");
+  next.allocationNotes = String(next.allocationNotes || "");
+  next.createdAt = String(next.createdAt || "");
+  next.updatedAt = String(next.updatedAt || "");
+  return next;
+}
+
+export function normalizePurchaseAllocations(records) {
+  return Array.isArray(records) ? records.map(normalizePurchaseAllocation) : [];
+}
+
+export function validatePurchaseAllocation(record) {
+  const next = normalizePurchaseAllocation(record);
+  const errors = [];
+  if (!next.id) errors.push("id is required");
+  if (!next.purchaseTransactionId) errors.push("purchaseTransactionId is required");
+  if (!next.itemId) errors.push("itemId is required");
+  if (!next.allocatedPurchaseCost) errors.push("allocatedPurchaseCost is required");
+  return errors;
+}
+
+export function isValidPurchaseAllocation(record) {
+  return validatePurchaseAllocation(record).length === 0;
+}
+
+function duplicateIds(records) {
+  const seen = new Set();
+  const duplicates = new Set();
+  records.forEach((record) => {
+    if (!record.id) return;
+    if (seen.has(record.id)) duplicates.add(record.id);
+    seen.add(record.id);
+  });
+  return [...duplicates];
+}
+
+export function validatePurchaseIntegrity({ purchaseTransactions = [], purchaseAllocations = [], items = [], evidenceRecords = [] } = {}) {
+  const transactions = normalizePurchaseTransactions(purchaseTransactions);
+  const allocations = normalizePurchaseAllocations(purchaseAllocations);
+  const evidence = normalizeEvidenceRecords(evidenceRecords);
+  const transactionIds = new Set(transactions.map((record) => record.id).filter(Boolean));
+  const itemIds = new Set(normalizeItems(items).map((item) => String(item.id || "")).filter(Boolean));
+  const evidenceIds = new Set(evidence.map((record) => record.id).filter(Boolean));
+  const seenItemAllocations = new Set();
+  const duplicateItemAllocations = [];
+
+  allocations.forEach((allocation) => {
+    if (!allocation.purchaseTransactionId || !allocation.itemId) return;
+    const key = `${allocation.purchaseTransactionId}\u0000${allocation.itemId}`;
+    if (seenItemAllocations.has(key)) duplicateItemAllocations.push(allocation);
+    seenItemAllocations.add(key);
+  });
+
+  return {
+    duplicateTransactionIds: duplicateIds(transactions),
+    duplicateAllocationIds: duplicateIds(allocations),
+    allocationsMissingTransaction: allocations.filter((allocation) => allocation.purchaseTransactionId && !transactionIds.has(allocation.purchaseTransactionId)),
+    allocationsMissingItem: allocations.filter((allocation) => allocation.itemId && !itemIds.has(allocation.itemId)),
+    transactionEvidenceMissing: transactions.flatMap((transaction) => transaction.evidenceIds
+      .filter((evidenceId) => !evidenceIds.has(evidenceId))
+      .map((evidenceId) => ({ transactionId: transaction.id, evidenceId }))),
+    evidenceMissingTransaction: evidence.filter((record) => record.purchaseTransactionId && !transactionIds.has(record.purchaseTransactionId)),
+    duplicateItemAllocations,
+  };
+}
+
+export function reconcilePurchaseTransaction(transaction, purchaseAllocations = []) {
+  const normalizedTransaction = normalizePurchaseTransaction(transaction);
+  const allocations = normalizePurchaseAllocations(purchaseAllocations)
+    .filter((allocation) => allocation.purchaseTransactionId === normalizedTransaction.id);
+  const grossTotal = number(normalizedTransaction.grossTotal);
+  const allocatedTotal = allocations.reduce((sum, allocation) => sum + number(allocation.allocatedPurchaseCost), 0);
+  const rawDifference = grossTotal - allocatedTotal;
+  const difference = Math.round((rawDifference + Number.EPSILON) * 100) / 100;
+  return {
+    grossTotal,
+    allocatedTotal,
+    difference,
+    allocationCount: allocations.length,
+    isBalanced: Math.abs(rawDifference) < PURCHASE_RECONCILIATION_TOLERANCE,
   };
 }
 
@@ -501,12 +695,14 @@ export function normalizeEvidenceRecord(record) {
   next.id = String(next.id || "");
   next.itemId = String(next.itemId || "");
   next.purchaseRecordId = String(next.purchaseRecordId || "");
+  next.purchaseTransactionId = String(next.purchaseTransactionId || "");
   next.sourceSessionId = String(next.sourceSessionId || "");
   next.expenseId = String(next.expenseId || "");
   next.ebayTransactionId = String(next.ebayTransactionId || "");
   next.evidenceType = optionOrDefault(next.evidenceType, evidenceTypeOptions, emptyEvidenceRecord.evidenceType);
   next.evidenceStatus = optionOrDefault(next.evidenceStatus, evidenceStatusOptions, emptyEvidenceRecord.evidenceStatus);
   next.title = String(next.title || "");
+  next.documentNumber = String(next.documentNumber || "");
   next.documentDate = String(next.documentDate || "");
   next.issuer = String(next.issuer || "");
   next.amount = String(next.amount || "");
