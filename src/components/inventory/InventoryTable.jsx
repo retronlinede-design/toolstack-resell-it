@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { AlertTriangle, Filter, MoreHorizontal, PackagePlus, Plus, Search } from "lucide-react";
+import { AlertTriangle, FileText, Filter, MoreHorizontal, PackagePlus, Plus, Search } from "lucide-react";
 import { Input, Select } from "../shared/FormControls.jsx";
 
 function proofLabel(item) {
@@ -60,6 +60,7 @@ export function InventoryTable({
   expectedListingValue,
   stockResizeHandle,
   onOpenNewItemEditor,
+  onOpenPurchaseManager,
   onCreateQuickLedgerItem,
   onSetQuickAddItem,
   onSetInventorySearch,
@@ -105,6 +106,7 @@ export function InventoryTable({
             <button type="button" onClick={() => setQuickAddOpen((open) => !open)} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><PackagePlus size={14} /> Quick Add</button>
             <button type="button" onClick={() => onSetInventoryIssueFilter("Needs attention")} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${inventoryIssueFilter === "Needs attention" ? "border-red-200 bg-red-50 text-red-700" : "border-stone-200 bg-white text-stone-700 hover:bg-stone-50"}`}><AlertTriangle size={14} /> Issues</button>
             <button type="button" onClick={() => setMoreFiltersOpen((open) => !open)} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><Filter size={14} /> More Filters</button>
+            <button type="button" onClick={onOpenPurchaseManager} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><FileText size={14} /> Purchases & Invoices</button>
           </div>
           <div className="grid gap-2 sm:grid-cols-[minmax(14rem,1fr)_12rem] xl:w-[34rem]">
             <label className="relative block">

@@ -728,7 +728,7 @@ export function normalizeEvidenceRecords(records) {
 export function validateEvidenceRecord(record) {
   const next = normalizeEvidenceRecord(record);
   const errors = [];
-  if (!next.itemId) errors.push("itemId is required");
+  if (!next.itemId && !next.purchaseTransactionId) errors.push("itemId or purchaseTransactionId is required");
   if (!next.evidenceType) errors.push("evidenceType is required");
   if (!next.evidenceStatus) errors.push("evidenceStatus is required");
   if (!next.storageType) errors.push("storageType is required");

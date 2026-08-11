@@ -4,10 +4,21 @@ import resellItLogo from "./assets/resellitlogo2.png";
 import { ExpenseManager } from "./components/finance/ExpenseManager.jsx";
 import { InventoryTable } from "./components/inventory/InventoryTable.jsx";
 import { EbayStudio } from "./components/item-editor/EbayStudio.jsx";
+import { PurchaseInvoiceManager } from "./components/purchases/PurchaseInvoiceManager.jsx";
 import { StatCard, QueueCard } from "./components/shared/Cards.jsx";
 import { Input, Select } from "./components/shared/FormControls.jsx";
 import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
+import {
+  createPurchaseAllocationRecord,
+  createPurchaseTransactionRecord,
+  createTransactionEvidenceRecord,
+  deletePurchaseTransactionData,
+  removePurchaseAllocation,
+  updatePurchaseAllocationRecord,
+  updatePurchaseTransactionRecord,
+  updateTransactionEvidenceRecord,
+} from "./purchaseManager.js";
 import {
   generateHtmlDescription,
   generateListingDraft,
@@ -558,6 +569,7 @@ export default function ResellerItApp() {
   const financePanelRef = useRef(null);
   const salesPanelRef = useRef(null);
   const [itemFormOpen, setItemFormOpen] = useState(false);
+  const [purchaseManagerOpen, setPurchaseManagerOpen] = useState(false);
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
   const [stockFilterMenu, setStockFilterMenu] = useState("");
   const [expandedCardPanel, setExpandedCardPanel] = useState("");
@@ -710,6 +722,67 @@ export default function ResellerItApp() {
 
   function persistEigenbelege(nextEigenbelege) {
     return persistAll(items, expenses, purchaseRecords, evidenceRecords, nextEigenbelege);
+  }
+
+  function savePurchaseTransaction(values, isEditing) {
+    const timestamp = new Date().toISOString();
+    const current = isEditing ? purchaseTransactions.find((record) => record.id === values.id) : null;
+    const result = current
+      ? updatePurchaseTransactionRecord(current, values, timestamp)
+      : createPurchaseTransactionRecord(values, crypto.randomUUID(), timestamp);
+    if (result.errors.length) return { ok: false, errors: result.errors };
+    const nextTransactions = current
+      ? purchaseTransactions.map((record) => (record.id === current.id ? result.record : record))
+      : [result.record, ...purchaseTransactions];
+    if (!persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, nextTransactions, purchaseAllocations)) return { ok: false, errors: ["Purchase could not be persisted."] };
+    return { ok: true, record: result.record };
+  }
+
+  function deletePurchaseTransaction(transactionId) {
+    const next = deletePurchaseTransactionData(transactionId, { transactions: purchaseTransactions, allocations: purchaseAllocations, items, evidenceRecords });
+    persistAll(next.items, expenses, purchaseRecords, next.evidenceRecords, eigenbelege, next.transactions, next.allocations);
+  }
+
+  function addPurchaseAllocations(transactionId, itemIds) {
+    const timestamp = new Date().toISOString();
+    const existingItemIds = new Set(purchaseAllocations.filter((record) => record.purchaseTransactionId === transactionId).map((record) => record.itemId));
+    const newRecords = itemIds
+      .filter((itemId) => !existingItemIds.has(itemId))
+      .map((itemId) => items.find((item) => item.id === itemId))
+      .filter(Boolean)
+      .map((item) => createPurchaseAllocationRecord(transactionId, item, crypto.randomUUID(), timestamp))
+      .filter((result) => result.errors.length === 0)
+      .map((result) => result.record);
+    if (!newRecords.length) return;
+    persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, [...purchaseAllocations, ...newRecords]);
+  }
+
+  function savePurchaseAllocation(values) {
+    const current = purchaseAllocations.find((record) => record.id === values.id);
+    if (!current) return { ok: false, errors: ["Allocation was not found."] };
+    const result = updatePurchaseAllocationRecord(current, values, new Date().toISOString());
+    if (result.errors.length) return { ok: false, errors: result.errors };
+    const nextAllocations = purchaseAllocations.map((record) => (record.id === current.id ? result.record : record));
+    if (!persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, nextAllocations)) return { ok: false, errors: ["Allocation could not be persisted."] };
+    return { ok: true, record: result.record };
+  }
+
+  function unlinkPurchaseAllocation(allocationId) {
+    persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, removePurchaseAllocation(allocationId, purchaseAllocations));
+  }
+
+  function savePurchaseEvidence(values, transactionId, editingEvidenceId) {
+    const timestamp = new Date().toISOString();
+    const current = editingEvidenceId ? evidenceRecords.find((record) => record.id === editingEvidenceId) : null;
+    const result = current
+      ? updateTransactionEvidenceRecord(current, values, timestamp)
+      : createTransactionEvidenceRecord(values, transactionId, crypto.randomUUID(), timestamp);
+    if (result.errors.length) return { ok: false, errors: result.errors };
+    const nextEvidenceRecords = current
+      ? evidenceRecords.map((record) => (record.id === current.id ? result.record : record))
+      : [result.record, ...evidenceRecords];
+    if (!persistAll(items, expenses, purchaseRecords, nextEvidenceRecords, eigenbelege, purchaseTransactions, purchaseAllocations)) return { ok: false, errors: ["Document metadata could not be persisted."] };
+    return { ok: true, record: result.record };
   }
 
   function generateDraftEigenbeleg(itemId) {
@@ -2516,6 +2589,22 @@ export default function ResellerItApp() {
           </div>
         </div>}
 
+        {purchaseManagerOpen && (
+          <PurchaseInvoiceManager
+            items={items}
+            transactions={purchaseTransactions}
+            allocations={purchaseAllocations}
+            evidenceRecords={evidenceRecords}
+            onClose={() => setPurchaseManagerOpen(false)}
+            onSaveTransaction={savePurchaseTransaction}
+            onDeleteTransaction={deletePurchaseTransaction}
+            onAddAllocations={addPurchaseAllocations}
+            onSaveAllocation={savePurchaseAllocation}
+            onRemoveAllocation={unlinkPurchaseAllocation}
+            onSaveEvidence={savePurchaseEvidence}
+          />
+        )}
+
         <section className="grid gap-4">
           {activeTab === "stock" && (
             <InventoryTable
@@ -2557,6 +2646,7 @@ export default function ResellerItApp() {
               expectedListingValue={expectedListingValue}
               stockResizeHandle={stockResizeHandle}
               onOpenNewItemEditor={openNewItemEditor}
+              onOpenPurchaseManager={() => setPurchaseManagerOpen(true)}
               onCreateQuickLedgerItem={createQuickLedgerItem}
               onSetQuickAddItem={setQuickAddItem}
               onSetStockFilterMenu={setStockFilterMenu}
