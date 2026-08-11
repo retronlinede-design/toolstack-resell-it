@@ -1432,6 +1432,35 @@ export default function ResellerItApp() {
     return { purchaseTotal, salesTotal, feesTotal, profit };
   }, [items]);
 
+  const dashboardPosition = useMemo(() => {
+    const listedItems = activeStockItems.filter((item) => itemStatusValue(item) === "Listed");
+    return {
+      activeStock: activeStockItems.length,
+      stockCost: stockDashboard.stockCost,
+      listed: listedItems.length,
+      listedValue: listedItems.reduce((sum, item) => sum + expectedListingValue(item), 0),
+      soldComplete: salesWorkflow.counts.Sold + salesWorkflow.counts.Complete,
+    };
+  }, [activeStockItems, salesWorkflow.counts.Complete, salesWorkflow.counts.Sold, stockDashboard.stockCost]);
+
+  const dashboardSalesDataGapCount = useMemo(() => (
+    new Set(Object.values(salesDataGapQueues).flat()).size
+  ), [salesDataGapQueues]);
+
+  const dashboardRecentPurchases = useMemo(() => (
+    [...items]
+      .filter((item) => item.purchaseDate)
+      .sort((a, b) => String(b.purchaseDate).localeCompare(String(a.purchaseDate)))
+      .slice(0, 5)
+  ), [items]);
+
+  const dashboardRecentCompletedSales = useMemo(() => (
+    [...salesWorkflow.completedSales]
+      .filter((item) => item.saleDate)
+      .sort((a, b) => String(b.saleDate).localeCompare(String(a.saleDate)))
+      .slice(0, 5)
+  ), [salesWorkflow.completedSales]);
+
   const yearlySummary = useMemo(() => {
     const yearlyPurchases = items.filter((item) => inYear(item.purchaseDate));
     const yearlySales = items.filter((item) => isSoldStatus(item) && inYear(item.saleDate));
@@ -1728,7 +1757,7 @@ export default function ResellerItApp() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">ResellIt Workspace</p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">{activeTitle}</h1>
               </div>
-              <p className="max-w-xl text-sm text-stone-600">{activeTab === "stock" ? "Track purchased stock, current status, sale outcome, and source records." : "Clean local workspace for stock, sales, finance, and tax-prep records."}</p>
+              <p className="max-w-xl text-sm text-stone-600">{activeTab === "dashboard" ? "Overview of your stock, sales, and current work." : activeTab === "stock" ? "Track purchased stock, current status, sale outcome, and source records." : "Clean local workspace for stock, sales, finance, and tax-prep records."}</p>
             </div>
           </div>
 
@@ -2743,103 +2772,112 @@ export default function ResellerItApp() {
           )}
 
           {activeTab === "dashboard" && (
-            <div className="grid gap-4">
-              <section className="overflow-hidden rounded-3xl border border-[#3f2b24]/50 bg-[#fff8ea] shadow-[0_18px_38px_rgba(41,37,36,0.11)]">
-                <div className="h-1 bg-[#3f2b24]" />
-                <div className="flex flex-col gap-2 border-b border-[#dfcfb8] bg-[#f8edda] px-5 py-4 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <h2 className="text-xl font-semibold text-stone-950">Dealer Control Panel</h2>
-                    <p className="mt-1 text-sm text-stone-600">Start, research, backup, import, and manage sales from one place.</p>
+            <div className="grid gap-4" data-testid="dashboard-command-center">
+              <section className="overflow-hidden rounded-3xl border border-[#3f2b24]/40 bg-[#fff8ea] shadow-[0_18px_38px_rgba(41,37,36,0.1)]">
+                <div className="h-1.5 bg-gradient-to-r from-[#b7412e] via-[#f0be45] to-[#1f9d99]" />
+                <div className="p-4 sm:p-5">
+                  <div className="mb-4">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-[#8f3124]">Current Position</p>
+                    <h2 className="mt-1 text-xl font-semibold text-stone-950">Your business at a glance</h2>
                   </div>
-                  <span className="w-fit rounded-full border border-[#3f2b24]/20 bg-[#fffaf0] px-3 py-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#6d493d]">ResellIt Ops</span>
-                </div>
-                <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-5">
-                  <button type="button" onClick={openNewItemEditor} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">New Item</span>
-                    <span className="mt-2 block text-sm leading-5 text-stone-600">Add stock or create a new eBay listing.</span>
-                  </button>
-                  <button type="button" onClick={() => openStockQueue("needsAttention", "All items", "Draft")} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Draft Listings</span>
-                    <span className="mt-2 block text-sm leading-5 text-stone-600">Continue unfinished listings, research, photos and translations.</span>
-                  </button>
-                  <button type="button" onClick={openSalesQueue} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Sales Queue</span>
-                    <span className="mt-2 block text-sm leading-5 text-stone-600">Review sold items, completion, returns, and profit.</span>
-                  </button>
-                  <button type="button" onClick={exportJson} className="group min-h-28 rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Backup</span>
-                    <span className="mt-2 block text-sm leading-5 text-stone-600">Export your ResellIt database.</span>
-                  </button>
-                  <label className="group min-h-28 cursor-pointer rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] p-3.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.75),0_7px_18px_rgba(41,37,36,0.05)] transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-[0_13px_26px_rgba(41,37,36,0.1)]">
-                    <span className="block text-[11px] font-bold uppercase tracking-[0.14em] text-stone-950">Import</span>
-                    <span className="mt-2 block text-sm leading-5 text-stone-600">Restore a backup file.</span>
-                    <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
-                  </label>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-7">
+                    {[
+                      ["Active Stock", dashboardPosition.activeStock, "Current inventory"],
+                      ["Stock Cost", money(dashboardPosition.stockCost), "Unsold inventory"],
+                      ["Listed", dashboardPosition.listed, "Listed inventory"],
+                      ["Listed Value", money(dashboardPosition.listedValue), "Listed inventory"],
+                      ["Sold / Complete", dashboardPosition.soldComplete, "Current statuses"],
+                      ["This Month Sales", money(monthlySummary.salesTotal), "Current month"],
+                      ["This Month Profit", money(monthlySummary.profit), "Current month"],
+                    ].map(([label, value, scope]) => (
+                      <div key={label} className="min-w-0 rounded-2xl border border-[#ddcdb5] bg-white/85 p-3 shadow-sm">
+                        <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">{label}</p>
+                        <p className="mt-1 truncate text-xl font-semibold text-stone-950 sm:text-2xl" title={String(value)}>{value}</p>
+                        <p className="mt-1 text-[11px] text-stone-500">{scope}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </section>
 
-              <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.06)]">
-                <div className="mb-4 h-1 w-24 rounded-full bg-gradient-to-r from-[#b7412e] via-[#f0be45] to-[#1f9d99]" />
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Today</p>
-                    <h2 className="text-xl font-semibold text-stone-950">Next Actions</h2>
-                  </div>
-                  <button type="button" onClick={() => openStockQueue("needsAttention")} className="text-left text-xs font-semibold text-[#8f3124] hover:text-[#b7412e] sm:text-right">Open Stock Control</button>
-                </div>
-                <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+              <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Primary Actions</p>
+                <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
                   {[
-                    ["Research", todayWorkflow.toResearch.length, "stock", "needsAttention", "Missing price research"],
-                    ["List", todayWorkflow.readyToList.length, "stock", "readyToList", "All items"],
-                    ["Sold", todayWorkflow.soldNotShipped.length, "sales", "awaitingShipment", ""],
-                    ["Proof", todayWorkflow.missingProof.length, "stock", "needsAttention", "Missing proof"],
-                  ].map(([label, value, tab, section, issue]) => (
-                    <button key={label} type="button" onClick={() => { if (tab === "stock") openStockQueue(section, issue || "All items"); else openSalesQueue(section); }} className="rounded-2xl border border-stone-200 bg-[#fffdf8] p-4 text-left transition hover:border-[#e06b2c]/35 hover:bg-[#fff6e6]">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">{label}</p>
-                      <p className="mt-2 text-3xl font-semibold text-stone-950">{value}</p>
+                    ["Add Item", openNewItemEditor, "Create inventory"],
+                    ["Stock Control", () => openStockQueue("all"), "Open stock register"],
+                    ["Sales", () => openSalesQueue(), "Open Sales Hub"],
+                    ["Finance", () => { setActiveTab("finance"); setActiveFinancePanel(null); }, "Open Finance Hub"],
+                    ["Tools", () => { setActiveTab("tools"); setActiveToolPanel(null); }, "Open Tools Hub"],
+                  ].map(([label, action, description]) => (
+                    <button key={label} type="button" onClick={action} className="rounded-2xl border border-[#cdbb9d] bg-[#fffdf8] px-3 py-3 text-left transition hover:-translate-y-0.5 hover:border-[#6d493d] hover:bg-white hover:shadow-sm">
+                      <span className="block text-sm font-semibold text-stone-950">{label}</span>
+                      <span className="mt-1 block text-xs text-stone-500">{description}</span>
                     </button>
                   ))}
                 </div>
               </section>
 
-              <div className="grid gap-4 xl:grid-cols-4">
-                <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#b7412e]">Stock Snapshot</p>
-                  <div className="mt-4 grid gap-3">
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Items</span><span className="font-semibold text-stone-950">{items.length}</span></div>
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Unsold cost</span><span className="font-semibold text-stone-950">{money(sectionSummaries.stock.inventoryValue)}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Ready to list</span><span className="font-semibold text-stone-950">{sectionSummaries.stock.readyToList}</span></div>
+              <section className="rounded-3xl border border-[#e9c89a] bg-[#fffaf0] p-4 shadow-sm">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#8f3124]">Attention Needed</p>
+                    <h2 className="mt-1 text-lg font-semibold text-stone-950">Work that needs a decision</h2>
                   </div>
-                </section>
+                </div>
+                {todayWorkflow.toResearch.length || todayWorkflow.readyToList.length || dashboardSalesDataGapCount || salesWorkflow.problemItems.length || todayWorkflow.needsListing.length || todayWorkflow.missingProof.length || complianceSummary.incomplete || complianceSummary.needsEigenbeleg ? (
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    {[
+                      ["Needs Research", todayWorkflow.toResearch.length, () => openStockQueue("needsAttention", "Missing price research")],
+                      ["Ready to List", todayWorkflow.readyToList.length, () => openStockQueue("readyToList")],
+                      ["Sales Data Gaps", dashboardSalesDataGapCount, () => openSalesQueue("sales_data_gaps")],
+                      ["Returns / Sales Problems", salesWorkflow.problemItems.length, () => openSalesQueue("problemItems")],
+                      ["Stock Issues", todayWorkflow.needsListing.length, () => openStockQueue("needsAttention", "Missing listing draft")],
+                      ["Missing Proof", todayWorkflow.missingProof.length, () => openStockQueue("needsAttention", "Missing proof")],
+                      ["Compliance Issues", complianceSummary.incomplete + complianceSummary.needsEigenbeleg, () => { setActiveTab("tools"); setActiveToolPanel("compliance_center"); }],
+                    ].filter(([, count]) => count > 0).map(([label, count, action]) => (
+                      <button key={label} type="button" onClick={action} className="flex items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-white px-3 py-2.5 text-left transition hover:border-orange-300 hover:bg-orange-50">
+                        <span className="text-sm font-semibold text-stone-800">{label}</span>
+                        <span className="min-w-8 rounded-full bg-[#8f3124] px-2 py-1 text-center text-xs font-bold text-white">{count}</span>
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900">Nothing currently needs attention.</p>
+                )}
+              </section>
 
-                <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#e06b2c]">Sales Snapshot</p>
-                  <div className="mt-4 grid gap-3">
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Month sales</span><span className="font-semibold text-stone-950">{money(monthlySummary.salesTotal)}</span></div>
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Sold items</span><span className="font-semibold text-stone-950">{sectionSummaries.sales.awaitingShipment}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Month profit</span><span className="font-semibold text-lime-800">{money(monthlySummary.profit)}</span></div>
-                  </div>
-                </section>
-
-                <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#1f9d99]">Tax Readiness</p>
-                  <div className="mt-4 grid gap-3">
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Proof complete</span><span className="font-semibold text-stone-950">{proofSummary.proofComplete}</span></div>
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Missing proof</span><span className="font-semibold text-stone-950">{proofSummary.missingProof}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Eigenbeleg needed</span><span className="font-semibold text-stone-950">{proofSummary.needsEigenbeleg}</span></div>
-                  </div>
-                </section>
-
-                <section className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-[0_10px_30px_rgba(41,37,36,0.05)]">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-[#6d493d]">Compliance</p>
-                  <div className="mt-4 grid gap-3">
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Ready</span><span className="font-semibold text-stone-950">{complianceSummary.ready}</span></div>
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Incomplete</span><span className="font-semibold text-stone-950">{complianceSummary.incomplete}</span></div>
-                    <div className="flex items-center justify-between border-b border-stone-100 pb-2"><span className="text-sm text-stone-500">Needs Eigenbeleg</span><span className="font-semibold text-stone-950">{complianceSummary.needsEigenbeleg}</span></div>
-                    <div className="flex items-center justify-between"><span className="text-sm text-stone-500">Not applicable</span><span className="font-semibold text-stone-950">{complianceSummary.notApplicable}</span></div>
-                  </div>
-                </section>
-              </div>
+              <section>
+                <div className="mb-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Recent Activity</p>
+                  <h2 className="mt-1 text-lg font-semibold text-stone-950">Latest purchases and completed sales</h2>
+                </div>
+                <div className="grid gap-4 lg:grid-cols-2">
+                  {[
+                    ["Recent Purchases", dashboardRecentPurchases, "purchaseDate", (item) => money(item.purchasePrice)],
+                    ["Recent Completed Sales", dashboardRecentCompletedSales, "saleDate", (item) => money(finalSaleValue(item))],
+                  ].map(([title, activityItems, dateKey, valueForItem]) => (
+                    <div key={title} className="rounded-3xl border border-stone-200 bg-white/90 p-4 shadow-sm">
+                      <h3 className="font-semibold text-stone-950">{title}</h3>
+                      {activityItems.length ? (
+                        <div className="mt-3 divide-y divide-stone-100">
+                          {activityItems.map((item) => (
+                            <button key={item.id} type="button" onClick={() => editItem(item)} className="flex w-full items-center justify-between gap-3 py-2.5 text-left hover:bg-stone-50">
+                              <span className="min-w-0">
+                                <span className="block truncate text-sm font-semibold text-stone-800" title={item.name || "Untitled item"}>{item.name || "Untitled item"}</span>
+                                <span className="block text-xs text-stone-500">{item[dateKey]}</span>
+                              </span>
+                              <span className="shrink-0 text-sm font-semibold tabular-nums text-stone-950">{valueForItem(item)}</span>
+                            </button>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-3 rounded-2xl bg-stone-50 px-4 py-5 text-sm text-stone-500">No {title.toLowerCase()} to show yet.</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
             </div>
           )}
 

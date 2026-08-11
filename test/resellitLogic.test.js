@@ -1168,6 +1168,39 @@ test("Stock Control stock-register header is sticky inside its own scroll area",
   assert.match(tableSource, /stockResizeHandle\(key\)/);
 });
 
+test("Dashboard command center uses existing scoped calculations and navigation", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const visibleDashboard = source.split('{activeTab === "dashboard" && (')[1].split('{DISABLED_LEGACY_UI && activeTab === "dashboard"')[0];
+
+  assert.match(source, /const listedItems = activeStockItems\.filter\(\(item\) => itemStatusValue\(item\) === "Listed"\);/);
+  assert.match(source, /listedValue: listedItems\.reduce\(\(sum, item\) => sum \+ expectedListingValue\(item\), 0\)/);
+  assert.match(source, /stockCost: stockDashboard\.stockCost/);
+  assert.match(source, /soldComplete: salesWorkflow\.counts\.Sold \+ salesWorkflow\.counts\.Complete/);
+  assert.match(visibleDashboard, /money\(monthlySummary\.salesTotal\)/);
+  assert.match(visibleDashboard, /money\(monthlySummary\.profit\)/);
+  assert.match(visibleDashboard, /\["Add Item", openNewItemEditor, "Create inventory"\]/);
+  assert.match(visibleDashboard, /openStockQueue\("all"\)/);
+  assert.match(visibleDashboard, /openSalesQueue\(\)/);
+  assert.match(visibleDashboard, /setActiveTab\("finance"\)/);
+  assert.match(visibleDashboard, /setActiveTab\("tools"\)/);
+  assert.doesNotMatch(visibleDashboard, />Import</);
+  assert.doesNotMatch(visibleDashboard, /Draft Listings/);
+});
+
+test("Dashboard attention and activity selectors remain read-only", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /Object\.values\(salesDataGapQueues\)\.flat\(\)/);
+  assert.match(source, /salesWorkflow\.problemItems\.length/);
+  assert.match(source, /todayWorkflow\.needsListing\.length/);
+  assert.match(source, /todayWorkflow\.missingProof\.length/);
+  assert.match(source, /\[\.\.\.items\][\s\S]*?String\(b\.purchaseDate\)\.localeCompare\(String\(a\.purchaseDate\)\)[\s\S]*?\.slice\(0, 5\)/);
+  assert.match(source, /\[\.\.\.salesWorkflow\.completedSales\][\s\S]*?String\(b\.saleDate\)\.localeCompare\(String\(a\.saleDate\)\)[\s\S]*?\.slice\(0, 5\)/);
+  assert.match(source, /\{startupLoadWarning && \(/);
+  assert.doesNotMatch(source, /items\.sort\(/);
+  assert.doesNotMatch(source, /salesWorkflow\.completedSales\.sort\(/);
+});
+
 test("duplicate draft clears sale, shipping, refund, fee, tracking, platform fields", () => {
   const duplicate = duplicateItemForDraft({
     name: "Sold item",
