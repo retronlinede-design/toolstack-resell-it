@@ -1106,7 +1106,8 @@ test("seller classification remains accessible in the item editor without stock-
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
 
-  assert.match(appSource, /<Select label="Seller mode" value=\{form\.sellerClassification \|\| "private"\}/);
+  assert.match(appSource, /<Select label="Seller classification" value=\{form\.sellerClassification \|\| "private"\}/);
+  assert.match(appSource, /activeWorkflowSection === "advanced"/);
   assert.match(appSource, /sellerClassificationOptions\.map/);
   assert.doesNotMatch(tableSource, /sellerClassificationLabel\(item\.sellerClassification\)/);
 });
@@ -1183,6 +1184,31 @@ test("Item Editor keeps intake statuses separate from Sales Hub completion", () 
   assert.match(source, /updateItemField\(salesEditItem\.id, "status", e\.target\.value\)/);
   assert.doesNotMatch(source, /const salesStatusOptions = \[[^\]]*"Shipped"/);
   assert.match(source, /soldComplete: activeItems\.filter\(\(item\) => \["Sold", "Complete"\]\.includes\(itemStatusValue\(item\)\)\)\.length/);
+});
+
+test("Item Editor uses one reachable six-section stock-intake workflow", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const editorStart = source.indexOf('{(editingId || itemFormOpen) && (');
+  const editorEnd = source.indexOf('{DISABLED_LEGACY_UI && !editingId && itemFormOpen', editorStart);
+  const visibleEditor = source.slice(editorStart, editorEnd);
+
+  for (const section of [
+    '["item", "Item"',
+    '["purchase", "Purchase"',
+    '["research", "Research & Condition"',
+    '["listing", "eBay Listing"',
+    '["proof", "Records / Proof"',
+    '["advanced", "Advanced"',
+  ]) assert.match(source, new RegExp(section.replace(/[&()[\]]/g, "\\$&")));
+  assert.match(source, /useState\("item"\)/);
+  assert.match(visibleEditor, /activeWorkflowSection === "research"/);
+  assert.doesNotMatch(visibleEditor, /Inventory details/);
+  assert.doesNotMatch(visibleEditor, /eBay Listing Help/);
+  assert.doesNotMatch(visibleEditor, />Sold<|>Profit</);
+  assert.match(visibleEditor, /activeWorkflowSection === "advanced" && <div[\s\S]*?Compliance Status/);
+  assert.match(visibleEditor, /activeWorkflowSection === "advanced" && form\.id/);
+  assert.doesNotMatch(visibleEditor, /label="(?:Sale date|Final sale price EUR|Platform fees EUR|Actual shipping cost EUR|Tracking number|Refund amount EUR|Return postage cost EUR)"/);
+  assert.match(visibleEditor, /onClick=\{\(\) => saveCurrentItem\(\)\}[^>]*>Save item<\/button>/);
 });
 
 test("Stock Control filtered summary derives from displayed rows with existing helpers", () => {
