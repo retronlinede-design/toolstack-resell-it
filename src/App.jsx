@@ -168,17 +168,23 @@ function loadStockColumnWidths() {
 const DISABLED_LEGACY_UI = false;
 const ebayMappingHints = ["order date", "item title", "sale price", "fees", "shipping", "refund", "payout"];
 const classificationHelp = [
-  ["Private Sale / Personal Collection", "Originally owned personal item."],
-  ["Business Stock / Resale Inventory", "Bought or sourced with resale intent."],
+  ["Private Sale", "Originally owned personal item."],
+  ["Business Stock", "Bought or sourced with resale intent."],
   ["Legacy Stock / Previous Business", "Existing old stock from a previous business."],
   ["Unsure / Review Later", "Needs later review before reporting decisions."],
 ];
+function operationalClassificationLabel(value) {
+  return {
+    "Private Sale / Personal Collection": "Private Sale",
+    "Business Stock / Resale Inventory": "Business Stock",
+  }[value] || value;
+}
 const workflowSections = [
   ["item", "Item", Package, "Identity and stock status"],
   ["purchase", "Purchase", ReceiptText, "Acquisition, source, and cost"],
   ["research", "Research & Condition", Search, "Testing, condition, and pricing research"],
   ["listing", "eBay Listing", ClipboardList, "Listing details and generated copy"],
-  ["proof", "Records / Proof", FileText, "Proof and source-document references"],
+  ["proof", "Records & Proof", FileText, "Proof and source-document references"],
   ["advanced", "Advanced", StickyNote, "Compliance, compatibility, and administration"],
 ];
 const advancedFormSections = [
@@ -199,15 +205,15 @@ const modules = [
 ];
 const stockSectionDetails = {
   needsAttention: ["Needs Attention", "Items missing information, proof, pricing, or listing preparation."],
-  inventory: ["Active Inventory", "Current inventory being managed and tracked."],
-  readyToList: ["Ready to List", "Prepared items ready for eBay listing."],
-  listingStudio: ["Listing Studio", "Create and manage listing titles, descriptions, and HTML templates."],
+  inventory: ["Active Stock", "Active stock being managed and tracked."],
+  readyToList: ["Ready for Listing", "Items ready for eBay listing."],
+  listingStudio: ["eBay Listing", "Create and manage listing titles, descriptions, and HTML templates."],
 };
 const financeSectionDetails = {
   thisMonth: ["This Month", "Current month reseller activity and estimated performance."],
   taxRecords: ["Tax Records", "Items and expenses requiring tax documentation or review."],
   reconciliation: ["Reconciliation", "Match sales, fees, payouts, and imported platform records."],
-  yearEnd: ["Year-End / EÜR", "Year-end preparation for ELSTER or accountant reporting."],
+  yearEnd: ["Year-End & EÜR", "Year-end preparation for ELSTER or accountant reporting."],
 };
 
 function taxReadinessStatusLabel(status) {
@@ -1710,7 +1716,7 @@ export default function ResellerItApp() {
             <div className="rounded-3xl border border-[#5a3028] bg-[#45251f] p-3">
               <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">Quick actions</p>
               <div className="grid gap-2">
-                <button type="button" onClick={openNewItemEditor} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add item</button>
+                <button type="button" onClick={openNewItemEditor} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add</button>
                 <button type="button" onClick={() => openStockQueue("needsAttention")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Open Stock Control</button>
                 <button type="button" onClick={openSalesQueue} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales queue</button>
               </div>
@@ -1796,8 +1802,8 @@ export default function ResellerItApp() {
                 <div className="p-4">
                   <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
                       <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Purchase</p><p className="font-semibold">{money(form.purchasePrice)}</p></div>
-                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Tax proof</p><p className="font-semibold">{needsProofRecord(form) ? "Missing" : quickProofStatus(form)}</p></div>
-                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Listing</p><p className="font-semibold">{hasListingDraft(form) ? "Ready" : "Draft"}</p></div>
+                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Proof</p><p className="font-semibold">{needsProofRecord(form) ? "Missing" : quickProofStatus(form)}</p></div>
+                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Listing Preparation</p><p className="font-semibold">{hasListingDraft(form) ? "Prepared" : "Needs Preparation"}</p></div>
                   </div>
                 </div>
               </div>
@@ -1807,15 +1813,15 @@ export default function ResellerItApp() {
                   <h3 className="text-sm font-semibold text-stone-950">Compliance Status</h3>
                   <div className="flex flex-wrap items-center gap-2">
                     {form.id && isBusinessRelevant(form) && formTaxReadiness.eigenbelegRequired && !currentDraftEigenbeleg && (
-                      <button type="button" onClick={() => generateDraftEigenbeleg(form.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Generate Draft Eigenbeleg</button>
+                      <button type="button" onClick={() => generateDraftEigenbeleg(form.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-50">Generate Eigenbeleg Draft</button>
                     )}
                     <span className="w-fit rounded-full border border-stone-200 bg-stone-50 px-3 py-1 text-xs font-semibold text-stone-700">{taxReadinessStatusLabel(formTaxReadiness.status)}</span>
                   </div>
                 </div>
                 <div className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
                   {[
-                    ["Seller mode", sellerClassificationLabel(form.sellerClassification)],
-                    ["Business relevant", yesNo(isBusinessRelevant(form))],
+                    ["Seller Classification", sellerClassificationLabel(form.sellerClassification)],
+                    ["Business Relevance", yesNo(isBusinessRelevant(form))],
                     ["Purchase record present", yesNo(formTaxReadiness.purchaseRecordPresent)],
                     ["Evidence present", yesNo(formTaxReadiness.evidencePresent)],
                     ["Eigenbeleg required", yesNo(formTaxReadiness.eigenbelegRequired)],
@@ -1862,8 +1868,8 @@ export default function ResellerItApp() {
                       <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs leading-5 text-stone-800">{currentDraftEigenbeleg.generatedText || "-"}</pre>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <button type="button" onClick={() => regenerateDraftEigenbeleg(form.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Regenerate Draft</button>
-                      <button type="button" onClick={saveDraftEigenbeleg} className="rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-amber-50 hover:bg-stone-800">Save Draft</button>
+                      <button type="button" onClick={() => regenerateDraftEigenbeleg(form.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Regenerate Eigenbeleg Draft</button>
+                      <button type="button" onClick={saveDraftEigenbeleg} className="rounded-xl bg-stone-900 px-3 py-2 text-sm font-semibold text-amber-50 hover:bg-stone-800">Save Eigenbeleg Draft</button>
                     </div>
                   </div>
                 )}
@@ -1890,16 +1896,16 @@ export default function ResellerItApp() {
                   <div className="flex flex-wrap gap-2">
                     {previousWorkflowStep && <button type="button" onClick={() => setActiveWorkflowSection(previousWorkflowStep[0])} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Previous step</button>}
                     {nextWorkflowStep && <button type="button" onClick={() => setActiveWorkflowSection(nextWorkflowStep[0])} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Next step</button>}
-                    <button type="button" onClick={() => saveCurrentItem()} className="rounded-2xl bg-[#e06b2c] px-4 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.18)] hover:bg-[#f0be45]">Save item</button>
+                    <button type="button" onClick={() => saveCurrentItem()} className="rounded-2xl bg-[#e06b2c] px-4 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.18)] hover:bg-[#f0be45]">Save Item</button>
                   </div>
                 </div>
 
                 {activeWorkflowSection === "item" && (
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    <Input label="Item name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                    <Input label="Item Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                     <Input label="Category" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-                    <Select label="Operational classification" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value, ebayFeeMode: e.target.value === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode })}>
-                      {classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}
+                    <Select label="Operational Classification" value={form.classification || DEFAULT_CLASSIFICATION} onChange={(e) => setForm({ ...form, classification: e.target.value, ebayFeeMode: e.target.value === "Private Sale / Personal Collection" ? DEFAULT_EBAY_FEE_MODE : form.ebayFeeMode })}>
+                      {classificationOptions.map((classification) => <option key={classification} value={classification}>{operationalClassificationLabel(classification)}</option>)}
                     </Select>
                     {["Draft", "Listed"].includes(itemStatusValue(form)) ? (
                       <Select label="Status" value={itemStatusValue(form)} onChange={(e) => setForm({ ...form, status: e.target.value })}>
@@ -1912,30 +1918,30 @@ export default function ResellerItApp() {
                         <p className="mt-1 text-xs text-stone-500">Manage post-sale status in Sales Hub.</p>
                       </div>
                     )}
-                    <Input label="Included accessories / items" className="sm:col-span-2 lg:col-span-3" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
+                    <Input label="Included Accessories & Items" className="sm:col-span-2 lg:col-span-3" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
                   </div>
                 )}
 
                 {activeWorkflowSection === "research" && (
                   <div className="space-y-4">
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      <Select label="Tested status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>{testedStatusOptions.map((status) => <option key={status}>{status}</option>)}</Select>
-                      <Select label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}><option value="">Select condition</option>{conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}</Select>
-                      <Input label="Suggested listing price EUR" value={form.suggestedListingPrice || ""} onChange={(e) => setForm({ ...form, suggestedListingPrice: e.target.value })} />
-                      <Input label="Chosen listing price EUR" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
-                      <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Defects / wear</span><textarea value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
-                      <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition notes</span><textarea value={form.conditionNotes || ""} onChange={(e) => setForm({ ...form, conditionNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                      <Select label="Tested Status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>{testedStatusOptions.map((status) => <option key={status}>{status}</option>)}</Select>
+                      <Select label="Condition Grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}><option value="">Select condition</option>{conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}</Select>
+                      <Input label="Suggested Listing Price (€)" value={form.suggestedListingPrice || ""} onChange={(e) => setForm({ ...form, suggestedListingPrice: e.target.value })} />
+                      <Input label="Chosen Listing Price (€)" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
+                      <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Defects & Wear</span><textarea value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                      <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Notes</span><textarea value={form.conditionNotes || ""} onChange={(e) => setForm({ ...form, conditionNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                     </div>
 
                     <div className="rounded-2xl border border-neutral-200 bg-white p-3">
                       <h4 className="text-sm font-semibold text-neutral-950">Market Research</h4>
                       <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <Input label="Research query" className="sm:col-span-2 lg:col-span-4" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
-                        <Input label="Research low EUR" value={form.priceResearchLow || form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
-                        <Input label="Research mid EUR" value={form.priceResearchMid || form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
-                        <Input label="Research high EUR" value={form.priceResearchHigh || form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
+                        <Input label="Research Query" className="sm:col-span-2 lg:col-span-4" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
+                        <Input label="Research Low (€)" value={form.priceResearchLow || form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
+                        <Input label="Research Mid (€)" value={form.priceResearchMid || form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
+                        <Input label="Research High (€)" value={form.priceResearchHigh || form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
                         <label className="block sm:col-span-2 lg:col-span-4">
-                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research notes</span>
+                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research Notes</span>
                             <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                         </label>
                       </div>
@@ -1986,14 +1992,14 @@ export default function ResellerItApp() {
                       <span className="rounded-full border border-stone-200 bg-white px-3 py-1 text-xs font-semibold text-stone-700">{taxReadinessStatusLabel(formTaxReadiness.status)}</span>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                      <Select label="Proof type" value={form.proofType || "Eigenbeleg"} onChange={(e) => setForm({ ...form, proofType: e.target.value })}>{proofTypes.map((type) => <option key={type}>{type}</option>)}</Select>
-                      <Select label="Proof status" value={quickProofStatus(form)} onChange={(e) => updateQuickProofStatus(e.target.value)}><option>Proof available</option><option>External proof recorded</option><option>Eigenbeleg needed</option><option>Missing proof</option></Select>
-                      <Input label="Proof date" type="date" value={form.proofDate || form.purchaseDate} onChange={(e) => setForm({ ...form, proofDate: e.target.value })} />
-                      <Input label="Proof amount EUR" value={form.proofAmount || ""} onChange={(e) => setForm({ ...form, proofAmount: e.target.value })} />
-                      <Select label="Proof stored externally" value={form.proofStoredExternally || "No"} onChange={(e) => setForm({ ...form, proofStoredExternally: e.target.value })}><option>Yes</option><option>No</option></Select>
-                      <Input label="Proof file name" value={form.proofFileName || ""} onChange={(e) => setForm({ ...form, proofFileName: e.target.value })} />
-                      <Input label="Proof folder location" className="sm:col-span-2" value={form.proofFolderLocation || ""} onChange={(e) => setForm({ ...form, proofFolderLocation: e.target.value })} />
-                      <Input label="No receipt reason" value={form.noReceiptReason || ""} onChange={(e) => setForm({ ...form, noReceiptReason: e.target.value })} />
+                      <Select label="Proof Type" value={form.proofType || "Eigenbeleg"} onChange={(e) => setForm({ ...form, proofType: e.target.value })}>{proofTypes.map((type) => <option key={type}>{type}</option>)}</Select>
+                      <Select label="Proof Status" value={quickProofStatus(form)} onChange={(e) => updateQuickProofStatus(e.target.value)}><option>Proof available</option><option>External proof recorded</option><option>Eigenbeleg needed</option><option>Missing proof</option></Select>
+                      <Input label="Proof Date" type="date" value={form.proofDate || form.purchaseDate} onChange={(e) => setForm({ ...form, proofDate: e.target.value })} />
+                      <Input label="Proof Amount (€)" value={form.proofAmount || ""} onChange={(e) => setForm({ ...form, proofAmount: e.target.value })} />
+                      <Select label="Proof Stored Externally" value={form.proofStoredExternally || "No"} onChange={(e) => setForm({ ...form, proofStoredExternally: e.target.value })}><option>Yes</option><option>No</option></Select>
+                      <Input label="Proof File Name" value={form.proofFileName || ""} onChange={(e) => setForm({ ...form, proofFileName: e.target.value })} />
+                      <Input label="Proof Folder Location" className="sm:col-span-2" value={form.proofFolderLocation || ""} onChange={(e) => setForm({ ...form, proofFolderLocation: e.target.value })} />
+                      <Input label="No Receipt Reason" value={form.noReceiptReason || ""} onChange={(e) => setForm({ ...form, noReceiptReason: e.target.value })} />
                     </div>
                     <textarea value={form.proofNotes || ""} onChange={(e) => setForm({ ...form, proofNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Proof notes..." />
                     {needsEigenbeleg(form) && <div className="rounded-2xl bg-neutral-50 p-3"><pre className="max-h-44 overflow-auto whitespace-pre-wrap text-xs text-neutral-700">{eigenbelegText(form)}</pre><button type="button" onClick={() => copyEigenbeleg(form)} className="mt-2 rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">Copy Eigenbeleg</button></div>}
@@ -2002,27 +2008,27 @@ export default function ResellerItApp() {
 
                 {activeWorkflowSection === "purchase" && (
                   <div className="grid gap-3 lg:grid-cols-2">
-                    <Input label="Purchase date" type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} />
-                    <Input label="Purchase price EUR" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
-                    <Select label="Source type" value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })}><option>Flea market</option><option>Second-hand shop</option><option>Private seller</option><option>Online marketplace</option><option>Other</option></Select>
-                    <Input label="Source / seller" value={form.sourceName} onChange={(e) => setForm({ ...form, sourceName: e.target.value })} />
-                    <Input label="Location" value={form.sourceLocation} onChange={(e) => setForm({ ...form, sourceLocation: e.target.value })} />
-                    <Select label="Payment method" value={form.paymentMethod || "Cash"} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}><option>Cash</option><option>Card</option><option>PayPal</option><option>Bank transfer</option><option>Other</option></Select>
-                    <Select label="Receipt / proof status" value={quickProofStatus(form)} onChange={(e) => updateQuickProofStatus(e.target.value)}><option>Proof available</option><option>External proof recorded</option><option>Eigenbeleg needed</option><option>Missing proof</option></Select>
-                    <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Purchase notes</span><textarea value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
+                    <Input label="Purchase Date" type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} />
+                    <Input label="Purchase Price (€)" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
+                    <Select label="Source Type" value={form.sourceType} onChange={(e) => setForm({ ...form, sourceType: e.target.value })}><option>Flea market</option><option>Second-hand shop</option><option>Private seller</option><option>Online marketplace</option><option>Other</option></Select>
+                    <Input label="Source / Seller" value={form.sourceName} onChange={(e) => setForm({ ...form, sourceName: e.target.value })} />
+                    <Input label="Purchase Location" value={form.sourceLocation} onChange={(e) => setForm({ ...form, sourceLocation: e.target.value })} />
+                    <Select label="Payment Method" value={form.paymentMethod || "Cash"} onChange={(e) => setForm({ ...form, paymentMethod: e.target.value })}><option>Cash</option><option>Card</option><option>PayPal</option><option>Bank transfer</option><option>Other</option></Select>
+                    <Select label="Proof Status" value={quickProofStatus(form)} onChange={(e) => updateQuickProofStatus(e.target.value)}><option>Proof available</option><option>External proof recorded</option><option>Eigenbeleg needed</option><option>Missing proof</option></Select>
+                    <label className="block lg:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Purchase Notes</span><textarea value={form.notes || ""} onChange={(e) => setForm({ ...form, notes: e.target.value })} className="min-h-24 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                   </div>
                 )}
 
                 {activeWorkflowSection === "advanced" && (
                   <div className="space-y-4">
                     <div className="grid gap-3 sm:grid-cols-2">
-                      <Select label="Seller classification" value={form.sellerClassification || "private"} onChange={(e) => setForm({ ...form, sellerClassification: e.target.value })}>{sellerClassificationOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
-                      <Input label="Legacy image name" value={form.proofImageName || ""} onChange={(e) => setForm({ ...form, proofImageName: e.target.value })} />
+                      <Select label="Seller Classification" value={form.sellerClassification || "private"} onChange={(e) => setForm({ ...form, sellerClassification: e.target.value })}>{sellerClassificationOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</Select>
+                      <Input label="Legacy Image Name" value={form.proofImageName || ""} onChange={(e) => setForm({ ...form, proofImageName: e.target.value })} />
                     </div>
                     <label className="block rounded-2xl border border-stone-200 bg-stone-50 p-3">
-                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Legacy image attachment</span>
+                      <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Legacy Image Attachment</span>
                       <input type="file" accept="image/*" onChange={handleProofImageUpload} className="block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
-                      <p className="mt-1 text-xs text-neutral-500">Compatibility only. Prefer file/folder references in Records / Proof.</p>
+                      <p className="mt-1 text-xs text-neutral-500">Compatibility only. Prefer file/folder references in Records & Proof.</p>
                     </label>
                   </div>
                 )}
@@ -2428,7 +2434,7 @@ export default function ResellerItApp() {
                     <p className="mt-1 text-xs leading-5 text-neutral-600">Add and review expense records.</p>
                   </button>
                   <button type="button" onClick={() => { setFinanceSection("yearEnd"); setActiveFinancePanel("year_end"); }} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeFinancePanel === "year_end" ? "border-[#f0be45]/60 bg-[#f0be45]/20" : "border-[#f0be45]/30 bg-[#f0be45]/10 hover:border-[#f0be45]/50"}`}>
-                    <p className="text-sm font-semibold text-neutral-950">Year-End / EÜR</p>
+                    <p className="text-sm font-semibold text-neutral-950">Year-End & EÜR</p>
                     <p className="mt-1 text-xs leading-5 text-neutral-600">Annual tax prep totals.</p>
                   </button>
                   <button type="button" onClick={exportMonthlyClosingJson} className="rounded-2xl border border-[#f0be45]/30 bg-[#f0be45]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#f0be45]/50 hover:shadow-sm">
@@ -2765,7 +2771,7 @@ export default function ResellerItApp() {
                       ["Listed Value", money(dashboardPosition.listedValue), "Listed inventory"],
                       ["Sold / Complete", dashboardPosition.soldComplete, "Current statuses"],
                       ["This Month Sales", money(monthlySummary.salesTotal), "Current month"],
-                      ["This Month Profit", money(monthlySummary.profit), "Current month"],
+                      ["This Month Item Profit", money(monthlySummary.profit), "Current month"],
                     ].map(([label, value, scope]) => (
                       <div key={label} className="min-w-0 rounded-2xl border border-[#ddcdb5] bg-white/85 p-3 shadow-sm">
                         <p className="text-[10px] font-bold uppercase tracking-wide text-stone-500">{label}</p>
@@ -2806,10 +2812,10 @@ export default function ResellerItApp() {
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {[
                       ["Needs Research", todayWorkflow.toResearch.length, () => openStockQueue("needsAttention", "Missing price research")],
-                      ["Ready to List", todayWorkflow.readyToList.length, () => openStockQueue("readyToList")],
+                      ["Ready for Listing", todayWorkflow.readyToList.length, () => openStockQueue("readyToList")],
                       ["Sales Data Gaps", dashboardSalesDataGapCount, () => openSalesQueue("sales_data_gaps")],
-                      ["Returns / Sales Problems", salesWorkflow.problemItems.length, () => openSalesQueue("problemItems")],
-                      ["Stock Issues", todayWorkflow.needsListing.length, () => openStockQueue("needsAttention", "Missing listing draft")],
+                      ["Sales Issues", salesWorkflow.problemItems.length, () => openSalesQueue("problemItems")],
+                      ["Needs Listing Preparation", todayWorkflow.needsListing.length, () => openStockQueue("needsAttention", "Missing listing draft")],
                       ["Missing Proof", todayWorkflow.missingProof.length, () => openStockQueue("needsAttention", "Missing proof")],
                       ["Compliance Issues", complianceSummary.incomplete + complianceSummary.needsEigenbeleg, () => { setActiveTab("tools"); setActiveToolPanel("compliance_center"); }],
                     ].filter(([, count]) => count > 0).map(([label, count, action]) => (
@@ -3227,8 +3233,8 @@ export default function ResellerItApp() {
               <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard icon={ShoppingCart} label="Sold" value={salesWorkflow.counts.Sold || 0} accentClass="bg-[#e06b2c]" />
                 <StatCard icon={ShoppingCart} label="Completed Sales" value={salesWorkflow.counts.Complete || 0} accentClass="bg-[#e06b2c]" />
-                <StatCard icon={RotateCcw} label="Returns / Refunds" value={salesWorkflow.problemItems.length} accentClass="bg-[#e06b2c]" />
-                <StatCard icon={Euro} label="Estimated Profit" value={money(summary.profit)} accentClass="bg-[#e06b2c]" />
+                <StatCard icon={RotateCcw} label="Returns & Refunds" value={salesWorkflow.problemItems.length} accentClass="bg-[#e06b2c]" />
+                <StatCard icon={Euro} label="Estimated Item Profit" value={money(summary.profit)} accentClass="bg-[#e06b2c]" />
               </section>
 
               <div className="grid gap-4 xl:grid-cols-2">
@@ -3422,30 +3428,30 @@ export default function ResellerItApp() {
                     <div className="mt-5 rounded-2xl border border-[#e06b2c]/25 bg-[#fffaf0] p-4">
                       <div className="flex flex-col gap-3 border-b border-[#eadfce] pb-3 sm:flex-row sm:items-start sm:justify-between">
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">Sales Completion</p>
+                          <p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">Sale Details</p>
                           <h4 className="mt-1 text-base font-semibold text-neutral-950">{salesEditItem.name || "Untitled item"}</h4>
                           <p className="mt-1 text-xs text-neutral-600">Edit sale, fee, shipping cost, refund, and completion fields for this item.</p>
                         </div>
-                        <button type="button" onClick={() => setSalesEditItemId(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close Sales Edit</button>
+                        <button type="button" onClick={() => setSalesEditItemId(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
                       </div>
                       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <Input label="Sale date" type="date" value={salesEditItem.saleDate || ""} onChange={(e) => updateItemField(salesEditItem.id, "saleDate", e.target.value)} />
-                        <Input label="Final sale price EUR" value={salesEditItem.finalSalePrice || ""} onChange={(e) => updateItemField(salesEditItem.id, "finalSalePrice", e.target.value)} />
-                        <Select label="Buyer platform" value={salesEditItem.buyerPlatform || "ebay"} onChange={(e) => updateItemField(salesEditItem.id, "buyerPlatform", e.target.value)}>
+                        <Input label="Sale Date" type="date" value={salesEditItem.saleDate || ""} onChange={(e) => updateItemField(salesEditItem.id, "saleDate", e.target.value)} />
+                        <Input label="Final Sale Price (€)" value={salesEditItem.finalSalePrice || ""} onChange={(e) => updateItemField(salesEditItem.id, "finalSalePrice", e.target.value)} />
+                        <Select label="Buyer Platform" value={salesEditItem.buyerPlatform || "ebay"} onChange={(e) => updateItemField(salesEditItem.id, "buyerPlatform", e.target.value)}>
                           {buyerPlatformOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                         </Select>
                         <Select label="Status" value={salesEditItem.status || "Sold"} onChange={(e) => updateItemField(salesEditItem.id, "status", e.target.value)}>
                           {salesStatusOptions.map((status) => <option key={status}>{status}</option>)}
                           {salesEditItem.status && !salesStatusOptions.includes(salesEditItem.status) && <option>{salesEditItem.status}</option>}
                         </Select>
-                        <Input label="Shipping charged to buyer EUR" value={salesEditItem.shippingChargedToBuyer || ""} onChange={(e) => updateItemField(salesEditItem.id, "shippingChargedToBuyer", e.target.value)} />
-                        <Input label="Actual shipping cost EUR" value={salesEditItem.actualShippingCost || salesEditItem.shippingCost || ""} onChange={(e) => updateItemFields(salesEditItem.id, { actualShippingCost: e.target.value, shippingCost: e.target.value })} />
-                        <Input label="Packaging cost EUR" value={salesEditItem.packagingCost || ""} onChange={(e) => updateItemField(salesEditItem.id, "packagingCost", e.target.value)} />
-                        <Input label="Platform fees EUR" value={salesEditItem.manualEbayFee || salesEditItem.ebayFees || ""} onChange={(e) => updateItemFields(salesEditItem.id, { manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
-                        <Input label="Refund amount EUR" value={salesEditItem.refundAmount || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundAmount", e.target.value)} />
-                        <Input label="Refund date" type="date" value={salesEditItem.refundDate || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundDate", e.target.value)} />
-                        <Input label="Return postage cost EUR" value={salesEditItem.returnPostageCost || ""} onChange={(e) => updateItemField(salesEditItem.id, "returnPostageCost", e.target.value)} />
-                        <Input label="Refund reason" value={salesEditItem.refundReason || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundReason", e.target.value)} />
+                        <Input label="Shipping Charged to Buyer (€)" value={salesEditItem.shippingChargedToBuyer || ""} onChange={(e) => updateItemField(salesEditItem.id, "shippingChargedToBuyer", e.target.value)} />
+                        <Input label="Actual Shipping Cost (€)" value={salesEditItem.actualShippingCost || salesEditItem.shippingCost || ""} onChange={(e) => updateItemFields(salesEditItem.id, { actualShippingCost: e.target.value, shippingCost: e.target.value })} />
+                        <Input label="Packaging Cost (€)" value={salesEditItem.packagingCost || ""} onChange={(e) => updateItemField(salesEditItem.id, "packagingCost", e.target.value)} />
+                        <Input label="Platform Fees (€)" value={salesEditItem.manualEbayFee || salesEditItem.ebayFees || ""} onChange={(e) => updateItemFields(salesEditItem.id, { manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
+                        <Input label="Refund Amount (€)" value={salesEditItem.refundAmount || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundAmount", e.target.value)} />
+                        <Input label="Refund Date" type="date" value={salesEditItem.refundDate || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundDate", e.target.value)} />
+                        <Input label="Return Postage Cost (€)" value={salesEditItem.returnPostageCost || ""} onChange={(e) => updateItemField(salesEditItem.id, "returnPostageCost", e.target.value)} />
+                        <Input label="Refund Reason" value={salesEditItem.refundReason || ""} onChange={(e) => updateItemField(salesEditItem.id, "refundReason", e.target.value)} />
                       </div>
                     </div>
                   )}
@@ -3467,11 +3473,11 @@ export default function ResellerItApp() {
                   <p className="text-sm text-neutral-600">Fast view of what came in, what went out, and what may still need matching.</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                  <StatCard icon={ShoppingCart} label="Revenue" value={money(sectionSummaries.finance.revenue)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={ShoppingCart} label="Gross Revenue" value={money(sectionSummaries.finance.revenue)} accentClass="bg-[#f0be45]" />
                   <StatCard icon={ReceiptText} label="Expenses" value={money(sectionSummaries.finance.expenses)} accentClass="bg-[#f0be45]" />
-                  <StatCard icon={Euro} label="Estimated profit" value={money(sectionSummaries.finance.estimatedProfit)} accentClass="bg-[#f0be45]" />
-                  <StatCard icon={Package} label="Sold items" value={monthlyClosing.soldCount} accentClass="bg-[#f0be45]" />
-                  <StatCard icon={FileText} label="Pending payouts estimate" value={money(sectionSummaries.finance.pendingPayout)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Euro} label="Estimated Net Profit" value={money(sectionSummaries.finance.estimatedProfit)} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={Package} label="Sold Items" value={monthlyClosing.soldCount} accentClass="bg-[#f0be45]" />
+                  <StatCard icon={FileText} label="Pending Payouts Estimate" value={money(sectionSummaries.finance.pendingPayout)} accentClass="bg-[#f0be45]" />
                 </div>
               </div>
 
@@ -3489,17 +3495,17 @@ export default function ResellerItApp() {
                 </div>
 
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <StatCard icon={ShoppingCart} label="Sales total" value={money(monthlyClosing.salesTotal)} sub={`${monthlyClosing.soldCount} sold items`} />
-                  <StatCard icon={ReceiptText} label="Inventory cash spent" value={money(monthlyClosing.purchaseTotal)} sub={`${monthlyClosing.purchasedCount} purchased items`} />
-                  <StatCard icon={Euro} label="Shipping charged" value={money(monthlyClosing.shippingCharged)} />
-                  <StatCard icon={Package} label="Actual shipping costs" value={money(monthlyClosing.actualShippingCosts)} />
-                  <StatCard icon={Package} label="Packaging costs" value={money(monthlyClosing.packagingCosts)} />
-                  <StatCard icon={Euro} label="Refunds / returns" value={money(monthlyClosing.refundTotal)} />
-                  <StatCard icon={FileText} label="Platform fees" value={money(monthlyClosing.platformFeeTotal)} sub="eBay/import matching" />
+                  <StatCard icon={ShoppingCart} label="Sales Value" value={money(monthlyClosing.salesTotal)} sub={`${monthlyClosing.soldCount} sold items`} />
+                  <StatCard icon={ReceiptText} label="Purchase Spend" value={money(monthlyClosing.purchaseTotal)} sub={`${monthlyClosing.purchasedCount} purchased items`} />
+                  <StatCard icon={Euro} label="Buyer Shipping" value={money(monthlyClosing.shippingCharged)} />
+                  <StatCard icon={Package} label="Actual Shipping Costs" value={money(monthlyClosing.actualShippingCosts)} />
+                  <StatCard icon={Package} label="Packaging Costs" value={money(monthlyClosing.packagingCosts)} />
+                  <StatCard icon={Euro} label="Returns & Refunds" value={money(monthlyClosing.refundTotal)} />
+                  <StatCard icon={FileText} label="Platform Fees" value={money(monthlyClosing.platformFeeTotal)} sub="eBay/import matching" />
                   <StatCard icon={ReceiptText} label="Expenses" value={money(monthlyClosing.expenseTotal)} sub={`${monthlyClosing.expenseCount} expense records`} />
-                  <StatCard icon={Euro} label="Profit estimate" value={money(monthlyClosing.profitEstimate)} sub="sold item profit - expenses" />
-                  <StatCard icon={ReceiptText} label="Missing proof" value={monthlyClosing.missingProofItems.length} />
-                  <StatCard icon={FileText} label="Review later" value={monthlyClosing.reviewItems.length} sub="Unsure / Review Later" />
+                  <StatCard icon={Euro} label="Estimated Net Profit" value={money(monthlyClosing.profitEstimate)} sub="sold item profit - expenses" />
+                  <StatCard icon={ReceiptText} label="Missing Proof" value={monthlyClosing.missingProofItems.length} />
+                  <StatCard icon={FileText} label="Review Later" value={monthlyClosing.reviewItems.length} sub="Unsure / Review Later" />
                 </div>
               </div>
 
@@ -3595,7 +3601,7 @@ export default function ResellerItApp() {
               <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                 <div className="mb-4 flex flex-col gap-1 border-b border-neutral-100 pb-3">
                   <h3 className="text-lg font-semibold text-neutral-950">Business-only view</h3>
-                  <p className="text-sm text-neutral-600">Uses items classified as Business Stock / Resale Inventory where possible.</p>
+                  <p className="text-sm text-neutral-600">Uses items classified as Business Stock where possible.</p>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                   <StatCard icon={ShoppingCart} label="Business sales" value={money(yearlyBusinessSummary.salesTotal)} sub={`${yearlyBusinessSummary.soldCount} sold items`} />
@@ -3688,7 +3694,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">eBay Listing Helper</h3>
+                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">eBay Listing</h3>
                       <p className="mt-1 text-xs text-neutral-500">Listing and import work queues.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -3699,7 +3705,7 @@ export default function ResellerItApp() {
                       <p className="mt-1 text-xs leading-5 text-orange-900/75">Show items missing listing drafts.</p>
                     </button>
                     <button type="button" onClick={() => { setActiveToolPanel(null); openFinanceQueue("reconciliation"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
-                      <p className="text-sm font-semibold text-orange-950">Open eBay Import / Reconciliation</p>
+                      <p className="text-sm font-semibold text-orange-950">Open eBay Reconciliation</p>
                       <p className="mt-1 text-xs leading-5 text-orange-900/75">Open existing CSV import tools.</p>
                     </button>
                   </div>

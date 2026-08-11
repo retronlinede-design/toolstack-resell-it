@@ -46,7 +46,7 @@ export function ExpenseManager({
             {expenseCategories.map((category) => <option key={category}>{category}</option>)}
           </Select>
           <Input label="Description" value={expenseForm.description} onChange={(e) => onSetExpenseForm({ ...expenseForm, description: e.target.value })} placeholder="Tape, boxes, fuel..." />
-          <Input label="Amount EUR" value={expenseForm.amount} onChange={(e) => onSetExpenseForm({ ...expenseForm, amount: e.target.value })} />
+          <Input label="Amount (€)" value={expenseForm.amount} onChange={(e) => onSetExpenseForm({ ...expenseForm, amount: e.target.value })} />
           <Select label="Payment method" value={expenseForm.paymentMethod} onChange={(e) => onSetExpenseForm({ ...expenseForm, paymentMethod: e.target.value })}>
             <option>Cash</option><option>Card</option><option>PayPal</option><option>Bank transfer</option><option>Other</option>
           </Select>

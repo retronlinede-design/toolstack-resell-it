@@ -72,14 +72,14 @@ export function EbayStudio({
             <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => onUpdateListingTitle(e.target.value)} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
             <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
           </label>
-          <Input label="Listed Price / Target Price" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
-          <Input label="Accessories / Included Items" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
+          <Input label="Chosen Listing Price (€)" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
+          <Input label="Included Accessories & Items" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
           <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
           <p className="mt-1 text-xs leading-5 text-stone-600">Describe what the item is, important features, compatibility, and general product information.</p>
           <div className="mt-3 grid gap-3">
             <label className="block">
-              <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Description / Item Details</span>
+              <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Description & Item Details</span>
               <textarea value={form.productDescriptionText || ""} onChange={(e) => setForm({ ...form, productDescriptionText: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
             </label>
             <div className="rounded-xl border border-orange-200 bg-white">
@@ -91,10 +91,10 @@ export function EbayStudio({
                 <div className="grid gap-3 border-t border-orange-100 p-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Input label="Brand" value={form.brand || ""} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
                   <Input label="Model" value={form.model || ""} onChange={(e) => setForm({ ...form, model: e.target.value })} />
-                  <Input label="Measurements / Size Specs" value={form.measurements || form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, measurements: e.target.value, sizeSpecs: e.target.value })} />
+                  <Input label="Measurements & Size Specs" value={form.measurements || form.sizeSpecs || ""} onChange={(e) => setForm({ ...form, measurements: e.target.value, sizeSpecs: e.target.value })} />
                   <Input label="Colour" value={form.colour || ""} onChange={(e) => setForm({ ...form, colour: e.target.value })} />
                   <label className="block sm:col-span-2">
-                    <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Compatibility / Platform info</span>
+                    <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Compatibility & Platform Info</span>
                     <textarea value={form.compatibilityInfo || ""} onChange={(e) => setForm({ ...form, compatibilityInfo: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                   </label>
                   <label className="block sm:col-span-2">
@@ -130,17 +130,17 @@ export function EbayStudio({
               </button>
               {listingConditionHelpersOpen && (
                 <div className="grid gap-3 border-t border-orange-100 p-3 sm:grid-cols-2">
-                  <Select label="Condition grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}>
+                  <Select label="Condition Grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}>
                     <option value="">Select condition</option>
                     {conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}
                     {form.conditionGrade && !conditionGradeOptions.includes(form.conditionGrade) && <option>{form.conditionGrade}</option>}
                   </Select>
-                  <Select label="Tested status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>
+                  <Select label="Tested Status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>
                     {testedStatusOptions.map((status) => <option key={status}>{status}</option>)}
                   </Select>
                   <div className="sm:col-span-2">
                     <ChecklistGrid
-                      title="Defect disclosure"
+                      title="Defect Disclosure"
                       items={defectDisclosureItems}
                       value={normalizeBooleanRecord(form.defectDisclosure, defaultDefectDisclosure)}
                       onChange={(defectDisclosure) => setForm({ ...form, defectDisclosure })}

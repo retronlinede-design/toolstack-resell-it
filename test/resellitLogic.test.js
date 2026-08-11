@@ -951,8 +951,8 @@ test("App exposes draft Eigenbeleg preview, editing, saving, and regeneration on
   assert.match(source, /Seller description/);
   assert.match(source, /Acquisition description/);
   assert.match(source, /Generated text/);
-  assert.match(source, /Regenerate Draft/);
-  assert.match(source, /Save Draft/);
+  assert.match(source, /Regenerate Eigenbeleg Draft/);
+  assert.match(source, /Save Eigenbeleg Draft/);
   assert.doesNotMatch(source, /Finalize Draft|Generate PDF|PDF button/);
 });
 
@@ -1106,7 +1106,7 @@ test("seller classification remains accessible in the item editor without stock-
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
 
-  assert.match(appSource, /<Select label="Seller classification" value=\{form\.sellerClassification \|\| "private"\}/);
+  assert.match(appSource, /<Select label="Seller Classification" value=\{form\.sellerClassification \|\| "private"\}/);
   assert.match(appSource, /activeWorkflowSection === "advanced"/);
   assert.match(appSource, /sellerClassificationOptions\.map/);
   assert.doesNotMatch(tableSource, /sellerClassificationLabel\(item\.sellerClassification\)/);
@@ -1120,7 +1120,7 @@ test("compliance readiness is exposed as read-only UI", () => {
   assert.match(appSource, /getItemTaxReadiness\(form, purchaseRecords, evidenceRecords, eigenbelege\)/);
   assert.match(appSource, /Compliance Status/);
   assert.match(appSource, /complianceSummary\.needsEigenbeleg/);
-  assert.match(appSource, /Generate Draft Eigenbeleg/);
+  assert.match(appSource, /Generate Eigenbeleg Draft/);
   assert.match(appSource, /form\.id && isBusinessRelevant\(form\) && formTaxReadiness\.eigenbelegRequired/);
   assert.doesNotMatch(tableSource, /complianceReadinessByItemId/);
   assert.doesNotMatch(tableSource, /complianceStatusLabel/);
@@ -1133,8 +1133,8 @@ test("Stock Control renders a compact dashboard and permanent simplified stock s
   assert.match(appSource, /Track purchased stock, current status, sale outcome, and source records\./);
   for (const label of ["Total Items", "In Stock", "Listed", "Sold / Complete", "Stock Cost"]) assert.match(tableSource, new RegExp(label.replace("/", "\\/")));
   for (const action of ["Add Item", "Quick Add", "Issues", "More Filters"]) assert.match(tableSource, new RegExp(`> ${action}<|>${action}<`));
-  for (const column of ["Item", "Purchased", "Cost", "Status", "Source", "Document / Proof", "Listed Price", "Sold Price", "Profit", "Action"]) assert.match(tableSource, new RegExp(column.replace("/", "\\/")));
-  assert.match(tableSource, /Permanent Stock Sheet/);
+  for (const column of ["Item", "Purchased", "Cost", "Status", "Source", "Proof", "Listed Price", "Sold Price", "Profit", "Action"]) assert.match(tableSource, new RegExp(column));
+  assert.match(tableSource, /Stock Register/);
   assert.match(tableSource, /onClick=\{\(\) => onEditItem\(item\)\}/);
   assert.match(tableSource, /onDuplicateItem\(item\)/);
   assert.match(tableSource, /onMoveToPersonalCollection\(item\.id\)/);
@@ -1197,7 +1197,7 @@ test("Item Editor uses one reachable six-section stock-intake workflow", () => {
     '["purchase", "Purchase"',
     '["research", "Research & Condition"',
     '["listing", "eBay Listing"',
-    '["proof", "Records / Proof"',
+    '["proof", "Records & Proof"',
     '["advanced", "Advanced"',
   ]) assert.match(source, new RegExp(section.replace(/[&()[\]]/g, "\\$&")));
   assert.match(source, /useState\("item"\)/);
@@ -1208,7 +1208,7 @@ test("Item Editor uses one reachable six-section stock-intake workflow", () => {
   assert.match(visibleEditor, /activeWorkflowSection === "advanced" && <div[\s\S]*?Compliance Status/);
   assert.match(visibleEditor, /activeWorkflowSection === "advanced" && form\.id/);
   assert.doesNotMatch(visibleEditor, /label="(?:Sale date|Final sale price EUR|Platform fees EUR|Actual shipping cost EUR|Tracking number|Refund amount EUR|Return postage cost EUR)"/);
-  assert.match(visibleEditor, /onClick=\{\(\) => saveCurrentItem\(\)\}[^>]*>Save item<\/button>/);
+  assert.match(visibleEditor, /onClick=\{\(\) => saveCurrentItem\(\)\}[^>]*>Save Item<\/button>/);
 });
 
 test("Stock Control filtered summary derives from displayed rows with existing helpers", () => {

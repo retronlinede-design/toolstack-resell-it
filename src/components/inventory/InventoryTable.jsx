@@ -24,6 +24,13 @@ function statusClass(status) {
   return "border-stone-200 bg-white text-stone-700";
 }
 
+function operationalClassificationLabel(value) {
+  return {
+    "Private Sale / Personal Collection": "Private Sale",
+    "Business Stock / Resale Inventory": "Business Stock",
+  }[value] || value;
+}
+
 export function InventoryTable({
   items,
   stockTimelineItems,
@@ -129,8 +136,8 @@ export function InventoryTable({
         {moreFiltersOpen && (
           <div className="mt-3 grid gap-2 rounded-xl border border-stone-200 bg-stone-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Select label="Category" value={inventoryCategory} onChange={(event) => onSetInventoryCategory(event.target.value)}><option>All categories</option>{categoryOptions.map((category) => <option key={category}>{category}</option>)}</Select>
-            <Select label="Classification" value={inventoryClassification} onChange={(event) => onSetInventoryClassification(event.target.value)}><option>All classifications</option>{classificationOptions.map((classification) => <option key={classification}>{classification}</option>)}</Select>
-            <Select label="Issue" value={inventoryIssueFilter} onChange={(event) => onSetInventoryIssueFilter(event.target.value)}><option>All items</option><option>Needs attention</option><option>Missing proof</option><option>Missing price research</option><option>Missing listing draft</option><option>Review later</option><option>Sold only</option><option>Unsold only</option></Select>
+            <Select label="Operational Classification" value={inventoryClassification} onChange={(event) => onSetInventoryClassification(event.target.value)}><option>All classifications</option>{classificationOptions.map((classification) => <option key={classification} value={classification}>{operationalClassificationLabel(classification)}</option>)}</Select>
+            <Select label="Issue" value={inventoryIssueFilter} onChange={(event) => onSetInventoryIssueFilter(event.target.value)}><option>All items</option><option>Needs attention</option><option value="Missing proof">Missing Proof</option><option value="Missing price research">Needs Research</option><option value="Missing listing draft">Needs Listing Preparation</option><option>Review later</option><option>Sold only</option><option>Unsold only</option></Select>
             <Select label="Group" value={inventoryTimelineGrouping} onChange={(event) => onSetInventoryTimelineGrouping(event.target.value)}><option>Month</option><option>Week</option><option>Year</option><option>Ungrouped</option></Select>
             <Input label="Month" type="month" value={inventoryTimelineMonth} onChange={(event) => onSetInventoryTimelineMonth(event.target.value)} />
             <Select label="Sort" value={inventorySort} onChange={(event) => onSetInventorySort(event.target.value)}><option>Newest purchase date</option><option>Oldest purchase date</option><option>Highest expected/listing value</option><option>Highest final sale price</option><option>Highest estimated profit</option><option>Missing proof first</option></Select>
@@ -161,7 +168,7 @@ export function InventoryTable({
       <section className="min-w-0 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-stone-200 px-3 py-2">
           <div>
-            <h3 className="text-sm font-semibold text-stone-950">Permanent Stock Sheet</h3>
+            <h3 className="text-sm font-semibold text-stone-950">Stock Register</h3>
             <p className="text-xs text-stone-500">{stockTimelineItems.length} of {items.length} items</p>
           </div>
           {(inventorySearch || inventoryStatus !== "All statuses" || inventoryIssueFilter !== "All items" || inventoryCategory !== "All categories" || inventoryClassification !== "All classifications" || inventoryTimelineMonth) && <button type="button" onClick={() => { onSetInventorySearch(""); onSetInventoryStatus("All statuses"); onSetInventoryIssueFilter("All items"); onSetInventoryCategory("All categories"); onSetInventoryClassification("All classifications"); onSetInventoryTimelineMonth(""); }} className="text-xs font-semibold text-[#8f3124] hover:underline">Clear filters</button>}
@@ -176,7 +183,7 @@ export function InventoryTable({
               <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500 shadow-[0_1px_0_rgba(120,113,108,0.22)]">
                 <tr className="border-b border-stone-300">
                   {[
-                    ["item", "Item"], ["date", "Purchased"], ["purchase", "Cost"], ["status", "Status"], ["source", "Source"], ["proof", "Document / Proof"], ["listed", "Listed Price"], ["sold", "Sold Price"], ["profit", "Profit"], ["edit", "Action"],
+                    ["item", "Item"], ["date", "Purchased"], ["purchase", "Cost"], ["status", "Status"], ["source", "Source"], ["proof", "Proof"], ["listed", "Listed Price"], ["sold", "Sold Price"], ["profit", "Profit"], ["edit", "Action"],
                   ].map(([key, label]) => <th key={key} className={`relative whitespace-nowrap px-1.5 py-2 font-semibold ${["purchase", "listed", "sold", "profit"].includes(key) ? "text-right" : key === "edit" ? "text-center" : ""}`} style={{ width: stockColumnWidths[key] }}><span className="block truncate pr-1">{label}</span>{stockResizeHandle(key)}</th>)}
                 </tr>
               </thead>
@@ -208,10 +215,10 @@ export function InventoryTable({
                             <details className="relative inline-block text-left">
                               <summary aria-label={`Actions for ${item.name || "item"}`} title="Actions" className="inline-flex h-7 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-stone-200 bg-white text-stone-600 hover:bg-stone-50"><MoreHorizontal size={14} /></summary>
                               <div className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
-                                <button type="button" onClick={() => onEditItem(item)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">Open</button>
-                                <button type="button" onClick={() => onDuplicateItem(item)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">Duplicate</button>
+                                <button type="button" onClick={() => onEditItem(item)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">Open Item</button>
+                                <button type="button" onClick={() => onDuplicateItem(item)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">Duplicate Item</button>
                                 <button type="button" onClick={() => onMoveToPersonalCollection(item.id)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">Move to Personal Collection</button>
-                                <button type="button" onClick={() => onDeleteItem(item.id)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-red-700 hover:bg-red-50">Delete</button>
+                                <button type="button" onClick={() => onDeleteItem(item.id)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-red-700 hover:bg-red-50">Delete Permanently</button>
                               </div>
                             </details>
                           </td>
