@@ -70,22 +70,22 @@ export const defaultDefectDisclosure = Object.fromEntries(defectDisclosureItems.
 
 export const proofTypes = ["Shop receipt", "Invoice", "Eigenbeleg", "Flea-market photo", "Private seller note", "Other"];
 export const PERSONAL_COLLECTION_STATUS = "personal_collection";
-export const statusOptions = ["Draft", "Sourced", "Ready to List", "Listed", "Sold", "Shipped", "Complete", "Returned", PERSONAL_COLLECTION_STATUS];
+export const statusOptions = ["Draft", "Listed", "Sold", "Complete", "Returned"];
 export const statusLabels = {
   [PERSONAL_COLLECTION_STATUS]: "Personal Collection",
 };
-export const quickStatusOptions = ["Ready to List", "Listed", "Sold", "Shipped", "Complete", "Returned"];
-export const shippingWorkflowStatuses = ["Sold", "Shipped", "Complete", "Returned"];
-export const soldStatusOptions = ["Sold", "Shipped", "Complete", "Returned", "Paid", "Ready to Pack", "Packed", "Completed", "Refunded", "Written Off"];
+export const quickStatusOptions = ["Draft", "Listed", "Sold", "Complete", "Returned"];
+export const shippingWorkflowStatuses = ["Sold", "Complete", "Returned"];
+export const soldStatusOptions = ["Sold", "Complete", "Returned", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Refunded"];
 export const legacyStatusLabels = {
+  Sourced: "Draft",
+  "Ready to List": "Draft",
   Paid: "Sold",
   "Ready to Pack": "Sold",
   Packed: "Sold",
+  Shipped: "Sold",
   Completed: "Complete",
   Refunded: "Returned",
-  "Written Off": "Returned",
-  "Written off": "Returned",
-  "Kept private": "Complete",
   "Personal Collection": PERSONAL_COLLECTION_STATUS,
 };
 
@@ -114,7 +114,7 @@ export const emptyItem = {
   receiptType: "Eigenbeleg needed",
   paymentMethod: "Cash",
   expectedSalePrice: "",
-  status: "Sourced",
+  status: "Draft",
   ebayTitle: "",
   saleDate: "",
   salePrice: "",

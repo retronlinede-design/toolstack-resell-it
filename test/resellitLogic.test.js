@@ -5,6 +5,7 @@ import {
   generateHtmlDescription,
   generateListingDraft,
   generatedConditionText,
+  listingReadiness,
 } from "../src/ebayListingTemplate.js";
 import {
   CURRENT_DATE,
@@ -270,7 +271,7 @@ test("seller classification defaults and labels remain stable", () => {
 });
 
 test("personal_collection status normalizes and displays correctly", () => {
-  assert.ok(statusOptions.includes("personal_collection"));
+  assert.equal(statusOptions.includes("personal_collection"), false);
   assert.equal(statusLabel("personal_collection"), "Personal Collection");
 
   const item = normalizeSchemaItem({ name: "Archive item", status: "personal_collection" });
@@ -283,21 +284,50 @@ test("personal_collection status normalizes and displays correctly", () => {
 });
 
 test("visible sales statuses are simplified while legacy statuses normalize safely", () => {
-  for (const status of ["Sold", "Shipped", "Complete", "Returned"]) {
-    assert.ok(statusOptions.includes(status));
-  }
+  assert.deepEqual(statusOptions, ["Draft", "Listed", "Sold", "Complete", "Returned"]);
 
-  for (const legacyStatus of ["Paid", "Ready to Pack", "Packed", "Completed", "Refunded", "Written Off"]) {
+  for (const legacyStatus of ["Sourced", "Ready to List", "Paid", "Ready to Pack", "Packed", "Shipped", "Completed", "Refunded", "Written Off"]) {
     assert.equal(statusOptions.includes(legacyStatus), false);
   }
 
+  assert.equal(normalizeSchemaItem({ status: "Sourced" }).status, "Draft");
+  assert.equal(normalizeSchemaItem({ status: "Ready to List" }).status, "Draft");
   assert.equal(normalizeSchemaItem({ status: "Paid" }).status, "Sold");
   assert.equal(normalizeSchemaItem({ status: "Ready to Pack" }).status, "Sold");
   assert.equal(normalizeSchemaItem({ status: "Packed" }).status, "Sold");
+  assert.equal(normalizeSchemaItem({ status: "Shipped" }).status, "Sold");
   assert.equal(normalizeSchemaItem({ status: "Completed" }).status, "Complete");
   assert.equal(normalizeSchemaItem({ status: "Refunded" }).status, "Returned");
-  assert.equal(normalizeSchemaItem({ status: "Written Off" }).status, "Returned");
+  assert.equal(normalizeSchemaItem({ status: "Written Off" }).status, "Written Off");
   assert.equal(isSoldStatus({ status: "Completed" }), true);
+});
+
+test("listing readiness remains derived independently from lifecycle status", () => {
+  const listingReadyFields = {
+    language: "en",
+    listingLanguage: "English",
+    ebayTitle: "Sony CD Player Tested Working",
+    chosenListingPrice: "39.99",
+    productDescriptionText: "Portable compact disc player.",
+    ebay: { conditionText: "Used and tested working." },
+    shippingNotes: "Tracked shipping.",
+  };
+
+  assert.equal(listingReadiness({ ...listingReadyFields, status: "Draft" }), "Ready");
+  assert.equal(listingReadiness({ ...listingReadyFields, status: "Listed" }), "Ready");
+});
+
+test("legacy status normalization is backup-compatible and does not mutate source items", () => {
+  const sourceItems = [
+    { id: "sourced", status: "Sourced" },
+    { id: "shipped", status: "Shipped" },
+    { id: "completed", status: "Completed" },
+  ];
+  const snapshot = structuredClone(sourceItems);
+  const restored = normalizeRootAppData({ items: sourceItems }).items;
+
+  assert.deepEqual(restored.map((item) => item.status), ["Draft", "Sold", "Complete"]);
+  assert.deepEqual(sourceItems, snapshot);
 });
 
 test("personal_collection items are excluded from active stock helpers", () => {
@@ -1130,18 +1160,29 @@ test("Stock Control uses compact persisted column defaults with resizing", () =>
   assert.match(tableSource, /title=\{item\.sourceName \|\| item\.sourceLocation \|\| ""\}/);
 });
 
-test("Stock Control quick filters reuse status state and define In Stock as active unsold inventory", () => {
+test("Stock Control quick filters expose only the simplified lifecycle", () => {
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
 
-  assert.match(appSource, /inventoryStatus === "In Stock" && \(!isActiveStockItem\(item\) \|\| isSoldStatus\(item\)\)/);
   assert.match(appSource, /inStock: activeItems\.filter\(\(item\) => !isSoldStatus\(item\)\)\.length/);
-  assert.match(appSource, /readyToList: activeItems\.filter\(\(item\) => itemStatusValue\(item\) === "Ready to List"\)\.length/);
-  for (const status of ["All statuses", "In Stock", "Ready to List", "Listed", "Sold", "Shipped", "Complete", "Returned"]) {
+  assert.match(appSource, /draft: activeItems\.filter\(\(item\) => itemStatusValue\(item\) === "Draft"\)\.length/);
+  for (const status of ["All statuses", "Draft", "Listed", "Sold", "Complete", "Returned", "Personal Collection"]) {
     assert.match(tableSource, new RegExp(status));
   }
+  for (const removedStatus of ["In Stock", "Ready to List", "Shipped"]) assert.equal(tableSource.includes(`["${removedStatus}", "${removedStatus}"`), false);
   assert.match(tableSource, /onClick=\{\(\) => onSetInventoryStatus\(status\)\}/);
   assert.doesNotMatch(tableSource, /onClick=\{\(\) => onUpdateItemField\([^)]*status/);
+});
+
+test("Item Editor keeps intake statuses separate from Sales Hub completion", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /\["Draft", "Listed"\]\.includes\(itemStatusValue\(form\)\)/);
+  assert.match(source, /Manage post-sale status in Sales Hub\./);
+  assert.match(source, /const salesStatusOptions = \["Sold", "Complete", "Returned"\];/);
+  assert.match(source, /updateItemField\(salesEditItem\.id, "status", e\.target\.value\)/);
+  assert.doesNotMatch(source, /const salesStatusOptions = \[[^\]]*"Shipped"/);
+  assert.match(source, /soldComplete: activeItems\.filter\(\(item\) => \["Sold", "Complete"\]\.includes\(itemStatusValue\(item\)\)\)\.length/);
 });
 
 test("Stock Control filtered summary derives from displayed rows with existing helpers", () => {

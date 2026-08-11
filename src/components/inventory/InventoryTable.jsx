@@ -20,7 +20,6 @@ function proofClass(label) {
 function statusClass(status) {
   if (["Sold", "Complete"].includes(status)) return "border-lime-200 bg-lime-50 text-lime-800";
   if (status === "Listed") return "border-amber-200 bg-amber-50 text-amber-900";
-  if (status === "Shipped") return "border-teal-200 bg-teal-50 text-teal-800";
   if (status === "Returned") return "border-red-200 bg-red-50 text-red-700";
   return "border-stone-200 bg-white text-stone-700";
 }
@@ -108,8 +107,8 @@ export function InventoryTable({
             </label>
             <select aria-label="Filter stock by status" value={inventoryStatus} onChange={(event) => onSetInventoryStatus(event.target.value)} className="h-9 rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-700 outline-none focus:border-[#b7412e]/40">
               <option>All statuses</option>
-              <option>In Stock</option>
               {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
+              <option value="personal_collection">Personal Collection</option>
             </select>
           </div>
         </div>
@@ -144,11 +143,9 @@ export function InventoryTable({
         <div className="flex flex-wrap gap-1.5">
           {[
             ["All", "All statuses", stockQuickFilterCounts.all],
-            ["In Stock", "In Stock", stockQuickFilterCounts.inStock],
-            ["Ready to List", "Ready to List", stockQuickFilterCounts.readyToList],
+            ["Draft", "Draft", stockQuickFilterCounts.draft],
             ["Listed", "Listed", stockQuickFilterCounts.listed],
             ["Sold", "Sold", stockQuickFilterCounts.sold],
-            ["Shipped", "Shipped", stockQuickFilterCounts.shipped],
             ["Complete", "Complete", stockQuickFilterCounts.complete],
             ["Returned", "Returned", stockQuickFilterCounts.returned],
           ].map(([label, status, count]) => {
@@ -195,7 +192,13 @@ export function InventoryTable({
                           <td className="overflow-hidden px-1.5 py-1" style={{ width: stockColumnWidths.item }}><button type="button" onClick={() => onEditItem(item)} className="block w-full truncate text-left font-semibold text-stone-950 hover:text-[#b7412e] hover:underline" title={item.name || "Untitled item"}>{item.name || "Untitled item"}</button></td>
                           <td className="whitespace-nowrap px-1 py-0.5" style={{ width: stockColumnWidths.date }}><input type="date" value={item.purchaseDate || ""} onChange={(event) => onUpdateItemField(item.id, "purchaseDate", event.target.value)} className={inputClass} /></td>
                           <td className="whitespace-nowrap px-1 py-0.5" style={{ width: stockColumnWidths.purchase }}><input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(event) => onUpdateItemField(item.id, "purchasePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
-                          <td className="whitespace-nowrap px-1 py-0.5" style={{ width: stockColumnWidths.status }}><select value={item.status || "Draft"} onChange={(event) => onUpdateItemField(item.id, "status", event.target.value)} className={`${inputClass} border ${statusClass(item.status)}`}>{statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></td>
+                          <td className="whitespace-nowrap px-1 py-0.5" style={{ width: stockColumnWidths.status }}>
+                            {statusOptions.includes(item.status || "Draft") ? (
+                              <select value={item.status || "Draft"} onChange={(event) => onUpdateItemField(item.id, "status", event.target.value)} className={`${inputClass} border ${statusClass(item.status)}`}>{statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select>
+                            ) : (
+                              <span className={`block truncate rounded-md border px-1.5 py-1 text-[11px] font-semibold ${statusClass(item.status)}`} title={statusLabel(item.status)}>{statusLabel(item.status)}</span>
+                            )}
+                          </td>
                           <td className="overflow-hidden px-1 py-0.5" style={{ width: stockColumnWidths.source }}><input value={item.sourceName || item.sourceLocation || ""} onChange={(event) => onUpdateItemField(item.id, "sourceName", event.target.value)} className={`${inputClass} truncate`} placeholder="Source" title={item.sourceName || item.sourceLocation || ""} /></td>
                           <td className="whitespace-nowrap px-1.5 py-1" style={{ width: stockColumnWidths.proof }}><span className={`inline-flex max-w-full truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold ${proofClass(documentLabel)}`}>{documentLabel}</span></td>
                           <td className="whitespace-nowrap px-1.5 py-1 text-right tabular-nums text-stone-700" style={{ width: stockColumnWidths.listed }}>{money(expectedListingValue(item))}</td>

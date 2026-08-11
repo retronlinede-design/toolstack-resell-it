@@ -267,8 +267,7 @@ function statusBadgeClass(item) {
   const status = itemStatus(item);
   if (status === "Complete") return "bg-lime-100 text-lime-800 border-lime-200";
   if (status === "Sold") return "bg-[#e06b2c]/15 text-[#8a3915] border-[#e06b2c]/25";
-  if (status === "Shipped") return "bg-[#1f9d99]/15 text-[#0f5f5b] border-[#1f9d99]/25";
-  if (status === "Ready to List" || status === "Listed") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
+  if (status === "Listed") return "bg-[#f0be45]/25 text-[#6f4e05] border-[#f0be45]/35";
   if (status === "Returned") return "bg-red-50 text-red-700 border-red-200";
   return "bg-stone-100 text-stone-700 border-stone-200";
 }
@@ -879,7 +878,6 @@ export default function ResellerItApp() {
     setStockSection(section);
     setInventoryIssueFilter(issueFilter);
     setInventoryStatus(status);
-    if (section === "readyToList") setInventoryStatus("Ready to List");
   }
 
   function openSalesQueue(panel = null) {
@@ -1225,7 +1223,7 @@ export default function ResellerItApp() {
       totalItems: items.length,
       inStock: inStockItems.length,
       listed: activeItems.filter((item) => itemStatusValue(item) === "Listed").length,
-      soldComplete: items.filter(isSoldStatus).length,
+      soldComplete: activeItems.filter((item) => ["Sold", "Complete"].includes(itemStatusValue(item))).length,
       stockCost: inStockItems.reduce((sum, item) => sum + number(item.purchasePrice), 0),
     };
   }, [items]);
@@ -1235,10 +1233,9 @@ export default function ResellerItApp() {
     return {
       all: activeItems.length,
       inStock: activeItems.filter((item) => !isSoldStatus(item)).length,
-      readyToList: activeItems.filter((item) => itemStatusValue(item) === "Ready to List").length,
+      draft: activeItems.filter((item) => itemStatusValue(item) === "Draft").length,
       listed: activeItems.filter((item) => itemStatusValue(item) === "Listed").length,
       sold: activeItems.filter((item) => itemStatusValue(item) === "Sold").length,
-      shipped: activeItems.filter((item) => itemStatusValue(item) === "Shipped").length,
       complete: activeItems.filter((item) => itemStatusValue(item) === "Complete").length,
       returned: activeItems.filter((item) => itemStatusValue(item) === "Returned").length,
     };
@@ -1248,7 +1245,7 @@ export default function ResellerItApp() {
 
   const todayWorkflow = useMemo(() => ({
     toResearch: activeStockItems.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
-    readyToList: activeStockItems.filter((item) => itemStatusValue(item) === "Ready to List"),
+    readyToList: activeStockItems.filter((item) => !isSoldStatus(item) && listingReadiness(item) === "Ready"),
     soldNotShipped: activeStockItems.filter((item) => itemStatusValue(item) === "Sold"),
     missingProof: activeStockItems.filter(needsProofRecord),
     needsListing: activeStockItems.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
@@ -1263,7 +1260,6 @@ export default function ResellerItApp() {
       problemItems: salesItems.filter((item) => itemStatusValue(item) === "Returned"),
       counts: {
         Sold: salesItems.filter((item) => itemStatusValue(item) === "Sold").length,
-        Shipped: salesItems.filter((item) => itemStatusValue(item) === "Shipped").length,
         Complete: salesItems.filter((item) => itemStatusValue(item) === "Complete").length,
         Returned: salesItems.filter((item) => itemStatusValue(item) === "Returned").length,
       },
@@ -1276,7 +1272,7 @@ export default function ResellerItApp() {
       missingSaleDate: salesItems.filter((item) => !item.saleDate),
       missingFinalSalePrice: salesItems.filter((item) => !finalSaleValue(item)),
       missingPlatformFees: salesItems.filter((item) => (item.buyerPlatform || "ebay") === "ebay" && !platformFees(item)),
-      missingActualShippingCost: salesItems.filter((item) => !actualShippingValue(item) && (shippingChargedValue(item) || itemStatusValue(item) === "Shipped" || item.shippedDate)),
+      missingActualShippingCost: salesItems.filter((item) => !actualShippingValue(item) && (shippingChargedValue(item) || item.shippedDate)),
       missingRefundReason: salesItems.filter((item) => number(item.refundAmount) > 0 && !String(item.refundReason || "").trim()),
     };
   }, [activeStockItems]);
@@ -1297,11 +1293,11 @@ export default function ResellerItApp() {
     const fees = monthlySales.reduce((sum, item) => sum + platformFees(item) + actualShippingValue(item), 0);
     const profit = monthlySales.reduce((sum, item) => sum + itemProfitValue(item), 0);
     const expenseTotal = monthlyExpenses.reduce((sum, expense) => sum + number(expense.amount), 0);
-    const packedOrShippedToday = activeStockItems.filter((item) => itemStatusValue(item) === "Shipped" && item.shippedDate === CURRENT_DATE);
+    const packedOrShippedToday = activeStockItems.filter((item) => item.shippedDate === CURRENT_DATE);
     return {
       stock: {
         inventoryValue: activeStockItems.filter((item) => !isSoldStatus(item)).reduce((sum, item) => sum + number(item.purchasePrice), 0),
-        readyToList: activeStockItems.filter((item) => itemStatusValue(item) === "Ready to List").length,
+        readyToList: activeStockItems.filter((item) => !isSoldStatus(item) && listingReadiness(item) === "Ready").length,
         missingProof: activeStockItems.filter(needsProofRecord).length,
         recentSourcing: activeStockItems.filter((item) => inMonth(item.purchaseDate)).length,
       },
@@ -1395,14 +1391,14 @@ export default function ResellerItApp() {
   const nextWorkflowStep = workflowSections[activeWorkflowIndex + 1];
   const activeItemFormMode = activeWorkflowSection === "listing" ? "listing" : "inventory";
   const salesEditItem = salesEditItemId ? items.find((item) => item.id === salesEditItemId) : null;
-  const salesStatusOptions = ["Sold", "Shipped", "Complete", "Returned"];
+  const salesStatusOptions = ["Sold", "Complete", "Returned"];
 
   const stockSectionItems = useMemo(() => {
     if (stockSection === "needsAttention") {
       return inventoryManagerItems.filter((item) => isActiveStockItem(item) && (needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION));
     }
     if (stockSection === "readyToList") {
-      return inventoryManagerItems.filter((item) => isActiveStockItem(item) && itemStatusValue(item) === "Ready to List");
+      return inventoryManagerItems.filter((item) => isActiveStockItem(item) && !isSoldStatus(item) && listingReadiness(item) === "Ready");
     }
     return inventoryManagerItems;
   }, [inventoryManagerItems, stockSection]);
@@ -1530,7 +1526,7 @@ export default function ResellerItApp() {
     needsProof: activeStockItems.filter(needsProofRecord),
     needsResearch: activeStockItems.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
     needsListing: activeStockItems.filter((item) => !hasListingDraft(item) && !isSoldStatus(item)),
-    readyToList: activeStockItems.filter((item) => itemStatusValue(item) === "Ready to List"),
+    readyToList: activeStockItems.filter((item) => !isSoldStatus(item) && listingReadiness(item) === "Ready"),
     needsShipping: activeStockItems.filter((item) => itemStatusValue(item) === "Sold"),
     needsTaxReview: activeStockItems.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION),
   }), [activeStockItems]);
@@ -1558,8 +1554,8 @@ export default function ResellerItApp() {
     const nextItems = (() => {
       if (activeTab === "dashboard") return [];
       if (activeTab === "stock" && stockSection === "needsAttention") return activeStockItems.filter((item) => needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
-      if (activeTab === "stock" && stockSection === "readyToList") return activeStockItems.filter((item) => itemStatusValue(item) === "Ready to List");
-      if (activeTab === "sales") return activeStockItems.filter((item) => ["Sold", "Shipped", "Complete", "Returned"].includes(itemStatusValue(item)) || isSoldStatus(item));
+      if (activeTab === "stock" && stockSection === "readyToList") return activeStockItems.filter((item) => !isSoldStatus(item) && listingReadiness(item) === "Ready");
+      if (activeTab === "sales") return activeStockItems.filter((item) => ["Sold", "Complete", "Returned"].includes(itemStatusValue(item)) || isSoldStatus(item));
       if (activeTab === "finance" && financeSection === "taxRecords") return activeStockItems.filter((item) => needsProofRecord(item) || needsEigenbeleg(item) || itemClassification(item) === DEFAULT_CLASSIFICATION);
       return items;
     })();
@@ -1938,10 +1934,17 @@ export default function ResellerItApp() {
                     <Input label="Location" value={form.sourceLocation} onChange={(e) => setForm({ ...form, sourceLocation: e.target.value })} />
                     <Input label="Purchase date" type="date" value={form.purchaseDate} onChange={(e) => setForm({ ...form, purchaseDate: e.target.value })} />
                     <Input label="Purchase price EUR" value={form.purchasePrice} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
-                    <Select label="Status" value={form.status || "Draft"} onChange={(e) => setForm({ ...form, status: e.target.value })}>
-                      {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
-                      {form.status && !statusOptions.includes(form.status) && <option>{form.status}</option>}
-                    </Select>
+                    {["Draft", "Listed"].includes(itemStatusValue(form)) ? (
+                      <Select label="Status" value={itemStatusValue(form)} onChange={(e) => setForm({ ...form, status: e.target.value })}>
+                        <option>Draft</option><option>Listed</option>
+                      </Select>
+                    ) : (
+                      <div className="rounded-xl border border-stone-200 bg-stone-50 px-3 py-2">
+                        <p className="text-xs font-semibold text-stone-600">Status</p>
+                        <p className="mt-1 text-sm font-semibold text-stone-900">{itemStatus(form)}</p>
+                        <p className="mt-1 text-xs text-stone-500">Manage post-sale status in Sales Hub.</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
