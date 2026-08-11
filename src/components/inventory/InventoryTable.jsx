@@ -30,6 +30,8 @@ export function InventoryTable({
   stockTimelineItems,
   stockTimelineGroups,
   stockDashboard,
+  stockQuickFilterCounts,
+  stockTimelineTotals,
   stockTableWidth,
   visibleStockColumnKeys,
   stockColumnWidths,
@@ -71,7 +73,7 @@ export function InventoryTable({
 }) {
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [moreFiltersOpen, setMoreFiltersOpen] = useState(false);
-  const inputClass = "h-8 w-full rounded-md border border-transparent bg-transparent px-1.5 text-xs text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/35 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
+  const inputClass = "h-7 w-full rounded-md border border-transparent bg-transparent px-1 text-xs text-stone-900 outline-none hover:border-stone-200 hover:bg-white focus:border-[#b7412e]/35 focus:bg-white focus:ring-1 focus:ring-[#b7412e]/15";
 
   return (
     <div className="min-w-0 space-y-3">
@@ -106,6 +108,7 @@ export function InventoryTable({
             </label>
             <select aria-label="Filter stock by status" value={inventoryStatus} onChange={(event) => onSetInventoryStatus(event.target.value)} className="h-9 rounded-lg border border-stone-200 bg-white px-3 text-sm text-stone-700 outline-none focus:border-[#b7412e]/40">
               <option>All statuses</option>
+              <option>In Stock</option>
               {statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}
             </select>
           </div>
@@ -137,6 +140,27 @@ export function InventoryTable({
         )}
       </section>
 
+      <section className="rounded-2xl border border-stone-200 bg-white px-3 py-2.5 shadow-sm">
+        <div className="flex flex-wrap gap-1.5">
+          {[
+            ["All", "All statuses", stockQuickFilterCounts.all],
+            ["In Stock", "In Stock", stockQuickFilterCounts.inStock],
+            ["Ready to List", "Ready to List", stockQuickFilterCounts.readyToList],
+            ["Listed", "Listed", stockQuickFilterCounts.listed],
+            ["Sold", "Sold", stockQuickFilterCounts.sold],
+            ["Shipped", "Shipped", stockQuickFilterCounts.shipped],
+            ["Complete", "Complete", stockQuickFilterCounts.complete],
+            ["Returned", "Returned", stockQuickFilterCounts.returned],
+          ].map(([label, status, count]) => {
+            const active = inventoryStatus === status;
+            return <button key={status} type="button" onClick={() => onSetInventoryStatus(status)} className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${active ? "border-[#b7412e] bg-[#b7412e] text-white" : "border-stone-200 bg-white text-stone-600 hover:border-[#b7412e]/30 hover:bg-[#fff8ea]"}`}>{label} <span className={active ? "text-white/75" : "text-stone-400"}>{count}</span></button>;
+          })}
+        </div>
+        <p className="mt-2 text-xs font-medium text-stone-600">
+          {stockTimelineTotals.itemCount} items <span className="text-stone-300">·</span> Cost {money(stockTimelineTotals.purchaseTotal)} <span className="text-stone-300">·</span> Listed {money(stockTimelineTotals.listedTotal)} <span className="text-stone-300">·</span> Sold {money(stockTimelineTotals.soldTotal)} <span className="text-stone-300">·</span> Profit {money(stockTimelineTotals.profitTotal)}
+        </p>
+      </section>
+
       <section className="min-w-0 overflow-hidden rounded-2xl border border-stone-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-stone-200 px-3 py-2">
           <div>
@@ -149,11 +173,11 @@ export function InventoryTable({
         {stockTimelineItems.length === 0 ? (
           <p className="p-6 text-sm text-stone-600">No stock items match the current filters.</p>
         ) : (
-          <div className="w-full overflow-x-auto">
+          <div className="max-h-[65vh] w-full overflow-auto">
             <table className="table-fixed border-collapse text-left text-xs" style={{ width: "100%", minWidth: stockTableWidth }}>
               <colgroup>{visibleStockColumnKeys.map((key) => <col key={key} style={{ width: stockColumnWidths[key] }} />)}</colgroup>
-              <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
-                <tr className="border-b border-stone-200">
+              <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500 shadow-[0_1px_0_rgba(120,113,108,0.22)]">
+                <tr className="border-b border-stone-300">
                   {[
                     ["item", "Item"], ["date", "Purchased"], ["purchase", "Cost"], ["status", "Status"], ["source", "Source"], ["proof", "Document / Proof"], ["listed", "Listed Price"], ["sold", "Sold Price"], ["profit", "Profit"], ["edit", "Action"],
                   ].map(([key, label]) => <th key={key} className={`relative whitespace-nowrap px-1.5 py-2 font-semibold ${["purchase", "listed", "sold", "profit"].includes(key) ? "text-right" : key === "edit" ? "text-center" : ""}`} style={{ width: stockColumnWidths[key] }}><span className="block truncate pr-1">{label}</span>{stockResizeHandle(key)}</th>)}
@@ -168,16 +192,16 @@ export function InventoryTable({
                       const documentLabel = proofLabel(item);
                       return (
                         <tr key={item.id} className="border-b border-stone-100 last:border-0 hover:bg-[#fffaf0]">
-                          <td className="overflow-hidden px-1.5 py-1.5" style={{ width: stockColumnWidths.item }}><button type="button" onClick={() => onEditItem(item)} className="block w-full truncate text-left font-semibold text-stone-950 hover:text-[#b7412e] hover:underline" title={item.name || "Untitled item"}>{item.name || "Untitled item"}</button></td>
-                          <td className="whitespace-nowrap px-1 py-1" style={{ width: stockColumnWidths.date }}><input type="date" value={item.purchaseDate || ""} onChange={(event) => onUpdateItemField(item.id, "purchaseDate", event.target.value)} className={inputClass} /></td>
-                          <td className="whitespace-nowrap px-1 py-1" style={{ width: stockColumnWidths.purchase }}><input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(event) => onUpdateItemField(item.id, "purchasePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
-                          <td className="whitespace-nowrap px-1 py-1" style={{ width: stockColumnWidths.status }}><select value={item.status || "Draft"} onChange={(event) => onUpdateItemField(item.id, "status", event.target.value)} className={`${inputClass} border ${statusClass(item.status)}`}>{statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></td>
-                          <td className="overflow-hidden px-1 py-1" style={{ width: stockColumnWidths.source }}><input value={item.sourceName || item.sourceLocation || ""} onChange={(event) => onUpdateItemField(item.id, "sourceName", event.target.value)} className={`${inputClass} truncate`} placeholder="Source" title={item.sourceName || item.sourceLocation || ""} /></td>
-                          <td className="whitespace-nowrap px-1.5 py-1.5" style={{ width: stockColumnWidths.proof }}><span className={`inline-flex max-w-full truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold ${proofClass(documentLabel)}`}>{documentLabel}</span></td>
-                          <td className="whitespace-nowrap px-1.5 py-1.5 text-right tabular-nums text-stone-700" style={{ width: stockColumnWidths.listed }}>{money(expectedListingValue(item))}</td>
-                          <td className="whitespace-nowrap px-1 py-1" style={{ width: stockColumnWidths.sold }}><input type="number" step="0.01" value={item.finalSalePrice || ""} onChange={(event) => onUpdateItemField(item.id, "finalSalePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
-                          <td className={`whitespace-nowrap px-1.5 py-1.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`} style={{ width: stockColumnWidths.profit }}>{sold ? money(itemProfitValue(item)) : "–"}</td>
-                          <td className="whitespace-nowrap px-1 py-1 text-center" style={{ width: stockColumnWidths.edit }}>
+                          <td className="overflow-hidden px-1.5 py-1" style={{ width: stockColumnWidths.item }}><button type="button" onClick={() => onEditItem(item)} className="block w-full truncate text-left font-semibold text-stone-950 hover:text-[#b7412e] hover:underline" title={item.name || "Untitled item"}>{item.name || "Untitled item"}</button></td>
+                          <td className="whitespace-nowrap px-1 py-0.5" style={{ width: stockColumnWidths.date }}><input type="date" value={item.purchaseDate || ""} onChange={(event) => onUpdateItemField(item.id, "purchaseDate", event.target.value)} className={inputClass} /></td>
+                          <td className="whitespace-nowrap px-1 py-0.5" style={{ width: stockColumnWidths.purchase }}><input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(event) => onUpdateItemField(item.id, "purchasePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
+                          <td className="whitespace-nowrap px-1 py-0.5" style={{ width: stockColumnWidths.status }}><select value={item.status || "Draft"} onChange={(event) => onUpdateItemField(item.id, "status", event.target.value)} className={`${inputClass} border ${statusClass(item.status)}`}>{statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></td>
+                          <td className="overflow-hidden px-1 py-0.5" style={{ width: stockColumnWidths.source }}><input value={item.sourceName || item.sourceLocation || ""} onChange={(event) => onUpdateItemField(item.id, "sourceName", event.target.value)} className={`${inputClass} truncate`} placeholder="Source" title={item.sourceName || item.sourceLocation || ""} /></td>
+                          <td className="whitespace-nowrap px-1.5 py-1" style={{ width: stockColumnWidths.proof }}><span className={`inline-flex max-w-full truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold ${proofClass(documentLabel)}`}>{documentLabel}</span></td>
+                          <td className="whitespace-nowrap px-1.5 py-1 text-right tabular-nums text-stone-700" style={{ width: stockColumnWidths.listed }}>{money(expectedListingValue(item))}</td>
+                          <td className="whitespace-nowrap px-1 py-0.5" style={{ width: stockColumnWidths.sold }}><input type="number" step="0.01" value={item.finalSalePrice || ""} onChange={(event) => onUpdateItemField(item.id, "finalSalePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
+                          <td className={`whitespace-nowrap px-1.5 py-1 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`} style={{ width: stockColumnWidths.profit }}>{sold ? money(itemProfitValue(item)) : "–"}</td>
+                          <td className="whitespace-nowrap px-1 py-0.5 text-center" style={{ width: stockColumnWidths.edit }}>
                             <details className="relative inline-block text-left">
                               <summary aria-label={`Actions for ${item.name || "item"}`} title="Actions" className="inline-flex h-7 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-stone-200 bg-white text-stone-600 hover:bg-stone-50"><MoreHorizontal size={14} /></summary>
                               <div className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">

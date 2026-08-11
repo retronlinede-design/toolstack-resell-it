@@ -1230,6 +1230,20 @@ export default function ResellerItApp() {
     };
   }, [items]);
 
+  const stockQuickFilterCounts = useMemo(() => {
+    const activeItems = items.filter(isActiveStockItem);
+    return {
+      all: activeItems.length,
+      inStock: activeItems.filter((item) => !isSoldStatus(item)).length,
+      readyToList: activeItems.filter((item) => itemStatusValue(item) === "Ready to List").length,
+      listed: activeItems.filter((item) => itemStatusValue(item) === "Listed").length,
+      sold: activeItems.filter((item) => itemStatusValue(item) === "Sold").length,
+      shipped: activeItems.filter((item) => itemStatusValue(item) === "Shipped").length,
+      complete: activeItems.filter((item) => itemStatusValue(item) === "Complete").length,
+      returned: activeItems.filter((item) => itemStatusValue(item) === "Returned").length,
+    };
+  }, [items]);
+
   const activeStockItems = useMemo(() => items.filter(isActiveStockItem), [items]);
 
   const todayWorkflow = useMemo(() => ({
@@ -1313,7 +1327,8 @@ export default function ResellerItApp() {
       if (query && !searchText.includes(query)) return false;
       if (!isActiveStockItem(item) && !query && inventoryStatus !== "personal_collection") return false;
       if (inventoryClassification !== "All classifications" && itemClassification(item) !== inventoryClassification) return false;
-      if (inventoryStatus !== "All statuses" && itemStatusValue(item) !== inventoryStatus) return false;
+      if (inventoryStatus === "In Stock" && (!isActiveStockItem(item) || isSoldStatus(item))) return false;
+      if (inventoryStatus !== "All statuses" && inventoryStatus !== "In Stock" && itemStatusValue(item) !== inventoryStatus) return false;
       if (inventoryCategory !== "All categories" && item.category !== inventoryCategory) return false;
       if (inventoryIssueFilter === "Missing proof" && !needsProofRecord(item)) return false;
       if (inventoryIssueFilter === "Needs attention" && !(needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION)) return false;
@@ -1353,6 +1368,7 @@ export default function ResellerItApp() {
   const stockTimelineTotals = useMemo(() => ({
     itemCount: stockTimelineItems.length,
     purchaseTotal: stockTimelineItems.reduce((sum, item) => sum + number(item.purchasePrice), 0),
+    listedTotal: stockTimelineItems.reduce((sum, item) => sum + expectedListingValue(item), 0),
     soldTotal: stockTimelineItems.filter(isSoldStatus).reduce((sum, item) => sum + finalSaleValue(item), 0),
     profitTotal: stockTimelineItems.filter(isSoldStatus).reduce((sum, item) => sum + itemProfitValue(item), 0),
     unsoldCount: stockTimelineItems.filter((item) => !isSoldStatus(item)).length,
@@ -2481,6 +2497,8 @@ export default function ResellerItApp() {
               stockTimelineItems={stockTimelineItems}
               stockTimelineGroups={stockTimelineGroups}
               stockDashboard={stockDashboard}
+              stockQuickFilterCounts={stockQuickFilterCounts}
+              stockTimelineTotals={stockTimelineTotals}
               stockTimelineTotals={stockTimelineTotals}
               stockTableWidth={stockTableWidth}
               visibleStockColumnKeys={visibleStockColumnKeys}

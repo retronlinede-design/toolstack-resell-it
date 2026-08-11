@@ -1130,6 +1130,44 @@ test("Stock Control uses compact persisted column defaults with resizing", () =>
   assert.match(tableSource, /title=\{item\.sourceName \|\| item\.sourceLocation \|\| ""\}/);
 });
 
+test("Stock Control quick filters reuse status state and define In Stock as active unsold inventory", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /inventoryStatus === "In Stock" && \(!isActiveStockItem\(item\) \|\| isSoldStatus\(item\)\)/);
+  assert.match(appSource, /inStock: activeItems\.filter\(\(item\) => !isSoldStatus\(item\)\)\.length/);
+  assert.match(appSource, /readyToList: activeItems\.filter\(\(item\) => itemStatusValue\(item\) === "Ready to List"\)\.length/);
+  for (const status of ["All statuses", "In Stock", "Ready to List", "Listed", "Sold", "Shipped", "Complete", "Returned"]) {
+    assert.match(tableSource, new RegExp(status));
+  }
+  assert.match(tableSource, /onClick=\{\(\) => onSetInventoryStatus\(status\)\}/);
+  assert.doesNotMatch(tableSource, /onClick=\{\(\) => onUpdateItemField\([^)]*status/);
+});
+
+test("Stock Control filtered summary derives from displayed rows with existing helpers", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /itemCount: stockTimelineItems\.length/);
+  assert.match(appSource, /purchaseTotal: stockTimelineItems\.reduce\(\(sum, item\) => sum \+ number\(item\.purchasePrice\), 0\)/);
+  assert.match(appSource, /listedTotal: stockTimelineItems\.reduce\(\(sum, item\) => sum \+ expectedListingValue\(item\), 0\)/);
+  assert.match(appSource, /soldTotal: stockTimelineItems\.filter\(isSoldStatus\)\.reduce\(\(sum, item\) => sum \+ finalSaleValue\(item\), 0\)/);
+  assert.match(appSource, /profitTotal: stockTimelineItems\.filter\(isSoldStatus\)\.reduce\(\(sum, item\) => sum \+ itemProfitValue\(item\), 0\)/);
+  assert.match(tableSource, /Cost \{money\(stockTimelineTotals\.purchaseTotal\)\}/);
+  assert.match(tableSource, /Listed \{money\(stockTimelineTotals\.listedTotal\)\}/);
+  assert.match(tableSource, /Sold \{money\(stockTimelineTotals\.soldTotal\)\}/);
+  assert.match(tableSource, /Profit \{money\(stockTimelineTotals\.profitTotal\)\}/);
+});
+
+test("Stock Control stock-register header is sticky inside its own scroll area", () => {
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  assert.match(tableSource, /className="max-h-\[65vh\] w-full overflow-auto"/);
+  assert.match(tableSource, /<thead className="sticky top-0 z-10 bg-\[#fff8ea\]/);
+  assert.match(tableSource, /shadow-\[0_1px_0_rgba\(120,113,108,0\.22\)\]/);
+  assert.match(tableSource, /stockResizeHandle\(key\)/);
+});
+
 test("duplicate draft clears sale, shipping, refund, fee, tracking, platform fields", () => {
   const duplicate = duplicateItemForDraft({
     name: "Sold item",
