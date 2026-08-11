@@ -13,7 +13,6 @@ export const CANONICAL_ALIAS_PAIRS = [
   { key: "researchedMidPrice", legacyPath: "researchedMidPrice", canonicalPath: "priceResearchMid", numeric: true },
   { key: "researchedHighPrice", legacyPath: "researchedHighPrice", canonicalPath: "priceResearchHigh", numeric: true },
   { key: "priceResearchNotes", legacyPath: "priceResearchNotes", canonicalPath: "researchNotes" },
-  { key: "chosenListingPrice", legacyPath: "chosenListingPrice", canonicalPath: "suggestedListingPrice", numeric: true },
 ];
 
 const CLASSIFICATION_ALIGNMENT = {
@@ -68,10 +67,10 @@ function auditClassification(items) {
       classificationOnly: 0,
       sellerClassificationOnly: 0,
       aligned: 0,
-      conflicting: 0,
+      differentClassification: 0,
       reviewRequired: 0,
     },
-    conflicts: [],
+    differentClassification: [],
     reviewRequired: [],
   };
 
@@ -88,17 +87,17 @@ function auditClassification(items) {
     else {
       const expectedSellerClassification = CLASSIFICATION_ALIGNMENT[classification];
       if (!expectedSellerClassification) classificationResult = "reviewRequired";
-      else classificationResult = expectedSellerClassification === sellerClassification ? "aligned" : "conflicting";
+      else classificationResult = expectedSellerClassification === sellerClassification ? "aligned" : "differentClassification";
     }
 
     result.counts[classificationResult] += 1;
-    if (classificationResult === "conflicting" || classificationResult === "reviewRequired") {
+    if (classificationResult === "differentClassification" || classificationResult === "reviewRequired") {
       const entry = {
         ...itemIdentity(item, index),
         classification,
         sellerClassification,
       };
-      const detailList = classificationResult === "conflicting" ? result.conflicts : result.reviewRequired;
+      const detailList = classificationResult === "differentClassification" ? result.differentClassification : result.reviewRequired;
       detailList.push(entry);
     }
   });

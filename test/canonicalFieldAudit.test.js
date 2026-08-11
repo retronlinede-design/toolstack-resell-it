@@ -133,14 +133,13 @@ test("numeric aliases compare values rather than string formatting", () => {
     "researchedLowPrice",
     "researchedMidPrice",
     "researchedHighPrice",
-    "chosenListingPrice",
   ]) {
     assert.equal(audit.pairs[key].counts.equal, 1, `${key} should be numerically equal`);
     assert.equal(audit.pairs[key].counts.conflicting, 0);
   }
 });
 
-test("classification disagreements are separate from alias conflicts", () => {
+test("classification differences are separate consistency reviews, not alias conflicts", () => {
   const audit = auditCanonicalFieldConflicts([
     legacyOnly,
     canonicalOnly,
@@ -154,11 +153,20 @@ test("classification disagreements are separate from alias conflicts", () => {
     classificationOnly: 0,
     sellerClassificationOnly: 0,
     aligned: 2,
-    conflicting: 1,
+    differentClassification: 1,
     reviewRequired: 1,
   });
-  assert.equal(audit.classification.conflicts[0].itemId, "conflict-1");
+  assert.equal(audit.classification.differentClassification[0].itemId, "conflict-1");
   assert.equal(audit.classification.reviewRequired[0].itemId, "review-1");
+});
+
+test("chosen and suggested listing prices are not audited as aliases", () => {
+  const item = { chosenListingPrice: "25", suggestedListingPrice: "30" };
+  const audit = auditCanonicalFieldConflicts([item]);
+
+  assert.equal(CANONICAL_ALIAS_PAIRS.length, 12);
+  assert.equal(audit.pairs.chosenListingPrice, undefined);
+  assert.deepEqual(item, { chosenListingPrice: "25", suggestedListingPrice: "30" });
 });
 
 test("stored-data adapter reads current items without writing storage", () => {

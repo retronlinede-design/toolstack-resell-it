@@ -65,7 +65,7 @@ export {
 } from "./resellitSchema.js";
 
 export function finalSaleValue(item) {
-  return number(item.finalSalePrice || item.salePrice);
+  return number(item.finalSalePrice);
 }
 
 export function shippingChargedValue(item) {

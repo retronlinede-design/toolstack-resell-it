@@ -375,8 +375,17 @@ export function ebayConditionText(item) {
   return String(item?.ebay?.conditionText ?? item?.conditionText ?? "");
 }
 
+export function migrateLegacySalePrice(item) {
+  const source = item && typeof item === "object" ? item : {};
+  const hasLegacySalePrice = source.salePrice !== undefined && source.salePrice !== null && String(source.salePrice).trim() !== "";
+  const hasFinalSalePrice = source.finalSalePrice !== undefined && source.finalSalePrice !== null && String(source.finalSalePrice).trim() !== "";
+  if (hasLegacySalePrice && !hasFinalSalePrice) return { ...source, finalSalePrice: source.salePrice };
+  return source;
+}
+
 export function normalizeItem(item) {
-  const next = { ...emptyItem, ...item };
+  const migratedItem = migrateLegacySalePrice(item);
+  const next = { ...emptyItem, ...migratedItem };
   const hasLegacyFee = Boolean(next.ebayFees) && !next.manualEbayFee;
   const hasExplicitFeeMode = Boolean(item?.ebayFeeMode);
   next.language = normalizeListingLanguageValue(next);

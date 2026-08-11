@@ -30,6 +30,7 @@ import {
   isValidEvidenceRecord,
   isValidPurchaseRecord,
   itemRequiresEigenbeleg,
+  migrateLegacySalePrice,
   normalizeEigenbeleg,
   normalizeEvidenceRecord,
   normalizeItem as normalizeSchemaItem,
@@ -49,6 +50,7 @@ import {
   MAX_LEGACY_PROOF_IMAGE_BYTES,
   duplicateItemForDraft,
   ebayConditionText,
+  finalSaleValue,
   hasListingDraft,
   isActiveStockItem,
   isFullBackupPayload,
@@ -685,6 +687,58 @@ test("legacy ebayFees are preserved as legacy platform fees during normalization
   assert.equal(platformFees(item), 7.5);
 });
 
+test("legacy-only salePrice migrates to canonical finalSalePrice", () => {
+  const item = normalizeSchemaItem({ id: "legacy-sale", salePrice: "19.50" });
+  assert.equal(item.salePrice, "19.50");
+  assert.equal(item.finalSalePrice, "19.50");
+  assert.equal(finalSaleValue(item), 19.5);
+});
+
+test("canonical-only and numerically equal sale values remain stable", () => {
+  const canonicalOnly = normalizeSchemaItem({ id: "canonical-sale", finalSalePrice: "20.00" });
+  const equalValues = normalizeSchemaItem({ id: "equal-sale", salePrice: "20", finalSalePrice: "20.00" });
+
+  assert.equal(canonicalOnly.salePrice, "");
+  assert.equal(canonicalOnly.finalSalePrice, "20.00");
+  assert.equal(equalValues.salePrice, "20");
+  assert.equal(equalValues.finalSalePrice, "20.00");
+});
+
+test("conflicting sale values are preserved without overwriting canonical data", () => {
+  const item = normalizeSchemaItem({ id: "conflicting-sale", salePrice: "20", finalSalePrice: "25" });
+  assert.equal(item.salePrice, "20");
+  assert.equal(item.finalSalePrice, "25");
+  assert.equal(finalSaleValue(item), 25);
+});
+
+test("legacy sale migration is idempotent", () => {
+  const once = migrateLegacySalePrice({ id: "idempotent-sale", salePrice: "30" });
+  const twice = migrateLegacySalePrice(once);
+  assert.deepEqual(twice, once);
+});
+
+test("old backup salePrice values normalize into finalSalePrice", () => {
+  const restored = normalizeRootAppData({
+    version: 1,
+    items: [{ id: "old-backup-sale", salePrice: "42" }],
+    expenses: [],
+  });
+  assert.equal(restored.items[0].salePrice, "42");
+  assert.equal(restored.items[0].finalSalePrice, "42");
+});
+
+test("active sale writers and readers use only finalSalePrice", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+  const logicSource = readFileSync(new URL("../src/resellitLogic.js", import.meta.url), "utf8");
+
+  assert.doesNotMatch(appSource, /value=\{(?:form|salesEditItem)\.finalSalePrice \|\| (?:form|salesEditItem)\.salePrice/);
+  assert.doesNotMatch(appSource, /salePrice: e\.target\.value/);
+  assert.doesNotMatch(tableSource, /item\.salePrice/);
+  assert.match(logicSource, /return number\(item\.finalSalePrice\);/);
+  assert.doesNotMatch(logicSource, /finalSalePrice \|\| item\.salePrice/);
+});
+
 test("saleDate alone does not make an item sold", () => {
   assert.equal(isSoldStatus({ status: "Draft", saleDate: "2026-05-18" }), false);
   assert.equal(isSoldStatus({ status: "Draft", finalSalePrice: "12" }), true);
@@ -694,7 +748,7 @@ test("saleDate alone does not make an item sold", () => {
 test("sold-only performance excludes unsold inventory from profit", () => {
   const summary = summarizeSoldPerformance([
     { name: "Unsold stock", status: "Draft", purchasePrice: "100" },
-    { name: "Sold stock", status: "Sold", salePrice: "30", purchasePrice: "10" },
+    { name: "Sold stock", status: "Sold", finalSalePrice: "30", purchasePrice: "10" },
   ]);
 
   assert.equal(summary.sold, 1);
@@ -1011,20 +1065,20 @@ test("Tools Canonical Field Audit renders current item conflicts and reuses item
   assert.match(source, /pair\.counts\.canonicalOnly/);
   assert.match(source, /pair\.counts\.equal/);
   assert.match(source, /pair\.counts\.conflicting/);
-  assert.match(source, /canonicalFieldAudit\.classification\.conflicts/);
+  assert.match(source, /Classification Consistency/);
+  assert.match(source, /canonicalFieldAudit\.classification\.differentClassification/);
   assert.match(source, /canonicalFieldAudit\.classification\.reviewRequired/);
   assert.match(source, /onClick=\{\(\) => editItem\(auditedItem\)\}/);
   assert.doesNotMatch(source, /canonical_field_audit[\s\S]{0,200}persist\(/);
 });
 
-test("seller classification is exposed in editor and inventory records without calculation wiring", () => {
+test("seller classification remains accessible in the item editor without stock-sheet clutter", () => {
   const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
 
   assert.match(appSource, /<Select label="Seller mode" value=\{form\.sellerClassification \|\| "private"\}/);
   assert.match(appSource, /sellerClassificationOptions\.map/);
-  assert.match(appSource, /sellerClassificationLabel=\{sellerClassificationLabel\}/);
-  assert.match(tableSource, /sellerClassificationLabel\(item\.sellerClassification\)/);
+  assert.doesNotMatch(tableSource, /sellerClassificationLabel\(item\.sellerClassification\)/);
 });
 
 test("compliance readiness is exposed as read-only UI", () => {
@@ -1037,8 +1091,27 @@ test("compliance readiness is exposed as read-only UI", () => {
   assert.match(appSource, /complianceSummary\.needsEigenbeleg/);
   assert.match(appSource, /Generate Draft Eigenbeleg/);
   assert.match(appSource, /form\.id && isBusinessRelevant\(form\) && formTaxReadiness\.eigenbelegRequired/);
-  assert.match(tableSource, /complianceReadinessByItemId\[item\.id\]\?\.status/);
-  assert.match(tableSource, /complianceStatusLabel\(complianceStatus\)/);
+  assert.doesNotMatch(tableSource, /complianceReadinessByItemId/);
+  assert.doesNotMatch(tableSource, /complianceStatusLabel/);
+});
+
+test("Stock Control renders a compact dashboard and permanent simplified stock sheet", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  assert.match(appSource, /Track purchased stock, current status, sale outcome, and source records\./);
+  for (const label of ["Total Items", "In Stock", "Listed", "Sold / Complete", "Stock Cost"]) assert.match(tableSource, new RegExp(label.replace("/", "\\/")));
+  for (const action of ["Add Item", "Quick Add", "Issues", "More Filters"]) assert.match(tableSource, new RegExp(`> ${action}<|>${action}<`));
+  for (const column of ["Item", "Purchased", "Cost", "Status", "Source", "Document / Proof", "Listed Price", "Sold Price", "Profit", "Action"]) assert.match(tableSource, new RegExp(column.replace("/", "\\/")));
+  assert.match(tableSource, /Permanent Stock Sheet/);
+  assert.match(tableSource, /onClick=\{\(\) => onEditItem\(item\)\}/);
+  assert.match(tableSource, /onDuplicateItem\(item\)/);
+  assert.match(tableSource, /onMoveToPersonalCollection\(item\.id\)/);
+  assert.match(tableSource, /onDeleteItem\(item\.id\)/);
+  assert.match(tableSource, /onUpdateItemField\(item\.id, "purchasePrice", event\.target\.value\)/);
+  assert.match(tableSource, /onUpdateItemField\(item\.id, "finalSalePrice", event\.target\.value\)/);
+  assert.doesNotMatch(tableSource, />Seller mode</);
+  assert.doesNotMatch(tableSource, />Compliance</);
 });
 
 test("duplicate draft clears sale, shipping, refund, fee, tracking, platform fields", () => {

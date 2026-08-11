@@ -925,6 +925,11 @@ export default function ResellerItApp() {
     setToastMessage("Moved to Personal Collection.");
   }
 
+  function moveItemToPersonalCollectionById(id) {
+    updateItemStatus(id, "personal_collection");
+    setToastMessage("Moved to Personal Collection.");
+  }
+
   function saveExpense(e) {
     e.preventDefault();
     if (!expenseForm.description.trim() || !expenseForm.amount) return;
@@ -1210,6 +1215,18 @@ export default function ResellerItApp() {
     };
   }, [items]);
 
+  const stockDashboard = useMemo(() => {
+    const activeItems = items.filter(isActiveStockItem);
+    const inStockItems = activeItems.filter((item) => !isSoldStatus(item));
+    return {
+      totalItems: items.length,
+      inStock: inStockItems.length,
+      listed: activeItems.filter((item) => itemStatusValue(item) === "Listed").length,
+      soldComplete: items.filter(isSoldStatus).length,
+      stockCost: inStockItems.reduce((sum, item) => sum + number(item.purchasePrice), 0),
+    };
+  }, [items]);
+
   const activeStockItems = useMemo(() => items.filter(isActiveStockItem), [items]);
 
   const todayWorkflow = useMemo(() => ({
@@ -1296,6 +1313,7 @@ export default function ResellerItApp() {
       if (inventoryStatus !== "All statuses" && itemStatusValue(item) !== inventoryStatus) return false;
       if (inventoryCategory !== "All categories" && item.category !== inventoryCategory) return false;
       if (inventoryIssueFilter === "Missing proof" && !needsProofRecord(item)) return false;
+      if (inventoryIssueFilter === "Needs attention" && !(needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION)) return false;
       if (inventoryIssueFilter === "Missing price research" && hasPriceResearch(item)) return false;
       if (inventoryIssueFilter === "Missing listing draft" && hasListingDraft(item)) return false;
       if (inventoryIssueFilter === "Review later" && itemClassification(item) !== DEFAULT_CLASSIFICATION) return false;
@@ -1316,8 +1334,7 @@ export default function ResellerItApp() {
 
   const stockTimelineItems = useMemo(() => {
     return inventoryManagerItems
-      .filter((item) => !inventoryTimelineMonth || inMonth(item.purchaseDate, inventoryTimelineMonth))
-      .sort((a, b) => String(b.purchaseDate || "").localeCompare(String(a.purchaseDate || "")));
+      .filter((item) => !inventoryTimelineMonth || inMonth(item.purchaseDate, inventoryTimelineMonth));
   }, [inventoryManagerItems, inventoryTimelineMonth]);
 
   const stockTimelineGroups = useMemo(() => {
@@ -1693,7 +1710,7 @@ export default function ResellerItApp() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">ResellIt Workspace</p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">{activeTitle}</h1>
               </div>
-              <p className="max-w-xl text-sm text-stone-600">{activeTab === "stock" ? "Master inventory ledger for all sourced, owned, listed, and sold stock." : "Clean local workspace for stock, sales, finance, and tax-prep records."}</p>
+              <p className="max-w-xl text-sm text-stone-600">{activeTab === "stock" ? "Track purchased stock, current status, sale outcome, and source records." : "Clean local workspace for stock, sales, finance, and tax-prep records."}</p>
             </div>
           </div>
 
@@ -2078,7 +2095,7 @@ export default function ResellerItApp() {
               <Select label="Buyer platform" value={form.buyerPlatform || "ebay"} onChange={(e) => setForm({ ...form, buyerPlatform: e.target.value })}>
                 {buyerPlatformOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
               </Select>
-              <Input label="Final sale price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
+              <Input label="Final sale price EUR" value={form.finalSalePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />
               <Input label="Shipping charged to buyer EUR" value={form.shippingChargedToBuyer || ""} onChange={(e) => setForm({ ...form, shippingChargedToBuyer: e.target.value })} />
               <Input label="Actual shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value })} />
               <Input label="Packaging cost EUR" value={form.packagingCost || ""} onChange={(e) => setForm({ ...form, packagingCost: e.target.value })} />
@@ -2097,7 +2114,7 @@ export default function ResellerItApp() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-[#8a6511]">Core money</p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                   <Input label="Purchase price EUR" value={form.purchasePrice || ""} onChange={(e) => setForm({ ...form, purchasePrice: e.target.value })} />
-                  {isSoldStatus(form) && <Input label="Sold price EUR" value={form.finalSalePrice || form.salePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />}
+                  {isSoldStatus(form) && <Input label="Sold price EUR" value={form.finalSalePrice || ""} onChange={(e) => setForm({ ...form, finalSalePrice: e.target.value })} />}
                   <Input label="Shipping cost EUR" value={form.actualShippingCost || form.shippingCost || ""} onChange={(e) => setForm({ ...form, actualShippingCost: e.target.value, shippingCost: e.target.value })} />
                   <Input label="Packaging cost EUR" value={form.packagingCost || ""} onChange={(e) => setForm({ ...form, packagingCost: e.target.value })} />
                   <Input label="Platform fees EUR" value={form.manualEbayFee || form.ebayFees || ""} onChange={(e) => setForm({ ...form, manualEbayFee: e.target.value, ebayFeeMode: "Manual" })} />
@@ -2461,6 +2478,7 @@ export default function ResellerItApp() {
               items={items}
               stockTimelineItems={stockTimelineItems}
               stockTimelineGroups={stockTimelineGroups}
+              stockDashboard={stockDashboard}
               stockTimelineTotals={stockTimelineTotals}
               stockTableWidth={stockTableWidth}
               visibleStockColumnKeys={visibleStockColumnKeys}
@@ -2474,6 +2492,10 @@ export default function ResellerItApp() {
               inventoryClassification={inventoryClassification}
               inventoryStatus={inventoryStatus}
               inventoryTimelineMonth={inventoryTimelineMonth}
+              inventoryCategory={inventoryCategory}
+              inventoryIssueFilter={inventoryIssueFilter}
+              inventorySort={inventorySort}
+              categoryOptions={categoryOptions}
               classificationOptions={classificationOptions}
               complianceReadinessByItemId={complianceReadinessByItemId}
               complianceStatusLabel={taxReadinessStatusLabel}
@@ -2486,6 +2508,7 @@ export default function ResellerItApp() {
               quickProofStatus={quickProofStatus}
               needsProofRecord={needsProofRecord}
               itemProfitValue={itemProfitValue}
+              expectedListingValue={expectedListingValue}
               stockResizeHandle={stockResizeHandle}
               onOpenNewItemEditor={openNewItemEditor}
               onCreateQuickLedgerItem={createQuickLedgerItem}
@@ -2498,11 +2521,15 @@ export default function ResellerItApp() {
               onSetInventoryTimelineMonth={setInventoryTimelineMonth}
               onSetInventoryCategory={setInventoryCategory}
               onSetInventoryIssueFilter={setInventoryIssueFilter}
+              onSetInventorySort={setInventorySort}
               onSetStockViewMode={setStockViewMode}
               onResetStockColumnWidths={resetStockColumnWidths}
               onUpdateItemField={updateItemField}
               onUpdateItemProofStatus={updateItemProofStatus}
               onEditItem={editItem}
+              onDuplicateItem={duplicateItem}
+              onMoveToPersonalCollection={moveItemToPersonalCollectionById}
+              onDeleteItem={deleteItem}
             />
           )}
 
@@ -3368,7 +3395,7 @@ export default function ResellerItApp() {
                       </div>
                       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         <Input label="Sale date" type="date" value={salesEditItem.saleDate || ""} onChange={(e) => updateItemField(salesEditItem.id, "saleDate", e.target.value)} />
-                        <Input label="Final sale price EUR" value={salesEditItem.finalSalePrice || salesEditItem.salePrice || ""} onChange={(e) => updateItemFields(salesEditItem.id, { finalSalePrice: e.target.value, salePrice: e.target.value })} />
+                        <Input label="Final sale price EUR" value={salesEditItem.finalSalePrice || ""} onChange={(e) => updateItemField(salesEditItem.id, "finalSalePrice", e.target.value)} />
                         <Select label="Buyer platform" value={salesEditItem.buyerPlatform || "ebay"} onChange={(e) => updateItemField(salesEditItem.id, "buyerPlatform", e.target.value)}>
                           {buyerPlatformOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
                         </Select>
@@ -3839,17 +3866,18 @@ export default function ResellerItApp() {
                           </div>
 
                           <div className="mt-5 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                            <h4 className="text-sm font-semibold uppercase tracking-wide text-stone-700">Classification</h4>
+                            <h4 className="text-sm font-semibold uppercase tracking-wide text-stone-700">Classification Consistency</h4>
+                            <p className="mt-2 text-xs leading-5 text-stone-600">Operational classification and seller/compliance treatment are different concepts. Differences are shown for review, not as canonical-field conflicts. Seller classification affects compliance treatment and is not changed by this diagnostic.</p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {Object.entries(canonicalFieldAudit.classification.counts).map(([label, count]) => (
-                                <p key={label} className={`rounded-xl bg-white p-2 text-xs ${label === "conflicting" && count ? "font-bold text-red-700" : "text-stone-700"}`}>{label}: <strong>{count}</strong></p>
+                                <p key={label} className={`rounded-xl bg-white p-2 text-xs ${label === "differentClassification" && count ? "font-bold text-amber-800" : "text-stone-700"}`}>{label}: <strong>{count}</strong></p>
                               ))}
                             </div>
                             <div className="mt-3 space-y-2">
-                              {[...canonicalFieldAudit.classification.conflicts.map((entry) => ({ ...entry, auditResult: "Conflict" })), ...canonicalFieldAudit.classification.reviewRequired.map((entry) => ({ ...entry, auditResult: "Ambiguous / review required" }))].map((entry) => {
+                              {[...canonicalFieldAudit.classification.differentClassification.map((entry) => ({ ...entry, auditResult: "Different classification" })), ...canonicalFieldAudit.classification.reviewRequired.map((entry) => ({ ...entry, auditResult: "Review" }))].map((entry) => {
                                 const auditedItem = items[entry.itemIndex];
                                 return (
-                                  <article key={`${entry.auditResult}:${entry.itemId}:${entry.itemIndex}`} className={`rounded-xl border p-3 ${entry.auditResult === "Conflict" ? "border-red-200 bg-red-50" : "border-amber-200 bg-amber-50"}`}>
+                                  <article key={`${entry.auditResult}:${entry.itemId}:${entry.itemIndex}`} className="rounded-xl border border-amber-200 bg-amber-50 p-3">
                                     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                                       <div>
                                         <p className="text-sm font-semibold text-stone-950">{entry.itemName || "Untitled item"} — {entry.auditResult}</p>
