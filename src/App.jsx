@@ -95,17 +95,18 @@ import {
 const EBAY_IMPORTS_KEY = "toolstack.resellit.ebayImports.v1";
 const STOCK_COLUMN_WIDTHS_KEY = "resellit.stockColumnWidths.v1";
 const DEFAULT_STOCK_COLUMN_WIDTHS = {
-  date: 70,
-  item: 140,
-  status: 80,
+  date: 92,
+  item: 190,
+  status: 102,
   seller: 92,
   compliance: 104,
-  source: 90,
-  purchase: 58,
-  sold: 58,
-  profit: 60,
-  proof: 60,
-  edit: 44,
+  source: 122,
+  purchase: 72,
+  listed: 82,
+  sold: 82,
+  profit: 76,
+  proof: 92,
+  edit: 54,
 };
 const STOCK_COLUMN_LABELS = [
   ["date", "Date"],
@@ -115,6 +116,7 @@ const STOCK_COLUMN_LABELS = [
   ["compliance", "Compliance"],
   ["source", "Source"],
   ["purchase", "Purchase"],
+  ["listed", "Listed"],
   ["sold", "Sold"],
   ["profit", "Profit"],
   ["proof", "Proof"],
@@ -122,17 +124,18 @@ const STOCK_COLUMN_LABELS = [
 ];
 const STOCK_COLUMN_LABEL_MAP = Object.fromEntries(STOCK_COLUMN_LABELS);
 const STOCK_COLUMN_WIDTH_LIMITS = {
-  item: [90, 360],
-  date: [70, 120],
-  status: [80, 160],
+  item: [180, 360],
+  date: [90, 120],
+  status: [100, 160],
   seller: [80, 170],
   compliance: [92, 170],
-  source: [80, 180],
-  purchase: [54, 110],
-  sold: [54, 110],
-  profit: [54, 110],
-  proof: [54, 110],
-  edit: [44, 90],
+  source: [120, 180],
+  purchase: [70, 110],
+  listed: [80, 110],
+  sold: [80, 110],
+  profit: [75, 105],
+  proof: [90, 130],
+  edit: [50, 72],
 };
 
 function clampStockColumnWidth(key, value, fallback) {
@@ -1357,9 +1360,8 @@ export default function ResellerItApp() {
   }), [stockTimelineItems]);
 
   const visibleStockColumnKeys = useMemo(() => {
-    const baseColumns = ["date", "item", "status", "seller", "compliance", "source", "purchase", "sold"];
-    return stockViewMode === "Detailed view" ? [...baseColumns, "profit", "proof", "edit"] : [...baseColumns, "edit"];
-  }, [stockViewMode]);
+    return ["item", "date", "purchase", "status", "source", "proof", "listed", "sold", "profit", "edit"];
+  }, []);
 
   const stockTableWidth = visibleStockColumnKeys.reduce((sum, key) => sum + stockColumnWidths[key], 0);
 

@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { AlertTriangle, ChevronDown, Filter, PackagePlus, Plus, Search } from "lucide-react";
+import { AlertTriangle, Filter, MoreHorizontal, PackagePlus, Plus, Search } from "lucide-react";
 import { Input, Select } from "../shared/FormControls.jsx";
 
 function proofLabel(item) {
@@ -30,6 +30,9 @@ export function InventoryTable({
   stockTimelineItems,
   stockTimelineGroups,
   stockDashboard,
+  stockTableWidth,
+  visibleStockColumnKeys,
+  stockColumnWidths,
   quickAddItem,
   inventorySearch,
   inventoryTimelineGrouping,
@@ -47,6 +50,7 @@ export function InventoryTable({
   isSoldStatus,
   itemProfitValue,
   expectedListingValue,
+  stockResizeHandle,
   onOpenNewItemEditor,
   onCreateQuickLedgerItem,
   onSetQuickAddItem,
@@ -58,6 +62,7 @@ export function InventoryTable({
   onSetInventoryCategory,
   onSetInventoryIssueFilter,
   onSetInventorySort,
+  onResetStockColumnWidths,
   onUpdateItemField,
   onEditItem,
   onDuplicateItem,
@@ -127,6 +132,7 @@ export function InventoryTable({
             <Select label="Group" value={inventoryTimelineGrouping} onChange={(event) => onSetInventoryTimelineGrouping(event.target.value)}><option>Month</option><option>Week</option><option>Year</option><option>Ungrouped</option></Select>
             <Input label="Month" type="month" value={inventoryTimelineMonth} onChange={(event) => onSetInventoryTimelineMonth(event.target.value)} />
             <Select label="Sort" value={inventorySort} onChange={(event) => onSetInventorySort(event.target.value)}><option>Newest purchase date</option><option>Oldest purchase date</option><option>Highest expected/listing value</option><option>Highest final sale price</option><option>Highest estimated profit</option><option>Missing proof first</option></Select>
+            <div className="flex items-end"><button type="button" onClick={onResetStockColumnWidths} className="h-10 rounded-lg border border-stone-200 bg-white px-3 text-xs font-semibold text-stone-600 hover:bg-stone-100">Reset Column Widths</button></div>
           </div>
         )}
       </section>
@@ -144,10 +150,13 @@ export function InventoryTable({
           <p className="p-6 text-sm text-stone-600">No stock items match the current filters.</p>
         ) : (
           <div className="w-full overflow-x-auto">
-            <table className="min-w-[1050px] w-full border-collapse text-left text-xs">
+            <table className="table-fixed border-collapse text-left text-xs" style={{ width: "100%", minWidth: stockTableWidth }}>
+              <colgroup>{visibleStockColumnKeys.map((key) => <col key={key} style={{ width: stockColumnWidths[key] }} />)}</colgroup>
               <thead className="sticky top-0 z-10 bg-[#fff8ea] text-[10px] uppercase tracking-wide text-stone-500">
                 <tr className="border-b border-stone-200">
-                  {['Item', 'Purchased', 'Cost', 'Status', 'Source', 'Document / Proof', 'Listed Price', 'Sold Price', 'Profit', 'Action'].map((label) => <th key={label} className={`px-2 py-2 font-semibold ${['Cost', 'Listed Price', 'Sold Price', 'Profit'].includes(label) ? 'text-right' : ''}`}>{label}</th>)}
+                  {[
+                    ["item", "Item"], ["date", "Purchased"], ["purchase", "Cost"], ["status", "Status"], ["source", "Source"], ["proof", "Document / Proof"], ["listed", "Listed Price"], ["sold", "Sold Price"], ["profit", "Profit"], ["edit", "Action"],
+                  ].map(([key, label]) => <th key={key} className={`relative whitespace-nowrap px-1.5 py-2 font-semibold ${["purchase", "listed", "sold", "profit"].includes(key) ? "text-right" : key === "edit" ? "text-center" : ""}`} style={{ width: stockColumnWidths[key] }}><span className="block truncate pr-1">{label}</span>{stockResizeHandle(key)}</th>)}
                 </tr>
               </thead>
               <tbody>
@@ -159,18 +168,18 @@ export function InventoryTable({
                       const documentLabel = proofLabel(item);
                       return (
                         <tr key={item.id} className="border-b border-stone-100 last:border-0 hover:bg-[#fffaf0]">
-                          <td className="max-w-[16rem] px-2 py-1.5"><button type="button" onClick={() => onEditItem(item)} className="block max-w-full truncate text-left font-semibold text-stone-950 hover:text-[#b7412e] hover:underline" title={item.name || "Untitled item"}>{item.name || "Untitled item"}</button></td>
-                          <td className="w-28 px-1 py-1"><input type="date" value={item.purchaseDate || ""} onChange={(event) => onUpdateItemField(item.id, "purchaseDate", event.target.value)} className={inputClass} /></td>
-                          <td className="w-20 px-1 py-1"><input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(event) => onUpdateItemField(item.id, "purchasePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
-                          <td className="w-32 px-1 py-1"><select value={item.status || "Draft"} onChange={(event) => onUpdateItemField(item.id, "status", event.target.value)} className={`${inputClass} border ${statusClass(item.status)}`}>{statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></td>
-                          <td className="max-w-[11rem] px-1 py-1"><input value={item.sourceName || item.sourceLocation || ""} onChange={(event) => onUpdateItemField(item.id, "sourceName", event.target.value)} className={inputClass} placeholder="Source" /></td>
-                          <td className="px-2 py-1.5"><span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${proofClass(documentLabel)}`}>{documentLabel}</span></td>
-                          <td className="px-2 py-1.5 text-right tabular-nums text-stone-700">{money(expectedListingValue(item))}</td>
-                          <td className="w-20 px-1 py-1"><input type="number" step="0.01" value={item.finalSalePrice || ""} onChange={(event) => onUpdateItemField(item.id, "finalSalePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
-                          <td className={`whitespace-nowrap px-2 py-1.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`}>{sold ? money(itemProfitValue(item)) : "–"}</td>
-                          <td className="w-16 px-2 py-1 text-right">
+                          <td className="overflow-hidden px-1.5 py-1.5" style={{ width: stockColumnWidths.item }}><button type="button" onClick={() => onEditItem(item)} className="block w-full truncate text-left font-semibold text-stone-950 hover:text-[#b7412e] hover:underline" title={item.name || "Untitled item"}>{item.name || "Untitled item"}</button></td>
+                          <td className="whitespace-nowrap px-1 py-1" style={{ width: stockColumnWidths.date }}><input type="date" value={item.purchaseDate || ""} onChange={(event) => onUpdateItemField(item.id, "purchaseDate", event.target.value)} className={inputClass} /></td>
+                          <td className="whitespace-nowrap px-1 py-1" style={{ width: stockColumnWidths.purchase }}><input type="number" step="0.01" value={item.purchasePrice || ""} onChange={(event) => onUpdateItemField(item.id, "purchasePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
+                          <td className="whitespace-nowrap px-1 py-1" style={{ width: stockColumnWidths.status }}><select value={item.status || "Draft"} onChange={(event) => onUpdateItemField(item.id, "status", event.target.value)} className={`${inputClass} border ${statusClass(item.status)}`}>{statusOptions.map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select></td>
+                          <td className="overflow-hidden px-1 py-1" style={{ width: stockColumnWidths.source }}><input value={item.sourceName || item.sourceLocation || ""} onChange={(event) => onUpdateItemField(item.id, "sourceName", event.target.value)} className={`${inputClass} truncate`} placeholder="Source" title={item.sourceName || item.sourceLocation || ""} /></td>
+                          <td className="whitespace-nowrap px-1.5 py-1.5" style={{ width: stockColumnWidths.proof }}><span className={`inline-flex max-w-full truncate rounded-full border px-2 py-0.5 text-[10px] font-semibold ${proofClass(documentLabel)}`}>{documentLabel}</span></td>
+                          <td className="whitespace-nowrap px-1.5 py-1.5 text-right tabular-nums text-stone-700" style={{ width: stockColumnWidths.listed }}>{money(expectedListingValue(item))}</td>
+                          <td className="whitespace-nowrap px-1 py-1" style={{ width: stockColumnWidths.sold }}><input type="number" step="0.01" value={item.finalSalePrice || ""} onChange={(event) => onUpdateItemField(item.id, "finalSalePrice", event.target.value)} className={`${inputClass} text-right tabular-nums`} placeholder="0.00" /></td>
+                          <td className={`whitespace-nowrap px-1.5 py-1.5 text-right font-semibold tabular-nums ${sold ? "text-lime-800" : "text-stone-400"}`} style={{ width: stockColumnWidths.profit }}>{sold ? money(itemProfitValue(item)) : "–"}</td>
+                          <td className="whitespace-nowrap px-1 py-1 text-center" style={{ width: stockColumnWidths.edit }}>
                             <details className="relative inline-block text-left">
-                              <summary className="inline-flex h-7 cursor-pointer list-none items-center gap-1 rounded-md border border-stone-200 bg-white px-2 text-[11px] font-semibold text-stone-600 hover:bg-stone-50">Actions <ChevronDown size={11} /></summary>
+                              <summary aria-label={`Actions for ${item.name || "item"}`} title="Actions" className="inline-flex h-7 w-8 cursor-pointer list-none items-center justify-center rounded-md border border-stone-200 bg-white text-stone-600 hover:bg-stone-50"><MoreHorizontal size={14} /></summary>
                               <div className="absolute right-0 z-20 mt-1 w-48 rounded-xl border border-stone-200 bg-white p-1.5 shadow-xl">
                                 <button type="button" onClick={() => onEditItem(item)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">Open</button>
                                 <button type="button" onClick={() => onDuplicateItem(item)} className="block w-full rounded-lg px-2 py-1.5 text-left text-xs font-semibold text-stone-700 hover:bg-stone-50">Duplicate</button>

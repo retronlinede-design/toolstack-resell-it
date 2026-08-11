@@ -1114,6 +1114,22 @@ test("Stock Control renders a compact dashboard and permanent simplified stock s
   assert.doesNotMatch(tableSource, />Compliance</);
 });
 
+test("Stock Control uses compact persisted column defaults with resizing", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  for (const [key, width] of Object.entries({ item: 190, date: 92, purchase: 72, status: 102, source: 122, proof: 92, listed: 82, sold: 82, profit: 76, edit: 54 })) {
+    assert.match(appSource, new RegExp(`${key}: ${width},`));
+  }
+  assert.match(appSource, /return \["item", "date", "purchase", "status", "source", "proof", "listed", "sold", "profit", "edit"\];/);
+  assert.match(tableSource, /className="table-fixed/);
+  assert.match(tableSource, /minWidth: stockTableWidth/);
+  assert.match(tableSource, /stockResizeHandle\(key\)/);
+  assert.match(tableSource, /onClick=\{onResetStockColumnWidths\}[^>]*>Reset Column Widths<\/button>/);
+  assert.match(tableSource, /title=\{item\.name \|\| "Untitled item"\}/);
+  assert.match(tableSource, /title=\{item\.sourceName \|\| item\.sourceLocation \|\| ""\}/);
+});
+
 test("duplicate draft clears sale, shipping, refund, fee, tracking, platform fields", () => {
   const duplicate = duplicateItemForDraft({
     name: "Sold item",
