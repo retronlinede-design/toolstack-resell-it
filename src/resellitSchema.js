@@ -544,6 +544,8 @@ export function normalizeRootAppData(data, fallbackItems = []) {
     purchaseAllocations: normalizePurchaseAllocations(parsed.purchaseAllocations),
     evidenceRecords: normalizeEvidenceRecords(parsed.evidenceRecords),
     eigenbelege: normalizeEigenbelege(parsed.eigenbelege),
+    normalizedEbayRecords: Array.isArray(parsed.normalizedEbayRecords) ? parsed.normalizedEbayRecords : [],
+    ebayMappingProfiles: Array.isArray(parsed.ebayMappingProfiles) ? parsed.ebayMappingProfiles : [],
     updatedAt: String(parsed.updatedAt || ""),
   };
 }

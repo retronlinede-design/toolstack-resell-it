@@ -11,6 +11,7 @@ import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
 import { buildPurchaseFinanceDiagnostics } from "./financeDiagnostics.js";
 import { createExpenseEvidenceRecord, expenseTotal, filterExpenses, updateExpenseEvidenceRecord } from "./expenseManager.js";
+import { addMatchSuggestions, compareEbayRecordToItem, ebayImportTargetFields, mapEbayRows, markEbayDuplicates, normalizeEbayImportRecords, normalizeEbayMappingProfiles, parseEbayCsv, suggestEbayMappings } from "./ebayImport.js";
 import {
   createPurchaseAllocationRecord,
   createPurchaseTransactionRecord,
@@ -184,7 +185,6 @@ function loadStockColumnWidths() {
 }
 
 const DISABLED_LEGACY_UI = false;
-const ebayMappingHints = ["order date", "item title", "sale price", "fees", "shipping", "refund", "payout"];
 const classificationHelp = [
   ["Private Sale", "Originally owned personal item."],
   ["Business Stock", "Bought or sourced with resale intent."],
@@ -364,48 +364,6 @@ function loadEbayImportBatches() {
   }
 }
 
-function parseCsvLine(line) {
-  const cells = [];
-  let cell = "";
-  let quoted = false;
-
-  for (let i = 0; i < line.length; i += 1) {
-    const char = line[i];
-    const next = line[i + 1];
-
-    if (char === '"' && quoted && next === '"') {
-      cell += '"';
-      i += 1;
-    } else if (char === '"') {
-      quoted = !quoted;
-    } else if (char === "," && !quoted) {
-      cells.push(cell.trim());
-      cell = "";
-    } else {
-      cell += char;
-    }
-  }
-
-  cells.push(cell.trim());
-  return cells;
-}
-
-function parseCsvText(text) {
-  const lines = text.replace(/^\uFEFF/, "").split(/\r?\n/).filter((line) => line.trim());
-  if (!lines.length) return { columns: [], rows: [] };
-
-  const columns = parseCsvLine(lines[0]).map((column, index) => column || `Column ${index + 1}`);
-  const rows = lines.slice(1).map((line) => {
-    const cells = parseCsvLine(line);
-    return columns.reduce((row, column, index) => {
-      row[column] = cells[index] || "";
-      return row;
-    }, {});
-  });
-
-  return { columns, rows };
-}
-
 function SectionHeader({ title, subtitle, count }) {
   return (
     <div className="rounded-3xl border border-[#b7412e]/15 bg-[#fffdf8] p-4 shadow-[0_14px_34px_rgba(41,37,36,0.055)]">
@@ -544,6 +502,10 @@ export default function ResellerItApp() {
   const [ebayImportBatches, setEbayImportBatches] = useState(loadEbayImportBatches);
   const [importMonth, setImportMonth] = useState(CURRENT_MONTH);
   const [csvPreview, setCsvPreview] = useState(null);
+  const [ebayColumnMappings, setEbayColumnMappings] = useState({});
+  const [normalizedEbayRecords, setNormalizedEbayRecords] = useState(() => normalizeEbayImportRecords(initialAppLoad.data.normalizedEbayRecords));
+  const [ebayMappingProfiles, setEbayMappingProfiles] = useState(() => normalizeEbayMappingProfiles(initialAppLoad.data.ebayMappingProfiles));
+  const [activeEbayBatchId, setActiveEbayBatchId] = useState("");
   const [csvError, setCsvError] = useState("");
   const [form, setForm] = useState(emptyItem);
   const [draftEigenbelegForm, setDraftEigenbelegForm] = useState({
@@ -687,7 +649,7 @@ export default function ResellerItApp() {
     const normalizedEvidenceRecords = normalizeEvidenceRecords(evidenceRecords);
     const normalizedEigenbelege = normalizeEigenbelege(eigenbelege);
     const normalizedExpenses = normalizeExpenses(expenses);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: normalizedExpenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: normalizedExpenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, normalizedEbayRecords, ebayMappingProfiles, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -705,7 +667,7 @@ export default function ResellerItApp() {
     return true;
   }
 
-  function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords, nextEvidenceRecords = evidenceRecords, nextEigenbelege = eigenbelege, nextPurchaseTransactions = purchaseTransactions, nextPurchaseAllocations = purchaseAllocations) {
+  function persistAll(nextItems, nextExpenses, nextPurchaseRecords = purchaseRecords, nextEvidenceRecords = evidenceRecords, nextEigenbelege = eigenbelege, nextPurchaseTransactions = purchaseTransactions, nextPurchaseAllocations = purchaseAllocations, nextNormalizedEbayRecords = normalizedEbayRecords, nextEbayMappingProfiles = ebayMappingProfiles) {
     const normalizedItems = normalizeItems(nextItems);
     const normalizedExpenses = normalizeExpenses(nextExpenses);
     const normalizedPurchaseRecords = normalizePurchaseRecords(nextPurchaseRecords);
@@ -713,7 +675,9 @@ export default function ResellerItApp() {
     const normalizedPurchaseAllocations = normalizePurchaseAllocations(nextPurchaseAllocations);
     const normalizedEvidenceRecords = normalizeEvidenceRecords(nextEvidenceRecords);
     const normalizedEigenbelege = normalizeEigenbelege(nextEigenbelege);
-    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: normalizedExpenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, updatedAt: new Date().toISOString() });
+    const normalizedImports = normalizeEbayImportRecords(nextNormalizedEbayRecords);
+    const normalizedProfiles = normalizeEbayMappingProfiles(nextEbayMappingProfiles);
+    const payload = JSON.stringify({ version: 2, items: normalizedItems, expenses: normalizedExpenses, purchaseRecords: normalizedPurchaseRecords, purchaseTransactions: normalizedPurchaseTransactions, purchaseAllocations: normalizedPurchaseAllocations, evidenceRecords: normalizedEvidenceRecords, eigenbelege: normalizedEigenbelege, normalizedEbayRecords: normalizedImports, ebayMappingProfiles: normalizedProfiles, updatedAt: new Date().toISOString() });
     try {
       localStorage.setItem(STORAGE_KEY, payload);
     } catch {
@@ -728,6 +692,8 @@ export default function ResellerItApp() {
     setPurchaseAllocations(normalizedPurchaseAllocations);
     setEvidenceRecords(normalizedEvidenceRecords);
     setEigenbelege(normalizedEigenbelege);
+    setNormalizedEbayRecords(normalizedImports);
+    setEbayMappingProfiles(normalizedProfiles);
     return true;
   }
 
@@ -1154,7 +1120,7 @@ export default function ResellerItApp() {
   }
 
   function exportJson() {
-    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 2, items, expenses, purchaseRecords: normalizePurchaseRecords(purchaseRecords), purchaseTransactions: normalizePurchaseTransactions(purchaseTransactions), purchaseAllocations: normalizePurchaseAllocations(purchaseAllocations), evidenceRecords: normalizeEvidenceRecords(evidenceRecords), eigenbelege: normalizeEigenbelege(eigenbelege), exportedAt: new Date().toISOString() }, null, 2);
+    const data = JSON.stringify({ type: "RESELLERIT_BACKUP", version: 2, items, expenses, purchaseRecords: normalizePurchaseRecords(purchaseRecords), purchaseTransactions: normalizePurchaseTransactions(purchaseTransactions), purchaseAllocations: normalizePurchaseAllocations(purchaseAllocations), evidenceRecords: normalizeEvidenceRecords(evidenceRecords), eigenbelege: normalizeEigenbelege(eigenbelege), normalizedEbayRecords: normalizeEbayImportRecords(normalizedEbayRecords), ebayMappingProfiles: normalizeEbayMappingProfiles(ebayMappingProfiles), exportedAt: new Date().toISOString() }, null, 2);
     const blob = new Blob([data], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -1191,13 +1157,15 @@ export default function ResellerItApp() {
       const nextPurchaseAllocations = normalizedData.purchaseAllocations;
       const nextEvidenceRecords = normalizedData.evidenceRecords;
       const nextEigenbelege = normalizedData.eigenbelege;
+      const nextNormalizedEbayRecords = normalizeEbayImportRecords(normalizedData.normalizedEbayRecords);
+      const nextEbayMappingProfiles = normalizeEbayMappingProfiles(normalizedData.ebayMappingProfiles);
       const ok = window.confirm(`Restore this ResellIt backup?\n\nCurrent data will be replaced with ${nextItems.length} items and ${nextExpenses.length} expenses.`);
       if (!ok) {
         setBackupMessage("Import cancelled.");
         return;
       }
 
-      if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords, nextEigenbelege, nextPurchaseTransactions, nextPurchaseAllocations)) return;
+      if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords, nextEigenbelege, nextPurchaseTransactions, nextPurchaseAllocations, nextNormalizedEbayRecords, nextEbayMappingProfiles)) return;
       setStartupLoadWarning("");
       setForm(emptyItem);
       setExpenseForm(emptyExpense);
@@ -1245,13 +1213,14 @@ export default function ResellerItApp() {
 
     try {
       const text = await file.text();
-      const parsed = parseCsvText(text);
+      const parsed = parseEbayCsv(text);
       if (!parsed.columns.length) {
         setCsvPreview(null);
         setCsvError("The CSV file did not contain any rows.");
         return;
       }
       setCsvPreview({ ...parsed, fileName: file.name });
+      setEbayColumnMappings(suggestEbayMappings(parsed.columns).mappings);
     } catch {
       setCsvPreview(null);
       setCsvError("Could not read this CSV file locally.");
@@ -1260,21 +1229,45 @@ export default function ResellerItApp() {
 
   function saveCsvBatch() {
     if (!csvPreview) return;
+    const batchId = crypto.randomUUID();
+    const importedAt = new Date().toISOString();
     const nextBatch = {
-      id: crypto.randomUUID(),
+      id: batchId,
       month: importMonth,
       sourceFileName: csvPreview.fileName,
-      importedAt: new Date().toISOString(),
+      importedAt,
       columns: csvPreview.columns,
       rows: csvPreview.rows,
     };
+    let nextRecords = mapEbayRows({ rows: csvPreview.rows, mappings: ebayColumnMappings, batchId, sourceFileName: csvPreview.fileName, importedAt, idFactory: () => crypto.randomUUID() });
+    nextRecords = markEbayDuplicates(addMatchSuggestions(nextRecords, items), normalizedEbayRecords);
+    if (!persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, purchaseAllocations, [...nextRecords, ...normalizedEbayRecords], ebayMappingProfiles)) return;
     persistEbayImportBatches([nextBatch, ...ebayImportBatches]);
+    setActiveEbayBatchId(batchId);
     setCsvPreview(null);
     setCsvError("");
   }
 
   function deleteCsvBatch(id) {
+    if (!window.confirm("Delete this eBay import batch? Inventory and sales items will not be changed.")) return;
+    const nextRecords = normalizedEbayRecords.filter((record) => record.batchId !== id);
+    if (!persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, purchaseAllocations, nextRecords, ebayMappingProfiles)) return;
     persistEbayImportBatches(ebayImportBatches.filter((batch) => batch.id !== id));
+    if (activeEbayBatchId === id) setActiveEbayBatchId("");
+  }
+
+  function updateEbayReviewRecord(id, changes) {
+    const next = normalizedEbayRecords.map((record) => record.id === id ? { ...record, ...changes } : record);
+    persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, purchaseAllocations, next, ebayMappingProfiles);
+  }
+
+  function saveEbayMappingProfile() {
+    if (!csvPreview) return;
+    const name = window.prompt("Mapping profile name", csvPreview.fileName.replace(/\.csv$/i, ""));
+    if (!name?.trim()) return;
+    const timestamp = new Date().toISOString();
+    const profile = { id: crypto.randomUUID(), name: name.trim(), sourceHeaders: csvPreview.columns, mappings: ebayColumnMappings, createdAt: timestamp, updatedAt: timestamp };
+    persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, purchaseAllocations, normalizedEbayRecords, [profile, ...ebayMappingProfiles]);
   }
 
   function handleProofImageUpload(e) {
@@ -1661,6 +1654,8 @@ export default function ResellerItApp() {
 
   const purchaseCostIssues = purchaseFinanceDiagnostics.costAlignment.filter((entry) => entry.status !== "Aligned");
   const salesIssueCount = new Set(Object.values(salesDataGapQueues).flat()).size;
+  const activeEbayRecords = normalizedEbayRecords.filter((record) => record.batchId === activeEbayBatchId);
+  const duplicateMappedColumns = Object.values(ebayColumnMappings).filter(Boolean).filter((column, index, values) => values.indexOf(column) !== index);
 
   const filteredExpenses = useMemo(() => filterExpenses(expenses, {
     month: expenseMonthFilter,
@@ -3225,21 +3220,13 @@ export default function ResellerItApp() {
                   </div>
 
                   <div className="rounded-2xl border border-neutral-200 bg-white p-4">
-                    <h3 className="text-sm font-semibold text-neutral-950">Mapping helper</h3>
-                    <p className="mt-1 text-sm text-neutral-600">Exact eBay column mapping comes later. For now, check whether your report includes columns that could map to these reconciliation fields.</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {ebayMappingHints.map((hint) => (
-                        <span key={hint} className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-semibold text-neutral-700">{hint}</span>
-                      ))}
-                    </div>
+                    <h3 className="text-sm font-semibold text-neutral-950">Step 2: Map Columns</h3>
+                    <p className="mt-1 text-sm text-neutral-600">Suggested mappings are editable. Duplicate target mappings are highlighted for review.</p>
                     {csvPreview && (
-                      <div className="mt-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-500">Detected columns</p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {csvPreview.columns.map((column, index) => (
-                            <span key={`${column}-${index}`} className="rounded-full border border-neutral-200 bg-white px-3 py-1 text-xs font-medium text-neutral-700">{column}</span>
-                          ))}
-                        </div>
+                      <div className="mt-4 grid max-h-96 gap-2 overflow-y-auto sm:grid-cols-2">
+                        {ebayImportTargetFields.map((target) => <div key={target}><Select label={target} value={ebayColumnMappings[target] || ""} onChange={(event) => setEbayColumnMappings({ ...ebayColumnMappings, [target]: event.target.value })}><option value="">Unmapped</option>{csvPreview.columns.map((column) => <option key={column}>{column}</option>)}</Select><p className="mt-1 text-[11px] text-stone-500">{ebayColumnMappings[target] ? "Suggested or explicitly mapped" : "Unmapped · review optional field"}</p></div>)}
+                        {duplicateMappedColumns.length > 0 && <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 sm:col-span-2">Duplicate source mappings: {Array.from(new Set(duplicateMappedColumns)).join(", ")}. Review before import.</p>}
+                        <div className="flex flex-wrap gap-2 sm:col-span-2"><button type="button" onClick={saveEbayMappingProfile} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold">Save Mapping Profile</button>{ebayMappingProfiles.map((profile) => <button key={profile.id} type="button" onClick={() => setEbayColumnMappings(profile.mappings)} className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold">Use {profile.name}</button>)}</div>
                       </div>
                     )}
                   </div>
@@ -3250,7 +3237,7 @@ export default function ResellerItApp() {
                 <div className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm">
                   <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-neutral-950">Preview: {csvPreview.fileName}</h2>
+                      <h2 className="text-lg font-semibold text-neutral-950">Step 3: Preview Normalized Records — {csvPreview.fileName}</h2>
                       <p className="text-sm text-neutral-600">{csvPreview.rows.length} rows detected for {importMonth}</p>
                     </div>
                     <p className="text-xs font-medium text-neutral-500">Preview shows up to 10 rows</p>
@@ -3282,19 +3269,24 @@ export default function ResellerItApp() {
                 <h2 className="text-lg font-semibold text-neutral-950">Saved eBay report batches</h2>
                 <div className="mt-4 grid gap-3">
                   {ebayImportBatches.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No imported eBay CSV batches yet.</p>}
-                  {ebayImportBatches.map((batch) => (
+                  {ebayImportBatches.map((batch) => {
+                    const records = normalizedEbayRecords.filter((record) => record.batchId === batch.id);
+                    const counts = { mapped: records.filter((record) => record.mappingStatus === "mapped").length, review: records.filter((record) => record.mappingStatus === "needs_review").length, confirmed: records.filter((record) => record.matchStatus === "confirmed").length, duplicates: records.filter((record) => record.duplicateStatus !== "unique").length, ignored: records.filter((record) => record.matchStatus === "ignored").length };
+                    return (
                     <div key={batch.id} className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="font-semibold text-neutral-950">{batch.sourceFileName}</p>
-                        <p className="mt-1 text-sm text-neutral-600">Month: {batch.month} / Rows: {batch.rows.length} / Imported: {new Date(batch.importedAt).toLocaleString("de-DE")}</p>
+                        <p className="mt-1 text-sm text-neutral-600">{records.length || batch.rows.length} records · {counts.mapped} mapped · {counts.review} needs review · {counts.confirmed} confirmed · {counts.duplicates} duplicates · {counts.ignored} ignored</p>
                       </div>
-                      <button type="button" onClick={() => deleteCsvBatch(batch.id)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                      <div className="flex gap-2"><button type="button" onClick={() => setActiveEbayBatchId(batch.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold">Open</button><button type="button" onClick={() => deleteCsvBatch(batch.id)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
                         <Trash2 size={16} /> Delete
-                      </button>
+                      </button></div>
                     </div>
-                  ))}
+                  );})}
                 </div>
               </div>
+
+              {activeEbayBatchId && <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-semibold">Step 4: Match & Review</h2><p className="mt-1 text-sm text-neutral-600">Suggestions and comparisons are read-only until you explicitly confirm a match. No item fields are changed.</p><div className="mt-4 grid gap-3">{activeEbayRecords.map((record) => { const suggested = record.candidateMatches?.[0]; const matchedId = record.matchedItemId || suggested?.itemId || ""; const matchedItem = items.find((item) => item.id === matchedId); return <article key={record.id} className="rounded-2xl border border-stone-200 p-4"><div className="grid gap-3 lg:grid-cols-[1fr_auto]"><div><div className="flex flex-wrap gap-2"><span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold">{record.transactionType || "Unknown type"}</span><span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold">{record.mappingStatus}</span><span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold">{record.matchStatus}</span>{record.duplicateStatus !== "unique" && <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">{record.duplicateStatus}</span>}</div><h3 className="mt-2 font-semibold">{record.itemTitle || record.orderId || record.transactionId || `Row ${record.sourceRowIndex}`}</h3><p className="text-sm text-stone-600">{record.saleDate || record.orderDate || record.refundDate || record.payoutDate || "No date"} · Sale {money(record.saleAmount)} · Fees {money(number(record.platformFee) + number(record.promotedFee) + number(record.otherFee))} · Refund {money(record.refundAmount)}</p><p className="mt-1 text-sm">Suggested: {matchedItem?.name || "None"} · Confidence {suggested?.score || record.matchedSaleFieldConfidence || 0}% · {suggested?.reasons?.join(", ") || "No match reasons"}</p></div><div className="flex flex-wrap items-start gap-2"><button type="button" disabled={!matchedItem} onClick={() => updateEbayReviewRecord(record.id, { matchStatus: "confirmed", resolutionStatus: "resolved", matchedItemId: matchedItem.id, matchedSaleFieldConfidence: suggested?.score || record.matchedSaleFieldConfidence })} className="rounded-xl bg-orange-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">Confirm Match</button><select aria-label="Choose Different Item" value={record.matchedItemId} onChange={(event) => updateEbayReviewRecord(record.id, { matchedItemId: event.target.value, matchStatus: event.target.value ? "suggested" : "unmatched", resolutionStatus: "open" })} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"><option value="">Choose Different Item</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button type="button" onClick={() => updateEbayReviewRecord(record.id, { matchStatus: "unmatched", matchedItemId: "", resolutionStatus: "open" })} className="rounded-xl border px-3 py-2 text-sm font-semibold">Mark Unmatched</button><button type="button" onClick={() => updateEbayReviewRecord(record.id, { matchStatus: "ignored", resolutionStatus: "ignored" })} className="rounded-xl border px-3 py-2 text-sm font-semibold">Ignore</button>{matchedItem && <button type="button" onClick={() => editItem(matchedItem)} className="rounded-xl border px-3 py-2 text-sm font-semibold">Open Item</button>}</div></div>{record.matchStatus === "confirmed" && matchedItem && <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr><th>Field</th><th>Imported eBay</th><th>Current ResellIt Item</th><th>Result</th></tr></thead><tbody>{compareEbayRecordToItem(record, matchedItem).map((comparison) => <tr key={comparison.field} className="border-t"><td className="py-2 font-semibold">{comparison.field}</td><td>{String(comparison.imported || "—")}</td><td>{String(comparison.current || "—")}</td><td className={comparison.status === "Aligned" ? "text-lime-700" : "text-amber-700"}>{comparison.status}</td></tr>)}</tbody></table></div>}</article>; })}{activeEbayRecords.length === 0 && <p className="rounded-xl bg-stone-50 p-4 text-sm">This legacy batch has no normalized records. Re-import it to use V2 review.</p>}</div></section>}
             </div>
           )}
 
