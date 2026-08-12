@@ -11,7 +11,7 @@ import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
 import { buildPurchaseFinanceDiagnostics } from "./financeDiagnostics.js";
 import { createExpenseEvidenceRecord, expenseTotal, filterExpenses, updateExpenseEvidenceRecord } from "./expenseManager.js";
-import { addMatchSuggestions, compareEbayRecordToItem, ebayImportTargetFields, mapEbayRows, markEbayDuplicates, normalizeEbayImportRecords, normalizeEbayMappingProfiles, parseEbayCsv, suggestEbayMappings } from "./ebayImport.js";
+import { addMatchSuggestions, compareEbayRecordToItem, ebayImportTargetFields, ebaySalePostingReview, isEbaySalePostingEligible, mapEbayRows, markEbayDuplicates, normalizeEbayImportRecords, normalizeEbayMappingProfiles, parseEbayCsv, prepareEbaySalePosting, suggestEbayMappings } from "./ebayImport.js";
 import {
   createPurchaseAllocationRecord,
   createPurchaseTransactionRecord,
@@ -506,6 +506,7 @@ export default function ResellerItApp() {
   const [normalizedEbayRecords, setNormalizedEbayRecords] = useState(() => normalizeEbayImportRecords(initialAppLoad.data.normalizedEbayRecords));
   const [ebayMappingProfiles, setEbayMappingProfiles] = useState(() => normalizeEbayMappingProfiles(initialAppLoad.data.ebayMappingProfiles));
   const [activeEbayBatchId, setActiveEbayBatchId] = useState("");
+  const [ebaySalePostingReviewState, setEbaySalePostingReviewState] = useState(null);
   const [csvError, setCsvError] = useState("");
   const [form, setForm] = useState(emptyItem);
   const [draftEigenbelegForm, setDraftEigenbelegForm] = useState({
@@ -1259,6 +1260,41 @@ export default function ResellerItApp() {
   function updateEbayReviewRecord(id, changes) {
     const next = normalizedEbayRecords.map((record) => record.id === id ? { ...record, ...changes } : record);
     persistAll(items, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, purchaseAllocations, next, ebayMappingProfiles);
+  }
+
+  function openEbaySalePosting(record, item) {
+    const comparisons = ebaySalePostingReview(record, item);
+    setEbaySalePostingReviewState({
+      recordId: record.id,
+      itemId: item.id,
+      selectedFields: Object.fromEntries(comparisons.map((comparison) => [comparison.field, comparison.defaultSelected])),
+      markSold: ["Draft", "Listed"].includes(item.status),
+    });
+  }
+
+  function commitEbaySalePosting() {
+    if (!ebaySalePostingReviewState) return;
+    const record = normalizedEbayRecords.find((entry) => entry.id === ebaySalePostingReviewState.recordId);
+    const item = items.find((entry) => entry.id === ebaySalePostingReviewState.itemId);
+    const prepared = prepareEbaySalePosting(record, item, ebaySalePostingReviewState.selectedFields, { markSold: ebaySalePostingReviewState.markSold });
+    if (prepared.validationErrors.length) return;
+    if (!window.confirm(`Apply the selected eBay Sale Details to "${item.name}"? This can affect Sales and Finance summaries.`)) return;
+    const nextItems = items.map((entry) => entry.id === item.id ? { ...entry, ...prepared.proposedItemPatch } : entry);
+    const selected = new Set(prepared.changedFields);
+    const unresolvedConflict = prepared.comparisons.some((comparison) => comparison.status === "Different" && !selected.has(comparison.field));
+    const remaining = prepared.comparisons.some((comparison) => ["Missing in ResellIt", "Different"].includes(comparison.status) && !selected.has(comparison.field));
+    const postingStatus = unresolvedConflict ? "posting_conflict" : remaining ? "partially_posted" : "posted";
+    const timestamp = new Date().toISOString();
+    const nextRecords = normalizedEbayRecords.map((entry) => entry.id === record.id ? {
+      ...entry,
+      postingStatus,
+      postedAt: timestamp,
+      postedItemId: item.id,
+      postedFields: Array.from(new Set([...(entry.postedFields || []), ...prepared.changedFields])),
+    } : entry);
+    if (!persistAll(nextItems, expenses, purchaseRecords, evidenceRecords, eigenbelege, purchaseTransactions, purchaseAllocations, nextRecords, ebayMappingProfiles)) return;
+    setEbaySalePostingReviewState(null);
+    setToastMessage("Selected eBay Sale Details applied.");
   }
 
   function saveEbayMappingProfile() {
@@ -3271,12 +3307,12 @@ export default function ResellerItApp() {
                   {ebayImportBatches.length === 0 && <p className="rounded-2xl bg-neutral-50 p-4 text-sm text-neutral-600">No imported eBay CSV batches yet.</p>}
                   {ebayImportBatches.map((batch) => {
                     const records = normalizedEbayRecords.filter((record) => record.batchId === batch.id);
-                    const counts = { mapped: records.filter((record) => record.mappingStatus === "mapped").length, review: records.filter((record) => record.mappingStatus === "needs_review").length, confirmed: records.filter((record) => record.matchStatus === "confirmed").length, duplicates: records.filter((record) => record.duplicateStatus !== "unique").length, ignored: records.filter((record) => record.matchStatus === "ignored").length };
+                    const counts = { mapped: records.filter((record) => record.mappingStatus === "mapped").length, review: records.filter((record) => record.mappingStatus === "needs_review").length, confirmed: records.filter((record) => record.matchStatus === "confirmed").length, duplicates: records.filter((record) => record.duplicateStatus !== "unique").length, ignored: records.filter((record) => record.matchStatus === "ignored").length, readyToPost: records.filter((record) => isEbaySalePostingEligible(record, items.find((item) => item.id === record.matchedItemId)) && record.postingStatus === "not_posted").length, posted: records.filter((record) => ["posted", "partially_posted"].includes(record.postingStatus)).length, postingConflicts: records.filter((record) => record.postingStatus === "posting_conflict").length };
                     return (
                     <div key={batch.id} className="flex flex-col gap-3 rounded-2xl bg-neutral-50 p-4 md:flex-row md:items-center md:justify-between">
                       <div>
                         <p className="font-semibold text-neutral-950">{batch.sourceFileName}</p>
-                        <p className="mt-1 text-sm text-neutral-600">{records.length || batch.rows.length} records · {counts.mapped} mapped · {counts.review} needs review · {counts.confirmed} confirmed · {counts.duplicates} duplicates · {counts.ignored} ignored</p>
+                        <p className="mt-1 text-sm text-neutral-600">{records.length || batch.rows.length} records · {counts.mapped} mapped · {counts.review} needs review · {counts.confirmed} confirmed · {counts.duplicates} duplicates · {counts.ignored} ignored</p><p className="mt-1 text-xs font-semibold text-stone-500">{counts.readyToPost} Ready to Post · {counts.posted} Posted · {counts.postingConflicts} Posting Conflicts</p>
                       </div>
                       <div className="flex gap-2"><button type="button" onClick={() => setActiveEbayBatchId(batch.id)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold">Open</button><button type="button" onClick={() => deleteCsvBatch(batch.id)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
                         <Trash2 size={16} /> Delete
@@ -3289,6 +3325,28 @@ export default function ResellerItApp() {
               {activeEbayBatchId && <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h2 className="text-lg font-semibold">Step 4: Match & Review</h2><p className="mt-1 text-sm text-neutral-600">Suggestions and comparisons are read-only until you explicitly confirm a match. No item fields are changed.</p><div className="mt-4 grid gap-3">{activeEbayRecords.map((record) => { const suggested = record.candidateMatches?.[0]; const matchedId = record.matchedItemId || suggested?.itemId || ""; const matchedItem = items.find((item) => item.id === matchedId); return <article key={record.id} className="rounded-2xl border border-stone-200 p-4"><div className="grid gap-3 lg:grid-cols-[1fr_auto]"><div><div className="flex flex-wrap gap-2"><span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold">{record.transactionType || "Unknown type"}</span><span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold">{record.mappingStatus}</span><span className="rounded-full bg-stone-100 px-2 py-1 text-xs font-semibold">{record.matchStatus}</span>{record.duplicateStatus !== "unique" && <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">{record.duplicateStatus}</span>}</div><h3 className="mt-2 font-semibold">{record.itemTitle || record.orderId || record.transactionId || `Row ${record.sourceRowIndex}`}</h3><p className="text-sm text-stone-600">{record.saleDate || record.orderDate || record.refundDate || record.payoutDate || "No date"} · Sale {money(record.saleAmount)} · Fees {money(number(record.platformFee) + number(record.promotedFee) + number(record.otherFee))} · Refund {money(record.refundAmount)}</p><p className="mt-1 text-sm">Suggested: {matchedItem?.name || "None"} · Confidence {suggested?.score || record.matchedSaleFieldConfidence || 0}% · {suggested?.reasons?.join(", ") || "No match reasons"}</p></div><div className="flex flex-wrap items-start gap-2"><button type="button" disabled={!matchedItem} onClick={() => updateEbayReviewRecord(record.id, { matchStatus: "confirmed", resolutionStatus: "resolved", matchedItemId: matchedItem.id, matchedSaleFieldConfidence: suggested?.score || record.matchedSaleFieldConfidence })} className="rounded-xl bg-orange-300 px-3 py-2 text-sm font-semibold disabled:opacity-40">Confirm Match</button><select aria-label="Choose Different Item" value={record.matchedItemId} onChange={(event) => updateEbayReviewRecord(record.id, { matchedItemId: event.target.value, matchStatus: event.target.value ? "suggested" : "unmatched", resolutionStatus: "open" })} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm"><option value="">Choose Different Item</option>{items.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><button type="button" onClick={() => updateEbayReviewRecord(record.id, { matchStatus: "unmatched", matchedItemId: "", resolutionStatus: "open" })} className="rounded-xl border px-3 py-2 text-sm font-semibold">Mark Unmatched</button><button type="button" onClick={() => updateEbayReviewRecord(record.id, { matchStatus: "ignored", resolutionStatus: "ignored" })} className="rounded-xl border px-3 py-2 text-sm font-semibold">Ignore</button>{matchedItem && <button type="button" onClick={() => editItem(matchedItem)} className="rounded-xl border px-3 py-2 text-sm font-semibold">Open Item</button>}</div></div>{record.matchStatus === "confirmed" && matchedItem && <div className="mt-3 overflow-x-auto"><table className="w-full text-left text-xs"><thead><tr><th>Field</th><th>Imported eBay</th><th>Current ResellIt Item</th><th>Result</th></tr></thead><tbody>{compareEbayRecordToItem(record, matchedItem).map((comparison) => <tr key={comparison.field} className="border-t"><td className="py-2 font-semibold">{comparison.field}</td><td>{String(comparison.imported || "—")}</td><td>{String(comparison.current || "—")}</td><td className={comparison.status === "Aligned" ? "text-lime-700" : "text-amber-700"}>{comparison.status}</td></tr>)}</tbody></table></div>}</article>; })}{activeEbayRecords.length === 0 && <p className="rounded-xl bg-stone-50 p-4 text-sm">This legacy batch has no normalized records. Re-import it to use V2 review.</p>}</div></section>}
             </div>
           )}
+
+          {activeTab === "finance" && activeFinancePanel === "ebay_reconciliation" && activeEbayBatchId && (
+            <section className="rounded-3xl border border-lime-200 bg-lime-50/40 p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-neutral-950">Controlled Sale Details Posting</h2>
+              <p className="mt-1 text-sm text-neutral-600">Only confirmed, non-duplicate matches can enter posting review. Posting remains explicit and limited to Sale Date and Final Sale Price.</p>
+              <div className="mt-4 grid gap-2">
+                {activeEbayRecords.filter((record) => isEbaySalePostingEligible(record, items.find((item) => item.id === record.matchedItemId))).map((record) => {
+                  const item = items.find((entry) => entry.id === record.matchedItemId);
+                  return <div key={record.id} className="flex flex-col gap-2 rounded-2xl border border-lime-200 bg-white p-3 sm:flex-row sm:items-center sm:justify-between"><div><p className="font-semibold">{item.name}</p><p className="text-sm text-stone-600">{record.transactionId || record.orderId || "No transaction reference"} · {record.postingStatus.replaceAll("_", " ")} · Posted fields: {record.postedFields.join(", ") || "none"}</p></div><button type="button" onClick={() => openEbaySalePosting(record, item)} className="rounded-xl bg-lime-700 px-3 py-2 text-sm font-semibold text-white">{record.postingStatus === "not_posted" ? "Apply to Sale" : "Review Posting"}</button></div>;
+                })}
+                {!activeEbayRecords.some((record) => isEbaySalePostingEligible(record, items.find((item) => item.id === record.matchedItemId))) && <p className="rounded-xl bg-white p-4 text-sm text-stone-600">No confirmed records are currently eligible to post.</p>}
+              </div>
+            </section>
+          )}
+
+          {ebaySalePostingReviewState && (() => {
+            const record = normalizedEbayRecords.find((entry) => entry.id === ebaySalePostingReviewState.recordId);
+            const item = items.find((entry) => entry.id === ebaySalePostingReviewState.itemId);
+            const prepared = prepareEbaySalePosting(record, item, ebaySalePostingReviewState.selectedFields, { markSold: ebaySalePostingReviewState.markSold });
+            const after = { saleDate: prepared.proposedItemPatch.saleDate ?? item.saleDate, finalSalePrice: prepared.proposedItemPatch.finalSalePrice ?? item.finalSalePrice };
+            return <div className="fixed inset-0 z-[70] flex items-start justify-center overflow-y-auto bg-stone-950/50 p-4" role="dialog" aria-modal="true" aria-label="Apply eBay Sale Details"><section className="w-full max-w-3xl rounded-3xl bg-white p-5 shadow-2xl"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-lime-700">Posting Review</p><h2 className="text-xl font-semibold">Apply to Sale — {item.name}</h2><p className="mt-1 text-sm text-stone-600">Reference: {record.transactionId || record.orderId || "Not recorded"}</p></div><button type="button" onClick={() => setEbaySalePostingReviewState(null)} className="rounded-xl border px-3 py-2 text-sm font-semibold">Close</button></div><div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr><th className="p-2">Field</th><th className="p-2">Current ResellIt Value</th><th className="p-2">Imported eBay Value</th><th className="p-2">Status</th><th className="p-2">Apply?</th></tr></thead><tbody>{prepared.comparisons.map((comparison) => <tr key={comparison.field} className="border-t"><td className="p-2 font-semibold">{comparison.field === "saleDate" ? "Sale Date" : "Final Sale Price"}</td><td className="p-2">{comparison.current || "—"}</td><td className="p-2">{comparison.imported || "—"}</td><td className="p-2">{comparison.status}</td><td className="p-2"><label className="flex items-center gap-2"><input type="checkbox" disabled={comparison.disabled} checked={Boolean(ebaySalePostingReviewState.selectedFields[comparison.field])} onChange={(event) => setEbaySalePostingReviewState({ ...ebaySalePostingReviewState, selectedFields: { ...ebaySalePostingReviewState.selectedFields, [comparison.field]: event.target.checked } })} />{comparison.status === "Different" ? "Use eBay Value" : "Apply"}</label></td></tr>)}</tbody></table></div>{["Draft", "Listed"].includes(item.status) && <label className="mt-4 flex items-center gap-2 rounded-xl bg-stone-50 p-3 text-sm font-semibold"><input type="checkbox" checked={ebaySalePostingReviewState.markSold} onChange={(event) => setEbaySalePostingReviewState({ ...ebaySalePostingReviewState, markSold: event.target.checked })} />Mark item as Sold</label>}<div className="mt-4 grid gap-3 sm:grid-cols-2"><div className="rounded-2xl bg-stone-50 p-4"><h3 className="font-semibold">Current</h3><p className="mt-2 text-sm">Sale Date: {item.saleDate || "—"}</p><p className="text-sm">Final Sale Price: {item.finalSalePrice || "—"}</p><p className="text-sm">Status: {item.status}</p></div><div className="rounded-2xl bg-lime-50 p-4"><h3 className="font-semibold">After</h3><p className="mt-2 text-sm">Sale Date: {after.saleDate || "—"}</p><p className="text-sm">Final Sale Price: {after.finalSalePrice || "—"}</p><p className="text-sm">Status: {prepared.proposedItemPatch.status || item.status}</p></div></div>{prepared.validationErrors.length > 0 && <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">{prepared.validationErrors.join(" · ")}</p>}<div className="mt-4 flex justify-end"><button type="button" disabled={prepared.validationErrors.length > 0} onClick={commitEbaySalePosting} className="rounded-xl bg-lime-700 px-5 py-3 text-sm font-semibold text-white disabled:opacity-40">Confirm Selected Changes</button></div></section></div>;
+          })()}
 
           {activeTab === "finance" && activeFinancePanel === "tax_records" && (
             <div ref={financePanelRef} className="grid gap-5">

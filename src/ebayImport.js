@@ -9,6 +9,7 @@ export const emptyNormalizedEbayRecord = {
   saleAmount: "", buyerShipping: "", platformFee: "", promotedFee: "", otherFee: "", shippingLabelCost: "", refundAmount: "", payoutAmount: "",
   currency: "EUR", buyerName: "", country: "", rawRow: {}, mappingStatus: "needs_review", matchStatus: "unmatched", resolutionStatus: "open",
   matchedItemId: "", matchedSaleFieldConfidence: 0, candidateMatches: [], duplicateKey: "", duplicateStatus: "unique", notes: "",
+  postingStatus: "not_posted", postedAt: "", postedItemId: "", postedFields: [],
 };
 export const emptyEbayMappingProfile = { id: "", name: "", sourceHeaders: [], mappings: {}, createdAt: "", updatedAt: "" };
 
@@ -82,9 +83,10 @@ export function generateEbayDuplicateKey(record) {
 
 export function normalizeEbayImportRecord(record = {}) {
   const next = { ...emptyNormalizedEbayRecord, ...record };
-  for (const key of Object.keys(emptyNormalizedEbayRecord)) if (["rawRow", "candidateMatches", "sourceRowIndex", "matchedSaleFieldConfidence"].includes(key)) continue; else next[key] = String(next[key] ?? emptyNormalizedEbayRecord[key]);
+  for (const key of Object.keys(emptyNormalizedEbayRecord)) if (["rawRow", "candidateMatches", "postedFields", "sourceRowIndex", "matchedSaleFieldConfidence"].includes(key)) continue; else next[key] = String(next[key] ?? emptyNormalizedEbayRecord[key]);
   next.sourceRowIndex = Number(next.sourceRowIndex) || 0; next.matchedSaleFieldConfidence = Number(next.matchedSaleFieldConfidence) || 0;
   next.rawRow = next.rawRow && typeof next.rawRow === "object" ? { ...next.rawRow } : {}; next.candidateMatches = Array.isArray(next.candidateMatches) ? next.candidateMatches.map((candidate) => ({ ...candidate })) : [];
+  next.postedFields = Array.isArray(next.postedFields) ? [...new Set(next.postedFields.map(String).filter((field) => ["saleDate", "finalSalePrice"].includes(field)))] : [];
   next.currency = String(next.currency || "EUR").toUpperCase(); next.duplicateKey = next.duplicateKey || generateEbayDuplicateKey(next);
   return next;
 }
@@ -127,4 +129,46 @@ export function compareEbayRecordToItem(record, item) {
     ["Refund", record.refundAmount, refundValue(item)], ["Status", record.transactionType, itemStatusValue(item)],
   ];
   return comparisons.map(([field, imported, current]) => ({ field, imported, current, status: !String(current ?? "").trim() ? "Missing in ResellIt" : number(imported) && number(current) ? (number(imported) === number(current) ? "Aligned" : "Different") : normalizedText(imported) === normalizedText(current) ? "Aligned" : "Different" }));
+}
+
+function salePostingComparison(field, current, imported) {
+  const currentPresent = String(current ?? "").trim() !== "";
+  const importedPresent = String(imported ?? "").trim() !== "";
+  let status = "Different";
+  if (!importedPresent) status = "Missing in eBay";
+  else if (!currentPresent) status = "Missing in ResellIt";
+  else if (field === "finalSalePrice" ? number(current) === number(imported) : String(current) === String(imported)) status = "Aligned";
+  return { field, current: current ?? "", imported: imported ?? "", status, defaultSelected: status === "Missing in ResellIt", disabled: ["Aligned", "Missing in eBay"].includes(status) };
+}
+
+export function ebaySalePostingReview(record, item) {
+  return [
+    salePostingComparison("saleDate", item?.saleDate, record?.saleDate || record?.orderDate),
+    salePostingComparison("finalSalePrice", item?.finalSalePrice, record?.saleAmount),
+  ];
+}
+
+export function isEbaySalePostingEligible(record, item) {
+  return Boolean(record && item && record.matchStatus === "confirmed" && record.matchedItemId && record.matchedItemId === item.id
+    && record.resolutionStatus !== "ignored" && record.matchStatus !== "ignored"
+    && record.duplicateStatus === "unique"
+    && (String(record.saleDate || record.orderDate || "").trim() || String(record.saleAmount || "").trim()));
+}
+
+export function prepareEbaySalePosting(record, item, selectedFields = {}, { markSold = false } = {}) {
+  const errors = [];
+  if (!isEbaySalePostingEligible(record, item)) errors.push("Record is not eligible for sale posting");
+  const comparisons = ebaySalePostingReview(record, item);
+  const proposedItemPatch = {}; const changedFields = []; const unchangedFields = []; const conflicts = [];
+  for (const comparison of comparisons) {
+    const selected = Boolean(selectedFields[comparison.field]);
+    if (comparison.status === "Different") conflicts.push(comparison.field);
+    if (!selected) { unchangedFields.push(comparison.field); continue; }
+    if (comparison.disabled) { errors.push(`${comparison.field} cannot be applied`); continue; }
+    proposedItemPatch[comparison.field] = comparison.imported;
+    changedFields.push(comparison.field);
+  }
+  if (markSold && ["Draft", "Listed"].includes(item?.status)) proposedItemPatch.status = "Sold";
+  if (!changedFields.length && !proposedItemPatch.status) errors.push("Select at least one change");
+  return { proposedItemPatch, changedFields, unchangedFields, conflicts, comparisons, validationErrors: errors };
 }
