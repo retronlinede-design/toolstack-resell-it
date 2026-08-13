@@ -200,7 +200,7 @@ function operationalClassificationLabel(value) {
 const workflowSections = [
   ["item", "Item", Package, "Identity and stock status"],
   ["purchase", "Purchase", ReceiptText, "Acquisition, source, and cost"],
-  ["research", "Research & Condition", Search, "Testing, condition, and pricing research"],
+  ["research", "Condition & Testing", Search, "Physical condition, testing, and defects"],
   ["listing", "eBay Listing", ClipboardList, "Listing details and generated copy"],
   ["proof", "Records & Proof", FileText, "Proof and source-document references"],
   ["advanced", "Advanced", StickyNote, "Compliance, compatibility, and administration"],
@@ -1459,6 +1459,7 @@ export default function ResellerItApp() {
   const activeStockItems = useMemo(() => items.filter(isActiveStockItem), [items]);
 
   const todayWorkflow = useMemo(() => ({
+    // Retained for disabled legacy views only; manual research is not an active workflow queue.
     toResearch: activeStockItems.filter((item) => !hasPriceResearch(item) && !isSoldStatus(item)),
     readyToList: activeStockItems.filter((item) => !isSoldStatus(item) && listingReadiness(item) === "Ready"),
     soldNotShipped: activeStockItems.filter((item) => itemStatusValue(item) === "Sold"),
@@ -1512,8 +1513,7 @@ export default function ResellerItApp() {
       if (inventoryStatus !== "All statuses" && inventoryStatus !== "In Stock" && itemStatusValue(item) !== inventoryStatus) return false;
       if (inventoryCategory !== "All categories" && item.category !== inventoryCategory) return false;
       if (inventoryIssueFilter === "Missing proof" && !needsProofRecord(item)) return false;
-      if (inventoryIssueFilter === "Needs attention" && !(needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION)) return false;
-      if (inventoryIssueFilter === "Missing price research" && hasPriceResearch(item)) return false;
+      if (inventoryIssueFilter === "Needs attention" && !(needsProofRecord(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION)) return false;
       if (inventoryIssueFilter === "Missing listing draft" && hasListingDraft(item)) return false;
       if (inventoryIssueFilter === "Review later" && itemClassification(item) !== DEFAULT_CLASSIFICATION) return false;
       if (inventoryIssueFilter === "Sold only" && !isSoldStatus(item)) return false;
@@ -1579,7 +1579,7 @@ export default function ResellerItApp() {
 
   const stockSectionItems = useMemo(() => {
     if (stockSection === "needsAttention") {
-      return inventoryManagerItems.filter((item) => isActiveStockItem(item) && (needsProofRecord(item) || !hasPriceResearch(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION));
+      return inventoryManagerItems.filter((item) => isActiveStockItem(item) && (needsProofRecord(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION));
     }
     if (stockSection === "readyToList") {
       return inventoryManagerItems.filter((item) => isActiveStockItem(item) && !isSoldStatus(item) && listingReadiness(item) === "Ready");
@@ -2105,30 +2105,19 @@ export default function ResellerItApp() {
                 )}
 
                 {activeWorkflowSection === "research" && (
-                  <div className="space-y-4">
-                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                       <Select label="Tested Status" value={form.testedStatus || "Not specified"} onChange={(e) => setForm({ ...form, testedStatus: e.target.value })}>{testedStatusOptions.map((status) => <option key={status}>{status}</option>)}</Select>
                       <Select label="Condition Grade" value={form.conditionGrade || ""} onChange={(e) => setForm({ ...form, conditionGrade: e.target.value })}><option value="">Select condition</option>{conditionGradeOptions.map((grade) => <option key={grade}>{grade}</option>)}</Select>
-                      <Input label="Suggested Listing Price (€)" value={form.suggestedListingPrice || ""} onChange={(e) => setForm({ ...form, suggestedListingPrice: e.target.value })} />
-                      <Input label="Chosen Listing Price (€)" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
                       <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Defects & Wear</span><textarea value={form.defectsNotes || ""} onChange={(e) => setForm({ ...form, defectsNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
                       <label className="block sm:col-span-2"><span className="mb-1.5 block text-xs font-semibold text-neutral-600">Condition Notes</span><textarea value={form.conditionNotes || ""} onChange={(e) => setForm({ ...form, conditionNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" /></label>
-                    </div>
-
-                    <div className="rounded-2xl border border-neutral-200 bg-white p-3">
-                      <h4 className="text-sm font-semibold text-neutral-950">Market Research</h4>
-                      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                        <Input label="Research Query" className="sm:col-span-2 lg:col-span-4" value={form.researchQuery || ""} onChange={(e) => setForm({ ...form, researchQuery: e.target.value })} />
-                        <Input label="Research Low (€)" value={form.priceResearchLow || form.researchedLowPrice || ""} onChange={(e) => setForm({ ...form, priceResearchLow: e.target.value, researchedLowPrice: e.target.value })} />
-                        <Input label="Research Mid (€)" value={form.priceResearchMid || form.researchedMidPrice || ""} onChange={(e) => setForm({ ...form, priceResearchMid: e.target.value, researchedMidPrice: e.target.value })} />
-                        <Input label="Research High (€)" value={form.priceResearchHigh || form.researchedHighPrice || ""} onChange={(e) => setForm({ ...form, priceResearchHigh: e.target.value, researchedHighPrice: e.target.value })} />
-                        <label className="block sm:col-span-2 lg:col-span-4">
-                            <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Research Notes</span>
-                            <textarea value={form.priceResearchNotes || ""} onChange={(e) => setForm({ ...form, priceResearchNotes: e.target.value })} className="min-h-20 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
-                        </label>
+                      <div className="sm:col-span-2 lg:col-span-4">
+                        <ChecklistGrid
+                          title="Defect Disclosure"
+                          items={defectDisclosureItems}
+                          value={normalizeBooleanRecord(form.defectDisclosure, defaultDefectDisclosure)}
+                          onChange={(defectDisclosure) => setForm({ ...form, defectDisclosure })}
+                        />
                       </div>
-                      <div className="mt-3 flex flex-wrap gap-2">{priceResearchLinks(form).map(([label, href]) => <a key={label} href={href} target="_blank" rel="noreferrer" className="rounded-xl border border-neutral-300 px-3 py-2 text-sm font-semibold text-neutral-700 hover:bg-neutral-50">{label}</a>)}</div>
-                    </div>
                   </div>
                 )}
 
@@ -2212,6 +2201,26 @@ export default function ResellerItApp() {
                       <input type="file" accept="image/*" onChange={handleProofImageUpload} className="block w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-neutral-950 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-white" />
                       <p className="mt-1 text-xs text-neutral-500">Compatibility only. Prefer file/folder references in Records & Proof.</p>
                     </label>
+                    {hasPriceResearch(form) && (
+                      <details className="rounded-2xl border border-stone-200 bg-stone-50 p-3">
+                        <summary className="cursor-pointer text-sm font-semibold text-stone-800">Imported / Existing Research</summary>
+                        <p className="mt-2 text-xs text-stone-500">Read-only compatibility view. Market research is no longer part of normal item intake.</p>
+                        <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                          {[
+                            ["Query", form.researchQuery],
+                            ["Low", form.priceResearchLow || form.researchedLowPrice],
+                            ["Mid", form.priceResearchMid || form.researchedMidPrice],
+                            ["High", form.priceResearchHigh || form.researchedHighPrice],
+                            ["Notes", form.researchNotes || form.priceResearchNotes],
+                          ].map(([label, value]) => (
+                            <div key={label} className={label === "Notes" ? "sm:col-span-2 lg:col-span-4" : ""}>
+                              <dt className="text-xs font-semibold text-stone-500">{label}</dt>
+                              <dd className="mt-1 whitespace-pre-wrap break-words text-stone-800">{value || "—"}</dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </details>
+                    )}
                   </div>
                 )}
               </div>
@@ -2995,10 +3004,9 @@ export default function ResellerItApp() {
                     <h2 className="mt-1 text-lg font-semibold text-stone-950">Work that needs a decision</h2>
                   </div>
                 </div>
-                {todayWorkflow.toResearch.length || todayWorkflow.readyToList.length || dashboardSalesDataGapCount || salesWorkflow.problemItems.length || todayWorkflow.needsListing.length || todayWorkflow.missingProof.length || complianceSummary.incomplete || complianceSummary.needsEigenbeleg ? (
+                {todayWorkflow.readyToList.length || dashboardSalesDataGapCount || salesWorkflow.problemItems.length || todayWorkflow.needsListing.length || todayWorkflow.missingProof.length || complianceSummary.incomplete || complianceSummary.needsEigenbeleg ? (
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {[
-                      ["Needs Research", todayWorkflow.toResearch.length, () => openStockQueue("needsAttention", "Missing price research")],
                       ["Ready for Listing", todayWorkflow.readyToList.length, () => openStockQueue("readyToList")],
                       ["Sales Data Gaps", dashboardSalesDataGapCount, () => openSalesQueue("sales_data_gaps")],
                       ["Sales Issues", salesWorkflow.problemItems.length, () => openSalesQueue("problemItems")],

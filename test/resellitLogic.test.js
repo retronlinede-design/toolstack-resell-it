@@ -5,6 +5,7 @@ import {
   generateHtmlDescription,
   generateListingDraft,
   generatedConditionText,
+  listingCompleteness,
   listingReadiness,
 } from "../src/ebayListingTemplate.js";
 import {
@@ -1208,7 +1209,7 @@ test("Item Editor uses one reachable six-section stock-intake workflow", () => {
   for (const section of [
     '["item", "Item"',
     '["purchase", "Purchase"',
-    '["research", "Research & Condition"',
+    '["research", "Condition & Testing"',
     '["listing", "eBay Listing"',
     '["proof", "Records & Proof"',
     '["advanced", "Advanced"',
@@ -1222,6 +1223,76 @@ test("Item Editor uses one reachable six-section stock-intake workflow", () => {
   assert.match(visibleEditor, /activeWorkflowSection === "advanced" && form\.id/);
   assert.doesNotMatch(visibleEditor, /label="(?:Sale date|Final sale price EUR|Platform fees EUR|Actual shipping cost EUR|Tracking number|Refund amount EUR|Return postage cost EUR)"/);
   assert.match(visibleEditor, /onClick=\{\(\) => saveCurrentItem\(\)\}[^>]*>Save Item<\/button>/);
+});
+
+test("Item Editor Phase 1 keeps physical facts while moving research and pricing out of Condition & Testing", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const studioSource = readFileSync(new URL("../src/components/item-editor/EbayStudio.jsx", import.meta.url), "utf8");
+  const conditionStart = appSource.indexOf('{activeWorkflowSection === "research" && (');
+  const conditionEnd = appSource.indexOf('{activeWorkflowSection === "listing" && (', conditionStart);
+  const conditionSection = appSource.slice(conditionStart, conditionEnd);
+
+  assert.match(appSource, /\["research", "Condition & Testing", Search, "Physical condition, testing, and defects"\]/);
+  for (const label of ["Tested Status", "Condition Grade", "Defects & Wear", "Condition Notes", "Defect Disclosure"]) {
+    assert.match(conditionSection, new RegExp(label.replace("&", "\\&")));
+  }
+  for (const label of ["Market Research", "Research Query", "Research Low", "Research Mid", "Research High", "Research Notes", "Suggested Listing Price", "Chosen Listing Price"]) {
+    assert.equal(conditionSection.includes(label), false, `${label} should not be in Condition & Testing`);
+  }
+  assert.match(studioSource, /label="Suggested Listing Price \(€\)"[^\n]*suggestedListingPrice/);
+  assert.match(studioSource, /label="Chosen Listing Price \(€\)"[^\n]*chosenListingPrice/);
+  assert.match(appSource, /Imported \/ Existing Research/);
+  assert.match(appSource, /form\.researchNotes \|\| form\.priceResearchNotes/);
+  assert.doesNotMatch(studioSource, /Translate DE|Translate EN|Open DeepL/);
+  assert.match(studioSource, /Advanced \/ Language/);
+  assert.match(studioSource, />\s*Generate Locally\s*</);
+  assert.match(studioSource, /onClick=\{onGenerateFullListingPack\}/);
+});
+
+test("listing readiness does not require market research fields", () => {
+  const item = {
+    ebayTitle: "Deutscher eBay Titel",
+    chosenListingPrice: "49.99",
+    productDescriptionText: "Vollständige Artikelbeschreibung.",
+    ebay: { conditionText: "Gebraucht und geprüft." },
+    shippingNotes: "Versicherter Versand.",
+    researchQuery: "",
+    priceResearchLow: "",
+    priceResearchMid: "",
+    priceResearchHigh: "",
+    researchNotes: "",
+  };
+
+  assert.equal(listingCompleteness(item).checks.every(([, complete]) => complete), true);
+  assert.equal(listingReadiness(item), "Ready");
+});
+
+test("research and language compatibility data normalize without migration or mutation", () => {
+  const input = {
+    id: "phase-1-compat",
+    researchQuery: "Vintage receiver",
+    priceResearchLow: "20",
+    priceResearchMid: "30",
+    priceResearchHigh: "40",
+    researchNotes: "Existing stored research",
+    researchedLowPrice: "19",
+    priceResearchNotes: "Legacy notes",
+    language: "en",
+    listingLanguage: "English",
+  };
+  const snapshot = structuredClone(input);
+  const normalized = normalizeSchemaItem(input);
+
+  assert.deepEqual(input, snapshot);
+  assert.equal(normalized.researchQuery, input.researchQuery);
+  assert.equal(normalized.priceResearchLow, input.priceResearchLow);
+  assert.equal(normalized.priceResearchMid, input.priceResearchMid);
+  assert.equal(normalized.priceResearchHigh, input.priceResearchHigh);
+  assert.equal(normalized.researchNotes, input.researchNotes);
+  assert.equal(normalized.researchedLowPrice, input.researchedLowPrice);
+  assert.equal(normalized.priceResearchNotes, input.priceResearchNotes);
+  assert.equal(normalized.language, "en");
+  assert.equal(normalized.listingLanguage, "English");
 });
 
 test("Stock Control filtered summary derives from displayed rows with existing helpers", () => {

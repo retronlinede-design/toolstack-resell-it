@@ -72,6 +72,7 @@ export function EbayStudio({
             <input value={form.ebayTitle || form.listingTitle || generatedListingTitle(form)} onChange={(e) => onUpdateListingTitle(e.target.value)} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
             <span className={`mt-1 block text-xs font-semibold ${(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length > 80 ? "text-red-700" : "text-stone-500"}`}>{(form.ebayTitle || form.listingTitle || generatedListingTitle(form)).length}/80 characters</span>
           </label>
+          <Input label="Suggested Listing Price (€)" value={form.suggestedListingPrice || ""} onChange={(e) => setForm({ ...form, suggestedListingPrice: e.target.value })} />
           <Input label="Chosen Listing Price (€)" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
           <Input label="Included Accessories & Items" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
           <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
@@ -189,10 +190,10 @@ export function EbayStudio({
           onClick={onGenerateFullListingPack}
           className="rounded-2xl bg-[#e06b2c] px-5 py-3 text-sm font-semibold text-[#24110e] shadow-[0_10px_24px_rgba(224,107,44,0.18)] hover:bg-[#f0be45]"
         >
-          Generate eBay Listing
+          Generate Locally
         </button>
         <p className="mt-2 text-xs text-stone-600">
-          Uses the seller input above to create the eBay copy below.
+          Fallback generator using the item information stored in ResellIt.
         </p>
       </div>
 
