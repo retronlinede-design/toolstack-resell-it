@@ -433,22 +433,44 @@ const NON_AUTHORITATIVE_OUTPUT_IDS = new Set([
 ]);
 
 function structuredSelection(selectedFieldIds) {
-  return selectedFieldIds.filter((id) => !NON_AUTHORITATIVE_OUTPUT_IDS.has(id));
+  return (Array.isArray(selectedFieldIds) ? selectedFieldIds : []).filter((id) => !NON_AUTHORITATIVE_OUTPUT_IDS.has(id));
 }
 
-function locallyGeneratedOutput(item) {
-  const draft = generateListingDraft(item, { preferSaved: false });
-  return {
-    generatedPlainDescription: draft.description,
-    generatedHtmlDescription: draft.htmlDescription,
-  };
+export function generateGptItemTemplateOutput(item) {
+  try {
+    const draft = generateListingDraft(item, { preferSaved: false });
+    if (!String(draft.description || "").trim() || !String(draft.htmlDescription || "").trim()) {
+      return { ok: false, output: null, error: diagnostic("template_generation_failed", "generated", "ResellIt could not generate the final plain and HTML descriptions.") };
+    }
+    return {
+      ok: true,
+      output: {
+        generatedPlainDescription: draft.description,
+        generatedHtmlDescription: draft.htmlDescription,
+      },
+      error: null,
+    };
+  } catch {
+    return { ok: false, output: null, error: diagnostic("template_generation_failed", "generated", "ResellIt could not generate the final plain and HTML descriptions. Review the selected fields and try again.") };
+  }
+}
+
+export function prepareCanonicalGptItem(validationResult, selectedFieldIds, newItemDefaults = {}) {
+  if (!validationResult?.ok) return { item: null, prepared: null, validationErrors: validationResult?.errors || [diagnostic("invalid_result", "", "A validated Listing Package is required")] };
+  const prepared = prepareListingPackagePatch(validationResult, newItemDefaults, structuredSelection(selectedFieldIds));
+  if (prepared.validationErrors.length) return { item: null, prepared, validationErrors: prepared.validationErrors };
+  const item = normalizeItem(applyListingPackagePatchToItem({ ...newItemDefaults, status: "Draft", language: "de" }, prepared.patch));
+  if (!String(item.name || "").trim()) return { item: null, prepared, validationErrors: [diagnostic("item_name_not_selected", "itemName", "Item Name must be selected to create the item")] };
+  return { item, prepared, validationErrors: [] };
 }
 
 export function prepareGptListingUpdate(validationResult, selectedFieldIds, currentItem = {}) {
   const prepared = prepareListingPackagePatch(validationResult, currentItem, structuredSelection(selectedFieldIds));
   if (prepared.validationErrors.length) return { item: null, patch: {}, ...prepared };
   const structuredItem = applyListingPackagePatchToItem(currentItem, prepared.patch);
-  const output = locallyGeneratedOutput(structuredItem);
+  const generated = generateGptItemTemplateOutput(structuredItem);
+  if (!generated.ok) return { item: null, patch: {}, changedFields: prepared.changedFields, skippedFields: prepared.skippedFields, conflicts: prepared.conflicts, validationErrors: [generated.error] };
+  const output = generated.output;
   return {
     item: { ...structuredItem, ...output },
     patch: { ...prepared.patch, ...output },
@@ -460,12 +482,12 @@ export function prepareGptListingUpdate(validationResult, selectedFieldIds, curr
 }
 
 export function prepareGptImportedItem(validationResult, selectedFieldIds, newItemDefaults = {}) {
-  if (!validationResult?.ok) return { item: null, appliedFields: [], skippedFields: [], listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(newItemDefaults), validationErrors: validationResult?.errors || [diagnostic("invalid_result", "", "A validated Listing Package is required")] };
-  const prepared = prepareListingPackagePatch(validationResult, newItemDefaults, structuredSelection(selectedFieldIds));
-  if (prepared.validationErrors.length) return { item: null, appliedFields: [], skippedFields: prepared.skippedFields, listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(newItemDefaults), validationErrors: prepared.validationErrors };
-  const structuredItem = normalizeItem(applyListingPackagePatchToItem({ ...newItemDefaults, status: "Draft", language: "de" }, prepared.patch));
-  if (!String(structuredItem.name || "").trim()) return { item: null, appliedFields: prepared.changedFields, skippedFields: prepared.skippedFields, listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(structuredItem), validationErrors: [diagnostic("item_name_not_selected", "itemName", "Item Name must be selected to create the item")] };
-  const proposed = { ...structuredItem, ...locallyGeneratedOutput(structuredItem) };
+  const canonical = prepareCanonicalGptItem(validationResult, selectedFieldIds, newItemDefaults);
+  const prepared = canonical.prepared;
+  if (canonical.validationErrors.length) return { item: null, appliedFields: prepared?.changedFields || [], skippedFields: prepared?.skippedFields || [], listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(canonical.item || newItemDefaults), validationErrors: canonical.validationErrors };
+  const generated = generateGptItemTemplateOutput(canonical.item);
+  if (!generated.ok) return { item: null, appliedFields: prepared.changedFields, skippedFields: prepared.skippedFields, listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(canonical.item), validationErrors: [generated.error] };
+  const proposed = { ...canonical.item, ...generated.output };
   const readiness = listingReadiness(proposed);
   return {
     item: proposed,

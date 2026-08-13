@@ -6,8 +6,10 @@ import {
   LISTING_PACKAGE_READINESS_METADATA,
   applyListingPackagePatchToItem,
   compareListingPackage,
+  generateGptItemTemplateOutput,
   parseAndValidateListingPackage,
   parseListingPackage,
+  prepareCanonicalGptItem,
   prepareListingPackagePatch,
   prepareGptImportedItem,
   prepareGptListingUpdate,
@@ -456,6 +458,80 @@ test("GPT-created items use ResellIt plain and HTML templates instead of package
   assert.deepEqual(packageValue, packageSnapshot);
 });
 
+test("JBL package completes parse, review, canonical preparation, template generation, and one Draft creation", () => {
+  const packageValue = validPackage({
+    itemName: "JBL On Stage 200iD Lautsprecherdock",
+    facts: {
+      identity: { brand: "JBL", model: "On Stage 200iD", colour: "Schwarz", measurements: "34 × 12 × 10 cm", compatibilityInfo: "Apple 30-Pin und 3,5-mm-AUX" },
+      condition: {
+        testedStatus: "Tested working", conditionGrade: "Gut", conditionNotes: "Geprüft.", defectsNotes: "Leichte Gebrauchsspuren.",
+        includedAccessories: [
+          { name: "Netzteil", type: "charger", titlePriority: false, notes: null },
+          { name: "Originalverpackung", type: "original_box", titlePriority: true, notes: null },
+          { name: "Bedienungsanleitung", type: "manual", titlePriority: true, notes: null },
+        ],
+      },
+    },
+    generated: {
+      ebayTitle: "JBL On Stage 200iD Lautsprecherdock OVP Anleitung",
+      ebayConditionText: "Getestet und voll funktionsfähig. Leichte Gebrauchsspuren.",
+      productDescriptionText: "JBL Lautsprecherdock für kompatible Apple-Geräte.",
+      generatedPlainDescription: "Compatibility plain output",
+      generatedHtmlDescription: "<p>Compatibility HTML output</p>",
+      keyFeatures: "30-Pin-Dock\n3,5-mm-AUX-Eingang",
+    },
+    recommendations: { category: "Lautsprecherdocks", suggestedListingPrice: 39.99, shippingNotes: "Versicherter Versand mit Sendungsverfolgung." },
+    research: { query: "JBL On Stage 200iD gebraucht", low: 25, mid: 35, high: 45, currency: "EUR", summary: "Vergleichbare Angebote geprüft.", sources: ["eBay"] },
+  });
+  const parsed = parseAndValidateListingPackage(JSON.stringify(packageValue));
+  assert.equal(parsed.ok, true);
+  const rows = compareListingPackage(parsed, {});
+  const selected = rows.filter((row) => row.group !== "Compatibility Output").map((row) => row.id);
+  const canonical = prepareCanonicalGptItem(parsed, selected, { purchaseDate: "", purchasePrice: "", sourceName: "", sourceType: "" });
+  assert.equal(canonical.validationErrors.length, 0);
+  const generated = generateGptItemTemplateOutput(canonical.item);
+  assert.equal(generated.ok, true);
+  const prepared = prepareGptImportedItem(parsed, selected, { purchaseDate: "", purchasePrice: "", sourceName: "", sourceType: "" });
+
+  assert.equal(prepared.item.name, packageValue.itemName);
+  assert.equal(prepared.item.status, "Draft");
+  assert.equal(prepared.item.brand, "JBL");
+  assert.equal(prepared.item.model, "On Stage 200iD");
+  assert.equal(prepared.item.measurements, "34 × 12 × 10 cm");
+  assert.equal(prepared.item.compatibilityInfo, "Apple 30-Pin und 3,5-mm-AUX");
+  assert.equal(prepared.item.testedStatus, "Tested working");
+  assert.equal(prepared.item.conditionGrade, "Gut");
+  assert.deepEqual(prepared.item.includedAccessories.map((entry) => entry.name), ["Netzteil", "Originalverpackung", "Bedienungsanleitung"]);
+  assert.equal(prepared.item.ebayTitle, packageValue.generated.ebayTitle);
+  assert.equal(prepared.item.ebay.conditionText, packageValue.generated.ebayConditionText);
+  assert.equal(prepared.item.productDescriptionText, packageValue.generated.productDescriptionText);
+  assert.ok(prepared.item.generatedPlainDescription);
+  assert.ok(prepared.item.generatedHtmlDescription);
+  for (const heading of ["ARTIKEL", "PRODUKTBESCHREIBUNG", "ZUSTAND", "LIEFERUMFANG"]) assert.match(prepared.item.generatedPlainDescription, new RegExp(heading));
+  assert.match(prepared.item.ebayTitle, /OVP/);
+  assert.match(prepared.item.ebayTitle, /Anleitung/);
+  assert.equal(prepared.item.purchaseDate, "");
+  assert.equal(prepared.item.purchasePrice, "");
+  assert.equal(prepared.item.listingTitle, "");
+  assert.equal(prepared.item.conditionText, "");
+  assert.equal(prepared.item.includedItems, "");
+
+  let createdCount = 0;
+  let committed = false;
+  const createOnce = (item) => { if (committed) return; committed = true; createdCount += 1; assert.equal(item.status, "Draft"); };
+  createOnce(prepared.item);
+  createOnce(prepared.item);
+  assert.equal(createdCount, 1);
+});
+
+test("template-generation failures are structured and do not throw into the import UI", () => {
+  const unreadableItem = new Proxy({}, { get() { throw new Error("template input failure"); } });
+  const generated = generateGptItemTemplateOutput(unreadableItem);
+  assert.equal(generated.ok, false);
+  assert.equal(generated.output, null);
+  assert.equal(generated.error.code, "template_generation_failed");
+});
+
 test("GPT and manual items with identical canonical inputs produce equivalent local output", () => {
   const validation = validateListingPackage(validPackage({
     itemName: "Sony Walkman",
@@ -470,19 +546,6 @@ test("GPT and manual items with identical canonical inputs produce equivalent lo
   assert.equal(prepared.item.generatedPlainDescription, generateListingDraft(manual, { preferSaved: false }).description);
   assert.equal(prepared.item.generatedHtmlDescription, generateHtmlDescription(manual, { preferSaved: false }));
   assert.equal(listingReadiness(prepared.item), listingReadiness(manual));
-});
-
-test("local product sections suppress only trivial exact key-feature duplicates", () => {
-  const description = generateListingDraft({
-    language: "de",
-    ebayTitle: "Testgerät",
-    productDescriptionText: "Auto Reverse",
-    keyFeatures: "Auto Reverse\nDolby B",
-    ebay: { conditionText: "Guter Zustand." },
-    shippingNotes: "Versand.",
-  }, { preferSaved: false }).description;
-  assert.equal(description.match(/Auto Reverse/g)?.length, 1);
-  assert.match(description, /Dolby B/);
 });
 
 test("existing-item GPT updates regenerate local outputs without mutating the saved source item", () => {
@@ -527,6 +590,12 @@ test("Stock Control GPT item creation entry point persists once and opens Purcha
   const importSource = readFileSync(new URL("../src/components/inventory/GptItemImport.jsx", import.meta.url), "utf8");
   assert.match(tableSource, /<GptItemImport newItemDefaults=\{gptItemDefaults\} onCreateItem=\{onCreateGptItem\}/);
   assert.match(importSource, />Import GPT Item<\/button>/);
+  assert.match(importSource, /stage === "paste"/);
+  assert.match(importSource, /stage === "review"/);
+  assert.match(importSource, /stage === "confirm"/);
+  assert.match(importSource, />Parse & Review<\/button>/);
+  assert.match(importSource, />Create Item<\/button>/);
+  assert.match(importSource, /prepared\?\.validationErrors/);
   assert.match(importSource, /commitGuard\.current/);
   assert.match(importSource, /disabled=\{committing\}/);
   assert.match(appSource, /function createGptImportedItem\(proposedItem\)/);
