@@ -1,3 +1,5 @@
+import { normalizeIncludedAccessories } from "./includedAccessories.js";
+
 export const MAX_LEGACY_PROOF_IMAGE_BYTES = 250 * 1024;
 export const DEFAULT_CLASSIFICATION = "Unsure / Review Later";
 export const DEFAULT_EBAY_FEE_MODE = "Private Germany";
@@ -182,7 +184,7 @@ export const emptyItem = {
   generatedPlainDescription: "",
   generatedHtmlDescription: "",
   includedItems: "",
-  includedAccessories: "",
+  includedAccessories: [],
   defectsNotes: "",
   testedStatus: "Not specified",
   shippingNotes: "",
@@ -458,8 +460,7 @@ export function normalizeItem(item) {
   next.sellerClassification = sellerClassificationValues.includes(next.sellerClassification) ? next.sellerClassification : "private";
   next.measurements = next.measurements || next.sizeSpecs || "";
   next.sizeSpecs = next.sizeSpecs || next.measurements || "";
-  next.includedAccessories = next.includedAccessories || next.includedItems || "";
-  next.includedItems = next.includedItems || next.includedAccessories || "";
+  next.includedAccessories = normalizeIncludedAccessories(next.includedAccessories, next.includedItems);
   next.priceResearchLow = next.priceResearchLow || next.researchedLowPrice || "";
   next.priceResearchMid = next.priceResearchMid || next.researchedMidPrice || "";
   next.priceResearchHigh = next.priceResearchHigh || next.researchedHighPrice || "";

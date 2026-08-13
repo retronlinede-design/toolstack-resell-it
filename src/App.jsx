@@ -4,6 +4,8 @@ import resellItLogo from "./assets/resellitlogo2.png";
 import { ExpenseManager } from "./components/finance/ExpenseManager.jsx";
 import { InventoryTable } from "./components/inventory/InventoryTable.jsx";
 import { EbayStudio } from "./components/item-editor/EbayStudio.jsx";
+import { IncludedAccessoriesEditor } from "./components/item-editor/IncludedAccessoriesEditor.jsx";
+import { includedAccessoryNames } from "./includedAccessories.js";
 import { PurchaseInvoiceManager } from "./components/purchases/PurchaseInvoiceManager.jsx";
 import { StatCard } from "./components/shared/Cards.jsx";
 import { Input, Select } from "./components/shared/FormControls.jsx";
@@ -851,8 +853,7 @@ export default function ResellerItApp() {
       listingLanguage: languageLabel(cleanLanguage),
       sizeSpecs: form.sizeSpecs || form.measurements || "",
       measurements: form.measurements || form.sizeSpecs || "",
-      includedItems: form.includedItems || form.includedAccessories || "",
-      includedAccessories: form.includedAccessories || form.includedItems || "",
+      includedAccessories: form.includedAccessories,
       researchedLowPrice: form.researchedLowPrice || form.priceResearchLow || "",
       researchedMidPrice: form.researchedMidPrice || form.priceResearchMid || "",
       researchedHighPrice: form.researchedHighPrice || form.priceResearchHigh || "",
@@ -2100,7 +2101,7 @@ export default function ResellerItApp() {
                         <p className="mt-1 text-xs text-stone-500">Manage post-sale status in Sales Hub.</p>
                       </div>
                     )}
-                    <Input label="Included Accessories & Items" className="sm:col-span-2 lg:col-span-3" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
+                    <IncludedAccessoriesEditor value={form.includedAccessories} onChange={(includedAccessories) => setForm({ ...form, includedAccessories })} />
                   </div>
                 )}
 
@@ -2537,10 +2538,7 @@ export default function ResellerItApp() {
                   <textarea value={form.generatedPlainDescription || form.descriptionText || ""} onChange={(e) => setForm({ ...form, generatedPlainDescription: e.target.value, descriptionText: e.target.value })} className="min-h-28 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" />
                   <button type="button" onClick={() => copyText(formListingLabels.description.toLowerCase(), form.generatedPlainDescription || form.descriptionText || generateListingDraft(form).description)} className="mt-2 rounded-xl border border-orange-200 bg-orange-50 px-3 py-2 text-sm font-semibold text-orange-900 hover:bg-orange-100">Copy Plain Description</button>
                 </label>
-                <label className="block lg:col-span-2">
-                  <span className="mb-1.5 block text-xs font-semibold text-neutral-600">Included accessories</span>
-                  <input value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} className="h-10 w-full rounded-xl border border-neutral-300 bg-white px-3 text-sm outline-none transition focus:border-neutral-800 focus:ring-2 focus:ring-neutral-200" placeholder="Item, charger, manual..." />
-                </label>
+                <div className="rounded-xl bg-neutral-50 p-3 lg:col-span-2"><p className="text-xs font-semibold text-neutral-500">Included accessories</p><p className="mt-1 text-sm text-neutral-700">{includedAccessoryNames(form.includedAccessories, form.includedItems).join(", ") || "Not specified"}</p></div>
                 <label className="block lg:col-span-2">
                   <span className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-neutral-600">
                     HTML description
@@ -4269,7 +4267,7 @@ export default function ResellerItApp() {
                     <div className="mt-4 grid gap-3 lg:grid-cols-2">
                       <div className="rounded-xl bg-neutral-50 p-3">
                         <p className="text-xs font-semibold text-neutral-500">{itemListingLabels.included}</p>
-                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{item.includedAccessories || item.includedItems || itemListingLabels.notSpecified}</p>
+                        <p className="mt-1 whitespace-pre-wrap text-sm text-neutral-700">{includedAccessoryNames(item.includedAccessories, item.includedItems).join(", ") || itemListingLabels.notSpecified}</p>
                       </div>
                       <div className="rounded-xl bg-neutral-50 p-3">
                         <p className="text-xs font-semibold text-neutral-500">Source fields</p>

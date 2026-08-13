@@ -1,3 +1,9 @@
+import {
+  INCLUDED_ACCESSORY_TYPE_VALUES,
+  materializeImportedAccessories,
+  semanticIncludedAccessories,
+} from "./includedAccessories.js";
+
 const FORMAT = "resellit_listing";
 const VERSION = 1;
 const LANGUAGE = "de";
@@ -173,7 +179,51 @@ function normalizePackage(source) {
   const result = structuredClone(source);
   result.generated.ebayTitle = normalizedWhitespace(result.generated.ebayTitle);
   for (const key of REQUIRED_GENERATED_FIELDS.filter((key) => key !== "ebayTitle")) result.generated[key] = result.generated[key].trim();
+  if (Array.isArray(result.facts.condition.includedAccessories)) {
+    result.facts.condition.includedAccessories = result.facts.condition.includedAccessories.map((entry) => ({
+      name: entry.name.trim(),
+      type: entry.type,
+      titlePriority: entry.titlePriority,
+      notes: entry.notes === null ? null : entry.notes.trim(),
+    }));
+  }
   return result;
+}
+
+function validatePackageAccessories(value, errors) {
+  const path = "facts.condition.includedAccessories";
+  if (value === undefined || value === null) return;
+  if (typeof value === "string") {
+    if (!value.trim() || isPlaceholder(value)) errors.push(diagnostic("invalid_accessories", path, `${path} legacy string must be non-empty`));
+    return;
+  }
+  if (!Array.isArray(value)) {
+    errors.push(diagnostic("invalid_accessories", path, `${path} must be an array, legacy string, or null`));
+    return;
+  }
+  const names = new Set();
+  value.forEach((entry, index) => {
+    const entryPath = `${path}.${index}`;
+    if (!isPlainObject(entry)) {
+      errors.push(diagnostic("invalid_accessory_entry", entryPath, "Included accessory must be an object"));
+      return;
+    }
+    for (const key of Object.keys(entry)) {
+      if (!["name", "type", "titlePriority", "notes"].includes(key)) {
+        errors.push(diagnostic(key === "id" ? "accessory_id_forbidden" : "unknown_key", `${entryPath}.${key}`, key === "id" ? "GPT packages must not provide included accessory IDs" : `Unknown included accessory field: ${key}`));
+      }
+    }
+    if (typeof entry.name !== "string" || !entry.name.trim() || isPlaceholder(entry.name)) errors.push(diagnostic("invalid_accessory_name", `${entryPath}.name`, "Included accessory name must be non-empty"));
+    else {
+      const normalizedName = normalizedWhitespace(entry.name).toLocaleLowerCase();
+      if (names.has(normalizedName)) errors.push(diagnostic("duplicate_accessory", `${entryPath}.name`, `Duplicate included accessory: ${entry.name}`));
+      names.add(normalizedName);
+    }
+    if (!INCLUDED_ACCESSORY_TYPE_VALUES.includes(entry.type)) errors.push(diagnostic("invalid_accessory_type", `${entryPath}.type`, "Invalid included accessory type"));
+    if (typeof entry.titlePriority !== "boolean") errors.push(diagnostic("invalid_accessory_priority", `${entryPath}.titlePriority`, "titlePriority must be boolean"));
+    if (entry.notes !== null && typeof entry.notes !== "string") errors.push(diagnostic("invalid_accessory_notes", `${entryPath}.notes`, "notes must be a string or null"));
+    if (typeof entry.notes === "string" && (!entry.notes.trim() || isPlaceholder(entry.notes))) errors.push(diagnostic("invalid_accessory_notes", `${entryPath}.notes`, "Use null instead of empty or placeholder notes"));
+  });
 }
 
 function mappedProposals(packageValue) {
@@ -232,10 +282,11 @@ export function validateListingPackage(source) {
 
   for (const path of [
     "facts.identity.brand", "facts.identity.model", "facts.identity.colour", "facts.identity.measurements", "facts.identity.compatibilityInfo",
-    "facts.condition.conditionNotes", "facts.condition.defectsNotes", "facts.condition.includedAccessories",
+    "facts.condition.conditionNotes", "facts.condition.defectsNotes",
     "generated.generatedHtmlDescription", "generated.keyFeatures", "recommendations.category", "recommendations.shippingNotes",
     "recommendations.listingStrategy", "research.query", "research.summary",
   ]) validateOptionalString(getPath(source, path), path, errors);
+  validatePackageAccessories(source.facts.condition.includedAccessories, errors);
 
   const testedStatus = source.facts.condition.testedStatus;
   if (testedStatus !== undefined && testedStatus !== null && !TESTED_STATUSES.has(testedStatus)) errors.push(diagnostic("invalid_enum", "facts.condition.testedStatus", "Invalid testedStatus value"));
@@ -275,7 +326,10 @@ export function parseAndValidateListingPackage(text) {
   return validateListingPackage(parsed.value);
 }
 
-function valuesEqual(currentValue, packageValue, numeric) {
+function valuesEqual(currentValue, packageValue, numeric, targetPath) {
+  if (targetPath === "includedAccessories") {
+    return JSON.stringify(semanticIncludedAccessories(currentValue)) === JSON.stringify(semanticIncludedAccessories(packageValue));
+  }
   if (numeric) {
     if (currentValue === "" || currentValue === null || currentValue === undefined) return false;
     const currentNumber = Number(currentValue);
@@ -286,14 +340,14 @@ function valuesEqual(currentValue, packageValue, numeric) {
 }
 
 function isEmpty(value) {
-  return value === undefined || value === null || (typeof value === "string" && !value.trim());
+  return value === undefined || value === null || (typeof value === "string" && !value.trim()) || (Array.isArray(value) && value.length === 0);
 }
 
 export function compareListingPackage(validationResult, currentItem = {}) {
   const item = isPlainObject(currentItem) ? currentItem : {};
   const rows = (validationResult.mappedFields || []).map((proposal) => {
     const currentValue = getPath(item, proposal.targetPath);
-    const state = isEmpty(currentValue) ? "New" : valuesEqual(currentValue, proposal.value, proposal.numeric) ? "Same" : "Different";
+    const state = isEmpty(currentValue) ? "New" : valuesEqual(currentValue, proposal.value, proposal.numeric, proposal.targetPath) ? "Same" : "Different";
     const defaultSelected = state === "New" && ["safe_generated", "research_context"].includes(proposal.safetyClass);
     return {
       id: proposal.id,
@@ -337,7 +391,10 @@ export function prepareListingPackagePatch(validationResult, currentItem, select
 
   for (const row of rows) {
     if ((row.state === "New" || row.state === "Different") && selected.has(row.id)) {
-      setPath(patch, row.field, structuredClone(row.packageValue));
+      const patchValue = row.field === "includedAccessories"
+        ? materializeImportedAccessories(typeof row.packageValue === "string" ? [{ name: row.packageValue, type: "accessory", titlePriority: false, notes: "" }] : row.packageValue)
+        : structuredClone(row.packageValue);
+      setPath(patch, row.field, patchValue);
       changedFields.push(row.field);
     } else {
       skippedFields.push(row.field);

@@ -76,7 +76,6 @@ export function EbayStudio({
           </label>
           <Input label="Suggested Listing Price (€)" value={form.suggestedListingPrice || ""} onChange={(e) => setForm({ ...form, suggestedListingPrice: e.target.value })} />
           <Input label="Chosen Listing Price (€)" value={form.chosenListingPrice || ""} onChange={(e) => setForm({ ...form, chosenListingPrice: e.target.value })} />
-          <Input label="Included Accessories & Items" className="lg:col-span-2" value={form.includedAccessories || form.includedItems || ""} onChange={(e) => setForm({ ...form, includedAccessories: e.target.value, includedItems: e.target.value })} />
           <div className="rounded-2xl border border-orange-200 bg-orange-50/60 p-3 lg:col-span-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-orange-800">{formListingSectionHeadings.productDescription}</p>
           <p className="mt-1 text-xs leading-5 text-stone-600">Describe what the item is, important features, compatibility, and general product information.</p>

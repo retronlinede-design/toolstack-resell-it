@@ -7,6 +7,7 @@ import {
   normalizeBooleanRecord,
   normalizeListingLanguageValue,
 } from "./resellitSchema.js";
+import { includedAccessoryNames, titlePriorityAccessoryTerms } from "./includedAccessories.js";
 
 function escapeHtml(value) {
   return String(value || "")
@@ -92,15 +93,15 @@ function compactWhitespace(value) {
 
 function truncateTitle(value, limit = 80) {
   const clean = compactWhitespace(value);
-  if (clean.length <= limit) return clean;
+  if (Array.from(clean).length <= limit) return clean;
   const words = clean.split(" ");
   const kept = [];
   for (const word of words) {
     const candidate = [...kept, word].join(" ");
-    if (candidate.length > limit) break;
+    if (Array.from(candidate).length > limit) break;
     kept.push(word);
   }
-  return kept.join(" ") || clean.slice(0, limit).trim();
+  return kept.join(" ") || Array.from(clean).slice(0, limit).join("").trim();
 }
 
 export function generatedListingTitle(item) {
@@ -111,16 +112,22 @@ export function generatedListingTitle(item) {
   const condition = isGermanListing(item)
     ? germanConditionGrade(item.conditionGrade)
     : item.conditionGrade;
-  const parts = [
+  const coreParts = [
     item.brand,
     item.model,
     item.name,
     item.category,
-    ...features,
-    condition,
   ].map(compactWhitespace).filter(Boolean);
-  const deduped = parts.filter((part, index) => parts.findIndex((candidate) => candidate.toLowerCase() === part.toLowerCase()) === index);
-  return truncateTitle(deduped.join(" "));
+  const dedupedCore = coreParts.filter((part, index) => coreParts.findIndex((candidate) => candidate.toLowerCase() === part.toLowerCase()) === index);
+  let title = truncateTitle(dedupedCore.join(" "));
+  const optionalParts = [...titlePriorityAccessoryTerms(item.includedAccessories, isGermanListing(item)), ...features, condition]
+    .map(compactWhitespace).filter(Boolean);
+  for (const part of optionalParts) {
+    if (title.toLocaleLowerCase().split(" ").includes(part.toLocaleLowerCase())) continue;
+    const candidate = compactWhitespace(`${title} ${part}`);
+    if (Array.from(candidate).length <= 80) title = candidate;
+  }
+  return truncateTitle(title);
 }
 
 export function germanConditionGrade(grade) {
@@ -276,7 +283,7 @@ export function generateHtmlDescription(item, { preferSaved = true } = {}) {
     .filter(([, value]) => value)
     .map(([label, value]) => label ? `${label}: ${value}` : value);
   const productLines = productDescriptionLines(item);
-  const included = bulletLines(item.includedAccessories || item.includedItems);
+  const included = includedAccessoryNames(item.includedAccessories, item.includedItems);
   const shippingLines = [listingShippingText(item)];
   const notes = [
     item.notes,
@@ -317,7 +324,7 @@ function generatedPlainDescription(item, condition) {
     item.colour && `${labels.colour}: ${item.colour}`,
   ].filter(Boolean);
   const productLines = productDescriptionLines(item);
-  const includedLines = bulletLines(item.includedAccessories || item.includedItems);
+  const includedLines = includedAccessoryNames(item.includedAccessories, item.includedItems);
   const notesLines = [
     item.notes,
     itemClassification(item) === "Private Sale / Personal Collection" && privateSellerNote(item),
@@ -405,5 +412,5 @@ export function listingReadiness(item) {
 }
 
 export function hasListingPreviewInput(item) {
-  return Boolean(item.generatedHtmlDescription || item.htmlDescription || item.generatedPlainDescription || item.descriptionText || generatedListingTitle(item) || item.conditionGrade || item.conditionNotes || item.defectsNotes || item.includedAccessories || item.includedItems || item.shippingNotes || item.notes || item.productDescriptionText || item.compatibilityInfo || item.keyFeatures);
+  return Boolean(item.generatedHtmlDescription || item.htmlDescription || item.generatedPlainDescription || item.descriptionText || generatedListingTitle(item) || item.conditionGrade || item.conditionNotes || item.defectsNotes || includedAccessoryNames(item.includedAccessories, item.includedItems).length || item.shippingNotes || item.notes || item.productDescriptionText || item.compatibilityInfo || item.keyFeatures);
 }

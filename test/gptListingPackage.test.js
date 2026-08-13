@@ -226,7 +226,7 @@ test("patch preparation writes only selected canonical fields without mutation",
   assert.deepEqual(prepared.patch.ebay, { conditionText: packageValue.generated.ebayConditionText });
   assert.equal(prepared.patch.generatedHtmlDescription, "<p>Sicherer Inhalt</p>");
   assert.equal(prepared.patch.measurements, "20 × 10 cm");
-  assert.equal(prepared.patch.includedAccessories, "Kopfhörer");
+  assert.deepEqual(prepared.patch.includedAccessories.map(({ name, type, titlePriority, notes }) => ({ name, type, titlePriority, notes })), [{ name: "Kopfhörer", type: "accessory", titlePriority: false, notes: "" }]);
   assert.equal(prepared.patch.chosenListingPrice, 39.99);
   assert.equal(prepared.patch.priceResearchLow, 20);
   assert.ok(prepared.changedFields.includes("ebayTitle"));
@@ -321,4 +321,46 @@ test("cancel and invalid parse paths cannot update the item form", () => {
   assert.doesNotMatch(closeFunction, /setForm/);
   assert.doesNotMatch(invalidBranch, /setForm|prepareListingPackagePatch/);
   assert.match(invalidBranch, /setStage\("paste"\)/);
+});
+
+test("structured GPT accessories validate, remain review facts, and receive ResellIt IDs only when applied", () => {
+  const accessories = [
+    { name: "Originalverpackung", type: "original_box", titlePriority: true, notes: null },
+    { name: "Bedienungsanleitung", type: "manual", titlePriority: true, notes: null },
+  ];
+  const result = validateListingPackage(validPackage({ facts: { condition: { includedAccessories: accessories } } }));
+  assert.equal(result.ok, true);
+  const row = compareListingPackage(result, {}).find((entry) => entry.field === "includedAccessories");
+  assert.equal(row.safetyClass, "review_fact");
+  assert.equal(row.defaultSelected, false);
+  const prepared = prepareListingPackagePatch(result, {}, [row.id]);
+  assert.ok(prepared.patch.includedAccessories.every((entry) => entry.id && !accessories.some((source) => Object.hasOwn(source, "id"))));
+});
+
+test("GPT accessory IDs, invalid types, empty names, duplicate names, and unknown keys are rejected", () => {
+  const invalidEntries = [
+    { name: "Box", type: "original_box", titlePriority: true, notes: null, id: "gpt-id" },
+    { name: "", type: "manual", titlePriority: true, notes: null },
+    { name: "Box", type: "not_real", titlePriority: false, notes: null },
+    { name: "BOX", type: "accessory", titlePriority: false, notes: null, extra: true },
+  ];
+  const result = validateListingPackage(validPackage({ facts: { condition: { includedAccessories: invalidEntries } } }));
+  for (const code of ["accessory_id_forbidden", "invalid_accessory_name", "invalid_accessory_type", "duplicate_accessory", "unknown_key"]) assert.ok(errorCodes(result).includes(code));
+});
+
+test("structured accessory comparison is semantic and order independent", () => {
+  const packageAccessories = [
+    { name: "Originalverpackung", type: "original_box", titlePriority: true, notes: null },
+    { name: "Anleitung", type: "manual", titlePriority: true, notes: null },
+  ];
+  const result = validateListingPackage(validPackage({ facts: { condition: { includedAccessories: packageAccessories } } }));
+  const current = {
+    includedAccessories: [
+      { id: "two", name: "Anleitung", type: "manual", titlePriority: true, notes: "" },
+      { id: "one", name: "Originalverpackung", type: "original_box", titlePriority: true, notes: "" },
+    ],
+  };
+  assert.equal(compareListingPackage(result, current).find((row) => row.field === "includedAccessories").state, "Same");
+  current.includedAccessories[0].titlePriority = false;
+  assert.equal(compareListingPackage(result, current).find((row) => row.field === "includedAccessories").state, "Different");
 });
