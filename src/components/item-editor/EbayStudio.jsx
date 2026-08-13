@@ -12,6 +12,7 @@ import {
   normalizeListingLanguageValue,
 } from "../../resellitSchema.js";
 import { Input, Select } from "../shared/FormControls.jsx";
+import { GptListingImport } from "./GptListingImport.jsx";
 
 export function EbayStudio({
   form,
@@ -47,6 +48,7 @@ export function EbayStudio({
 }) {
   return (
     <div className="space-y-4">
+      <GptListingImport form={form} setForm={setForm} sanitizeHtmlPreview={sanitizeHtmlPreview} />
       <section className="rounded-2xl border border-orange-200 bg-white p-3">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div>

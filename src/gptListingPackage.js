@@ -345,3 +345,10 @@ export function prepareListingPackagePatch(validationResult, currentItem, select
   }
   return { patch, changedFields, skippedFields, conflicts, validationErrors: [] };
 }
+
+export function applyListingPackagePatchToItem(item, patch) {
+  const source = isPlainObject(item) ? item : {};
+  const proposed = { ...source, ...(isPlainObject(patch) ? patch : {}) };
+  if (isPlainObject(patch?.ebay)) proposed.ebay = { ...(isPlainObject(source.ebay) ? source.ebay : {}), ...patch.ebay };
+  return proposed;
+}

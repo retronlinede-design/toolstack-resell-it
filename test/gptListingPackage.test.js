@@ -1,8 +1,10 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   LISTING_PACKAGE_FIELD_MAP,
   LISTING_PACKAGE_READINESS_METADATA,
+  applyListingPackagePatchToItem,
   compareListingPackage,
   parseAndValidateListingPackage,
   parseListingPackage,
@@ -251,4 +253,72 @@ test("readiness metadata preserves productDescriptionText and generated descript
     generatedDescriptionField: "generatedPlainDescription",
     generatedDescriptionAloneSatisfiesReadiness: false,
   });
+});
+
+test("canonical patch application preserves nested eBay data and protected item domains", () => {
+  const item = {
+    id: "item-1",
+    status: "Draft",
+    purchaseDate: "2026-08-01",
+    purchasePrice: "25",
+    finalSalePrice: "",
+    manualEbayFee: "",
+    actualShippingCost: "",
+    refundAmount: "",
+    sellerClassification: "private",
+    evidenceIds: ["evidence-1"],
+    ebay: { conditionText: "Current", categoryId: "123", listingId: "listing-1" },
+  };
+  const patch = { ebayTitle: "Imported title", ebay: { conditionText: "Imported condition" } };
+  const itemSnapshot = structuredClone(item);
+  const patchSnapshot = structuredClone(patch);
+  const proposed = applyListingPackagePatchToItem(item, patch);
+
+  assert.deepEqual(proposed.ebay, { conditionText: "Imported condition", categoryId: "123", listingId: "listing-1" });
+  for (const field of ["status", "purchaseDate", "purchasePrice", "finalSalePrice", "manualEbayFee", "actualShippingCost", "refundAmount", "sellerClassification", "evidenceIds"]) {
+    assert.deepEqual(proposed[field], item[field]);
+  }
+  assert.deepEqual(item, itemSnapshot);
+  assert.deepEqual(patch, patchSnapshot);
+});
+
+test("GPT Listing Import UI uses Phase 2 helpers and updates only open form after confirmation", () => {
+  const source = readFileSync(new URL("../src/components/item-editor/GptListingImport.jsx", import.meta.url), "utf8");
+  const studioSource = readFileSync(new URL("../src/components/item-editor/EbayStudio.jsx", import.meta.url), "utf8");
+
+  assert.match(studioSource, /<GptListingImport form=\{form\} setForm=\{setForm\}/);
+  assert.match(source, />Import GPT Listing<\/button>/);
+  assert.match(source, /Paste a ResellIt Listing Package from your listing GPT\./);
+  assert.match(source, />Parse & Review<\/button>/);
+  assert.match(source, /parseAndValidateListingPackage\(pasteText\)/);
+  assert.match(source, /compareListingPackage\(result, form\)/);
+  assert.match(source, /prepareListingPackagePatch\(validationResult, form, selectedFieldIds\)/);
+  assert.match(source, /Generated Listing Copy/);
+  assert.match(source, /Facts to Confirm/);
+  assert.match(source, /Recommendations/);
+  assert.match(source, /Imported Research/);
+  assert.match(source, /row\.defaultSelected && !row\.disabled/);
+  assert.match(source, /row\.state === "Different" \? "Use GPT Value"/);
+  assert.match(source, /Protected Fields Ignored/);
+  assert.match(source, /Package Cannot Be Reviewed/);
+  assert.match(source, /listingReadiness\(form\)/);
+  assert.match(source, /listingReadiness\(proposedItem\)/);
+  assert.match(source, /sanitizeHtmlPreview\(proposedItem\.generatedHtmlDescription\)/);
+  assert.match(source, />Apply Selected Fields<\/button>/);
+  assert.match(source, /Apply \{prepared\.changedFields\.length\} fields from GPT package\?/);
+  assert.match(source, />Apply to Item<\/button>/);
+  assert.match(source, /setForm\(\(currentForm\) => applyListingPackagePatchToItem\(currentForm, nextPrepared\.patch\)\)/);
+  assert.match(source, /GPT listing applied to form\. Save Item to keep changes\./);
+  assert.doesNotMatch(source, /saveCurrentItem|persistAll|localStorage|fetch\(|OpenAI/);
+  assert.match(studioSource, />\s*Generate Locally\s*</);
+});
+
+test("cancel and invalid parse paths cannot update the item form", () => {
+  const source = readFileSync(new URL("../src/components/item-editor/GptListingImport.jsx", import.meta.url), "utf8");
+  const closeFunction = source.slice(source.indexOf("function closeImport()"), source.indexOf("function parseForReview()"));
+  const invalidBranch = source.slice(source.indexOf("if (!result.ok)"), source.indexOf("const rows = compareListingPackage", source.indexOf("if (!result.ok)")));
+
+  assert.doesNotMatch(closeFunction, /setForm/);
+  assert.doesNotMatch(invalidBranch, /setForm|prepareListingPackagePatch/);
+  assert.match(invalidBranch, /setStage\("paste"\)/);
 });
