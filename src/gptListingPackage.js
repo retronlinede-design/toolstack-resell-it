@@ -3,7 +3,7 @@ import {
   materializeImportedAccessories,
   semanticIncludedAccessories,
 } from "./includedAccessories.js";
-import { listingReadiness } from "./ebayListingTemplate.js";
+import { generateListingDraft, listingReadiness } from "./ebayListingTemplate.js";
 import { normalizeItem } from "./resellitSchema.js";
 
 const FORMAT = "resellit_listing";
@@ -63,16 +63,19 @@ export const LISTING_PACKAGE_READINESS_METADATA = Object.freeze({
   descriptionRequiredField: "productDescriptionText",
   generatedDescriptionField: "generatedPlainDescription",
   generatedDescriptionAloneSatisfiesReadiness: false,
+  finalDescriptionOwner: "resellit_template",
+  packageGeneratedDescriptionsAuthoritativeForNewItems: false,
+  productDescriptionScope: "concise_product_overview_only",
 });
 
 export const LISTING_PACKAGE_FIELD_MAP = Object.freeze([
-  field("itemName", "name", "Item Name", "Generated Copy", "safe_generated"),
-  field("generated.ebayTitle", "ebayTitle", "eBay Title", "Generated Copy", "safe_generated"),
-  field("generated.ebayConditionText", "ebay.conditionText", "eBay Condition Text", "Generated Copy", "review_condition"),
-  field("generated.productDescriptionText", "productDescriptionText", "Description & Item Details", "Generated Copy", "safe_generated"),
-  field("generated.generatedPlainDescription", "generatedPlainDescription", "Generated Plain Description", "Generated Copy", "safe_generated"),
-  field("generated.generatedHtmlDescription", "generatedHtmlDescription", "Generated HTML Description", "Generated Copy", "safe_generated"),
-  field("generated.keyFeatures", "keyFeatures", "Key Features", "Generated Copy", "safe_generated"),
+  field("itemName", "name", "Item Name", "Listing Inputs", "safe_generated"),
+  field("generated.ebayTitle", "ebayTitle", "eBay Title", "Listing Inputs", "safe_generated"),
+  field("generated.ebayConditionText", "ebay.conditionText", "eBay Condition Text", "Listing Inputs", "review_condition"),
+  field("generated.productDescriptionText", "productDescriptionText", "Product Description", "Listing Inputs", "safe_generated"),
+  field("generated.generatedPlainDescription", "generatedPlainDescription", "Deprecated Package Plain Description", "Compatibility Output", "deprecated_output"),
+  field("generated.generatedHtmlDescription", "generatedHtmlDescription", "Deprecated Package HTML Description", "Compatibility Output", "deprecated_output"),
+  field("generated.keyFeatures", "keyFeatures", "Key Features", "Listing Inputs", "safe_generated"),
   field("facts.identity.brand", "brand", "Brand", "Facts", "review_fact"),
   field("facts.identity.model", "model", "Model", "Facts", "review_fact"),
   field("facts.identity.colour", "colour", "Colour", "Facts", "review_fact"),
@@ -424,12 +427,45 @@ export function purchaseDetailsReadiness(item) {
   return { status: missingFields.length ? "Needs Purchase Details" : "Purchase Details Complete", missingFields };
 }
 
+const NON_AUTHORITATIVE_OUTPUT_IDS = new Set([
+  "generated.generatedPlainDescription",
+  "generated.generatedHtmlDescription",
+]);
+
+function structuredSelection(selectedFieldIds) {
+  return selectedFieldIds.filter((id) => !NON_AUTHORITATIVE_OUTPUT_IDS.has(id));
+}
+
+function locallyGeneratedOutput(item) {
+  const draft = generateListingDraft(item, { preferSaved: false });
+  return {
+    generatedPlainDescription: draft.description,
+    generatedHtmlDescription: draft.htmlDescription,
+  };
+}
+
+export function prepareGptListingUpdate(validationResult, selectedFieldIds, currentItem = {}) {
+  const prepared = prepareListingPackagePatch(validationResult, currentItem, structuredSelection(selectedFieldIds));
+  if (prepared.validationErrors.length) return { item: null, patch: {}, ...prepared };
+  const structuredItem = applyListingPackagePatchToItem(currentItem, prepared.patch);
+  const output = locallyGeneratedOutput(structuredItem);
+  return {
+    item: { ...structuredItem, ...output },
+    patch: { ...prepared.patch, ...output },
+    changedFields: [...prepared.changedFields, "generatedPlainDescription", "generatedHtmlDescription"],
+    skippedFields: prepared.skippedFields,
+    conflicts: prepared.conflicts,
+    validationErrors: [],
+  };
+}
+
 export function prepareGptImportedItem(validationResult, selectedFieldIds, newItemDefaults = {}) {
   if (!validationResult?.ok) return { item: null, appliedFields: [], skippedFields: [], listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(newItemDefaults), validationErrors: validationResult?.errors || [diagnostic("invalid_result", "", "A validated Listing Package is required")] };
-  const prepared = prepareListingPackagePatch(validationResult, newItemDefaults, selectedFieldIds);
+  const prepared = prepareListingPackagePatch(validationResult, newItemDefaults, structuredSelection(selectedFieldIds));
   if (prepared.validationErrors.length) return { item: null, appliedFields: [], skippedFields: prepared.skippedFields, listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(newItemDefaults), validationErrors: prepared.validationErrors };
-  const proposed = normalizeItem(applyListingPackagePatchToItem({ ...newItemDefaults, status: "Draft", language: "de" }, prepared.patch));
-  if (!String(proposed.name || "").trim()) return { item: null, appliedFields: prepared.changedFields, skippedFields: prepared.skippedFields, listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(proposed), validationErrors: [diagnostic("item_name_not_selected", "itemName", "Item Name must be selected to create the item")] };
+  const structuredItem = normalizeItem(applyListingPackagePatchToItem({ ...newItemDefaults, status: "Draft", language: "de" }, prepared.patch));
+  if (!String(structuredItem.name || "").trim()) return { item: null, appliedFields: prepared.changedFields, skippedFields: prepared.skippedFields, listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(structuredItem), validationErrors: [diagnostic("item_name_not_selected", "itemName", "Item Name must be selected to create the item")] };
+  const proposed = { ...structuredItem, ...locallyGeneratedOutput(structuredItem) };
   const readiness = listingReadiness(proposed);
   return {
     item: proposed,

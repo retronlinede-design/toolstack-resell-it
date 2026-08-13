@@ -258,7 +258,8 @@ function productDescriptionLines(item) {
   const compatibilityLine = compatibility && (isGermanListing(item)
     ? `Kompatibilität / Plattform: ${compatibility}`
     : `Compatibility / platform: ${compatibility}`);
-  const featureLines = features;
+  const explicitLines = explicitDescription.split(/\r?\n/).map(compactWhitespace).filter(Boolean);
+  const featureLines = features.filter((feature) => !explicitLines.some((line) => line.toLocaleLowerCase() === compactWhitespace(feature).toLocaleLowerCase()));
 
   return [
     explicitDescription,
