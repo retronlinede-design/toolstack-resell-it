@@ -9,14 +9,18 @@ import {
   parseAndValidateListingPackage,
   parseListingPackage,
   prepareListingPackagePatch,
+  prepareGptImportedItem,
+  purchaseDetailsReadiness,
   validateListingPackage,
 } from "../src/gptListingPackage.js";
+import { normalizeItem as normalizeSchemaItem } from "../src/resellitSchema.js";
 
 function validPackage(overrides = {}) {
   const base = {
     format: "resellit_listing",
     version: 1,
     language: "de",
+    itemName: "Sony Walkman WM-EX 500",
     facts: {
       identity: { brand: null, model: null, colour: null, measurements: null, compatibilityInfo: null },
       condition: { testedStatus: null, conditionGrade: null, conditionNotes: null, defectsNotes: null, includedAccessories: null },
@@ -287,7 +291,7 @@ test("GPT Listing Import UI uses Phase 2 helpers and updates only open form afte
   const studioSource = readFileSync(new URL("../src/components/item-editor/EbayStudio.jsx", import.meta.url), "utf8");
 
   assert.match(studioSource, /<GptListingImport form=\{form\} setForm=\{setForm\}/);
-  assert.match(source, />Import GPT Listing<\/button>/);
+  assert.match(source, />Update Listing from GPT<\/button>/);
   assert.match(source, /Paste a ResellIt Listing Package from your listing GPT\./);
   assert.match(source, />Parse & Review<\/button>/);
   assert.match(source, /parseAndValidateListingPackage\(pasteText\)/);
@@ -363,4 +367,78 @@ test("structured accessory comparison is semantic and order independent", () => 
   assert.equal(compareListingPackage(result, current).find((row) => row.field === "includedAccessories").state, "Same");
   current.includedAccessories[0].titlePriority = false;
   assert.equal(compareListingPackage(result, current).find((row) => row.field === "includedAccessories").state, "Different");
+});
+
+test("itemName is required, trimmed, canonical, and old packages fail deliberately", () => {
+  const missing = validPackage();
+  delete missing.itemName;
+  assert.ok(errorCodes(validateListingPackage(missing)).includes("missing_item_name"));
+  const result = validateListingPackage(validPackage({ itemName: "  Sony Walkman  " }));
+  assert.equal(result.ok, true);
+  assert.equal(result.package.itemName, "Sony Walkman");
+  assert.equal(result.mappedFields.find((field) => field.sourcePath === "itemName").targetPath, "name");
+});
+
+test("GPT item preparation creates a normalized Draft with separate listing and purchase readiness", () => {
+  const result = validateListingPackage(validPackage({
+    itemName: "Sony Walkman",
+    generated: { ebayConditionText: "Gebraucht und geprüft.", productDescriptionText: "Produktdetails.", generatedPlainDescription: "Beschreibung.", ebayTitle: "Sony Walkman Kassettenspieler" },
+    recommendations: { chosenListingPrice: 49, shippingNotes: "Versicherter Versand." },
+    facts: { identity: { brand: "Sony" }, condition: { includedAccessories: [{ name: "Anleitung", type: "manual", titlePriority: true, notes: null }] } },
+  }));
+  const rows = compareListingPackage(result, {});
+  const selected = rows.filter((row) => row.defaultSelected).map((row) => row.id);
+  selected.push("recommendations.chosenListingPrice", "recommendations.shippingNotes", "facts.identity.brand", "facts.condition.includedAccessories", "generated.ebayConditionText");
+  const prepared = prepareGptImportedItem(result, selected, { purchaseDate: "", purchasePrice: "", sourceName: "", sourceType: "", includedAccessories: [] });
+
+  assert.equal(prepared.item.name, "Sony Walkman");
+  assert.equal(prepared.item.status, "Draft");
+  assert.equal(prepared.item.ebayTitle, "Sony Walkman Kassettenspieler");
+  assert.equal(prepared.item.ebay.conditionText, "Gebraucht und geprüft.");
+  assert.equal(prepared.item.listingTitle, "");
+  assert.equal(prepared.item.conditionText, "");
+  assert.equal(prepared.item.includedItems, "");
+  assert.ok(prepared.item.includedAccessories[0].id);
+  assert.equal(prepared.listingReadiness, "Ready for Listing");
+  assert.equal(prepared.purchaseDetailsReadiness.status, "Needs Purchase Details");
+  assert.equal(prepared.item.status === "Ready for Listing", false);
+});
+
+test("physical facts remain gated and GPT item preparation does not mutate or import protected domains", () => {
+  const packageValue = validPackage({ facts: { identity: { brand: "Sony", colour: "Black" }, condition: { testedStatus: "Tested working" } } });
+  const result = validateListingPackage(packageValue);
+  const defaults = { status: "Draft", purchasePrice: "", sourceName: "", saleDate: "", finalSalePrice: "", manualEbayFee: "", sellerClassification: "private", evidenceIds: [] };
+  const packageSnapshot = structuredClone(packageValue);
+  const defaultsSnapshot = structuredClone(defaults);
+  const selected = compareListingPackage(result, defaults).filter((row) => row.defaultSelected).map((row) => row.id);
+  const prepared = prepareGptImportedItem(result, selected, defaults);
+
+  assert.equal(prepared.item.brand, "");
+  assert.equal(prepared.item.colour, "");
+  assert.equal(prepared.item.testedStatus, "Not specified");
+  for (const field of ["purchasePrice", "sourceName", "saleDate", "finalSalePrice", "manualEbayFee", "sellerClassification", "evidenceIds"]) assert.deepEqual(prepared.item[field], normalizeSchemaItem(defaults)[field]);
+  assert.deepEqual(packageValue, packageSnapshot);
+  assert.deepEqual(defaults, defaultsSnapshot);
+});
+
+test("purchase details readiness is derived without proof or compliance enforcement", () => {
+  assert.equal(purchaseDetailsReadiness({ purchaseDate: "2026-01-01", purchasePrice: 10, sourceName: "Seller" }).status, "Purchase Details Complete");
+  assert.deepEqual(purchaseDetailsReadiness({ purchaseDate: "", purchasePrice: "", sourceName: "", sourceType: "" }).missingFields, ["Purchase Date", "Purchase Price", "Source / Seller"]);
+});
+
+test("Stock Control GPT item creation entry point persists once and opens Purchase", () => {
+  const appSource = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+  const importSource = readFileSync(new URL("../src/components/inventory/GptItemImport.jsx", import.meta.url), "utf8");
+  assert.match(tableSource, /<GptItemImport newItemDefaults=\{gptItemDefaults\} onCreateItem=\{onCreateGptItem\}/);
+  assert.match(importSource, />Import GPT Item<\/button>/);
+  assert.match(importSource, /commitGuard\.current/);
+  assert.match(importSource, /disabled=\{committing\}/);
+  assert.match(appSource, /function createGptImportedItem\(proposedItem\)/);
+  assert.match(appSource, /normalizeItem\(\{ \.\.\.proposedItem, id: crypto\.randomUUID\(\), status: "Draft" \}\)/);
+  assert.match(appSource, /persist\(\[createdItem, \.\.\.items\]\)/);
+  assert.match(appSource, /setEditingId\(createdItem\.id\)/);
+  assert.match(appSource, /setActiveWorkflowSection\("purchase"\)/);
+  assert.match(appSource, /GPT item created\. Complete purchase details and review the listing before saving\/finalizing\./);
+  assert.match(tableSource, /Needs Purchase Details/);
 });

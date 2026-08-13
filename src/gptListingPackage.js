@@ -3,6 +3,8 @@ import {
   materializeImportedAccessories,
   semanticIncludedAccessories,
 } from "./includedAccessories.js";
+import { listingReadiness } from "./ebayListingTemplate.js";
+import { normalizeItem } from "./resellitSchema.js";
 
 const FORMAT = "resellit_listing";
 const VERSION = 1;
@@ -33,7 +35,7 @@ const CONDITION_GRADES = new Set([
 ]);
 
 const ALLOWED_KEYS = {
-  "": ["format", "version", "language", "facts", "generated", "recommendations", "research"],
+  "": ["format", "version", "language", "itemName", "facts", "generated", "recommendations", "research"],
   facts: ["identity", "condition"],
   "facts.identity": ["brand", "model", "colour", "measurements", "compatibilityInfo"],
   "facts.condition": ["testedStatus", "conditionGrade", "conditionNotes", "defectsNotes", "includedAccessories"],
@@ -64,6 +66,7 @@ export const LISTING_PACKAGE_READINESS_METADATA = Object.freeze({
 });
 
 export const LISTING_PACKAGE_FIELD_MAP = Object.freeze([
+  field("itemName", "name", "Item Name", "Generated Copy", "safe_generated"),
   field("generated.ebayTitle", "ebayTitle", "eBay Title", "Generated Copy", "safe_generated"),
   field("generated.ebayConditionText", "ebay.conditionText", "eBay Condition Text", "Generated Copy", "review_condition"),
   field("generated.productDescriptionText", "productDescriptionText", "Description & Item Details", "Generated Copy", "safe_generated"),
@@ -177,6 +180,7 @@ function hasUnsafeHtml(html) {
 
 function normalizePackage(source) {
   const result = structuredClone(source);
+  result.itemName = result.itemName.trim();
   result.generated.ebayTitle = normalizedWhitespace(result.generated.ebayTitle);
   for (const key of REQUIRED_GENERATED_FIELDS.filter((key) => key !== "ebayTitle")) result.generated[key] = result.generated[key].trim();
   if (Array.isArray(result.facts.condition.includedAccessories)) {
@@ -262,6 +266,7 @@ export function validateListingPackage(source) {
   if (source.format !== FORMAT) errors.push(diagnostic("unsupported_format", "format", `format must be ${FORMAT}`));
   if (source.version !== VERSION) errors.push(diagnostic("unsupported_version", "version", `version must be ${VERSION}`));
   if (source.language !== LANGUAGE) errors.push(diagnostic("unsupported_language", "language", `language must be ${LANGUAGE}`));
+  if (typeof source.itemName !== "string" || !source.itemName.trim() || isPlaceholder(source.itemName)) errors.push(diagnostic("missing_item_name", "itemName", "itemName must be a non-empty string"));
 
   for (const path of REQUIRED_OBJECTS) {
     if (!isPlainObject(getPath(source, path))) errors.push(diagnostic("missing_object", path, `${path} must be an object`));
@@ -408,4 +413,30 @@ export function applyListingPackagePatchToItem(item, patch) {
   const proposed = { ...source, ...(isPlainObject(patch) ? patch : {}) };
   if (isPlainObject(patch?.ebay)) proposed.ebay = { ...(isPlainObject(source.ebay) ? source.ebay : {}), ...patch.ebay };
   return proposed;
+}
+
+export function purchaseDetailsReadiness(item) {
+  const missingFields = [
+    !String(item?.purchaseDate || "").trim() && "Purchase Date",
+    (item?.purchasePrice === "" || item?.purchasePrice === null || item?.purchasePrice === undefined) && "Purchase Price",
+    !String(item?.sourceName || item?.sourceType || "").trim() && "Source / Seller",
+  ].filter(Boolean);
+  return { status: missingFields.length ? "Needs Purchase Details" : "Purchase Details Complete", missingFields };
+}
+
+export function prepareGptImportedItem(validationResult, selectedFieldIds, newItemDefaults = {}) {
+  if (!validationResult?.ok) return { item: null, appliedFields: [], skippedFields: [], listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(newItemDefaults), validationErrors: validationResult?.errors || [diagnostic("invalid_result", "", "A validated Listing Package is required")] };
+  const prepared = prepareListingPackagePatch(validationResult, newItemDefaults, selectedFieldIds);
+  if (prepared.validationErrors.length) return { item: null, appliedFields: [], skippedFields: prepared.skippedFields, listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(newItemDefaults), validationErrors: prepared.validationErrors };
+  const proposed = normalizeItem(applyListingPackagePatchToItem({ ...newItemDefaults, status: "Draft", language: "de" }, prepared.patch));
+  if (!String(proposed.name || "").trim()) return { item: null, appliedFields: prepared.changedFields, skippedFields: prepared.skippedFields, listingReadiness: "Needs Listing Information", purchaseDetailsReadiness: purchaseDetailsReadiness(proposed), validationErrors: [diagnostic("item_name_not_selected", "itemName", "Item Name must be selected to create the item")] };
+  const readiness = listingReadiness(proposed);
+  return {
+    item: proposed,
+    appliedFields: prepared.changedFields,
+    skippedFields: prepared.skippedFields,
+    listingReadiness: readiness === "Ready" ? "Ready for Listing" : "Needs Listing Information",
+    purchaseDetailsReadiness: purchaseDetailsReadiness(proposed),
+    validationErrors: [],
+  };
 }

@@ -117,10 +117,10 @@ export function GptListingImport({ form, setForm, sanitizeHtmlPreview }) {
     <>
       <div className="mb-3 flex flex-col gap-2 rounded-2xl border border-[#b7412e]/20 bg-[#fff8ea] p-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-sm font-semibold text-stone-950">GPT Listing Package</p>
+          <p className="text-sm font-semibold text-stone-950">Update Listing from GPT</p>
           <p className="mt-1 text-xs text-stone-600">Paste, validate, and review generated listing content before it reaches this form.</p>
         </div>
-        <button type="button" onClick={openImport} className="rounded-xl bg-[#b7412e] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#8f3124]">Import GPT Listing</button>
+        <button type="button" onClick={openImport} className="rounded-xl border border-[#b7412e]/30 bg-white px-4 py-2.5 text-sm font-semibold text-[#8f3124] hover:bg-[#fff8ea]">Update Listing from GPT</button>
       </div>
 
       {successMessage && (
@@ -135,7 +135,7 @@ export function GptListingImport({ form, setForm, sanitizeHtmlPreview }) {
           <div className="max-h-[92vh] w-full max-w-6xl overflow-auto rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-2xl sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <h2 id="gpt-listing-import-title" className="text-xl font-semibold text-stone-950">Import GPT Listing</h2>
+                <h2 id="gpt-listing-import-title" className="text-xl font-semibold text-stone-950">Update Listing from GPT</h2>
                 <p className="mt-1 text-sm text-stone-600">Paste a ResellIt Listing Package from your listing GPT.</p>
               </div>
               <button type="button" onClick={closeImport} className="rounded-xl border border-stone-200 px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-100">Cancel</button>

@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
 import { AlertTriangle, FileText, Filter, MoreHorizontal, PackagePlus, Plus, Search } from "lucide-react";
 import { Input, Select } from "../shared/FormControls.jsx";
+import { GptItemImport } from "./GptItemImport.jsx";
 
 function proofLabel(item) {
   if (item.proofStoredExternally === "Yes" || item.proofFileName || item.proofFolderLocation) return "External";
@@ -60,6 +61,8 @@ export function InventoryTable({
   expectedListingValue,
   stockResizeHandle,
   onOpenNewItemEditor,
+  onCreateGptItem,
+  gptItemDefaults,
   onOpenPurchaseManager,
   onCreateQuickLedgerItem,
   onSetQuickAddItem,
@@ -103,6 +106,7 @@ export function InventoryTable({
         <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={onOpenNewItemEditor} className="inline-flex items-center gap-1.5 rounded-lg bg-[#b7412e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#963424]"><Plus size={14} /> Add Item</button>
+            <GptItemImport newItemDefaults={gptItemDefaults} onCreateItem={onCreateGptItem} />
             <button type="button" onClick={() => setQuickAddOpen((open) => !open)} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><PackagePlus size={14} /> Quick Add</button>
             <button type="button" onClick={() => onSetInventoryIssueFilter("Needs attention")} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${inventoryIssueFilter === "Needs attention" ? "border-red-200 bg-red-50 text-red-700" : "border-stone-200 bg-white text-stone-700 hover:bg-stone-50"}`}><AlertTriangle size={14} /> Issues</button>
             <button type="button" onClick={() => setMoreFiltersOpen((open) => !open)} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><Filter size={14} /> More Filters</button>
@@ -139,7 +143,7 @@ export function InventoryTable({
           <div className="mt-3 grid gap-2 rounded-xl border border-stone-200 bg-stone-50 p-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             <Select label="Category" value={inventoryCategory} onChange={(event) => onSetInventoryCategory(event.target.value)}><option>All categories</option>{categoryOptions.map((category) => <option key={category}>{category}</option>)}</Select>
             <Select label="Operational Classification" value={inventoryClassification} onChange={(event) => onSetInventoryClassification(event.target.value)}><option>All classifications</option>{classificationOptions.map((classification) => <option key={classification} value={classification}>{operationalClassificationLabel(classification)}</option>)}</Select>
-            <Select label="Issue" value={inventoryIssueFilter} onChange={(event) => onSetInventoryIssueFilter(event.target.value)}><option>All items</option><option>Needs attention</option><option value="Missing proof">Missing Proof</option><option value="Missing listing draft">Needs Listing Preparation</option><option>Review later</option><option>Sold only</option><option>Unsold only</option></Select>
+            <Select label="Issue" value={inventoryIssueFilter} onChange={(event) => onSetInventoryIssueFilter(event.target.value)}><option>All items</option><option>Needs attention</option><option value="Needs Purchase Details">Needs Purchase Details</option><option value="Missing proof">Missing Proof</option><option value="Missing listing draft">Needs Listing Preparation</option><option>Review later</option><option>Sold only</option><option>Unsold only</option></Select>
             <Select label="Group" value={inventoryTimelineGrouping} onChange={(event) => onSetInventoryTimelineGrouping(event.target.value)}><option>Month</option><option>Week</option><option>Year</option><option>Ungrouped</option></Select>
             <Input label="Month" type="month" value={inventoryTimelineMonth} onChange={(event) => onSetInventoryTimelineMonth(event.target.value)} />
             <Select label="Sort" value={inventorySort} onChange={(event) => onSetInventorySort(event.target.value)}><option>Newest purchase date</option><option>Oldest purchase date</option><option>Highest expected/listing value</option><option>Highest final sale price</option><option>Highest estimated profit</option><option>Missing proof first</option></Select>

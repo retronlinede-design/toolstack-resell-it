@@ -13,6 +13,7 @@ import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
 import { buildPurchaseFinanceDiagnostics } from "./financeDiagnostics.js";
 import { createExpenseEvidenceRecord, expenseTotal, filterExpenses, updateExpenseEvidenceRecord } from "./expenseManager.js";
+import { purchaseDetailsReadiness } from "./gptListingPackage.js";
 import { addMatchSuggestions, compareEbayRecordToItem, ebayCostPostingReview, ebayImportTargetFields, ebaySalePostingReview, isEbayCostPostingEligible, isEbaySalePostingEligible, mapEbayRows, markEbayDuplicates, normalizeEbayImportRecords, normalizeEbayMappingProfiles, parseEbayCsv, prepareEbayCostPosting, prepareEbaySalePosting, suggestEbayMappings } from "./ebayImport.js";
 import {
   createPurchaseAllocationRecord,
@@ -961,6 +962,20 @@ export default function ResellerItApp() {
     if (openEditor) editItem(newItem);
   }
 
+  function createGptImportedItem(proposedItem) {
+    const createdItem = normalizeItem({ ...proposedItem, id: crypto.randomUUID(), status: "Draft" });
+    if (!persist([createdItem, ...items])) return false;
+    setForm(createdItem);
+    setEditingId(createdItem.id);
+    setAdvancedFeesOpen(false);
+    setSearchQueryManuallyEdited(false);
+    setItemFormOpen(true);
+    setActiveWorkflowSection("purchase");
+    setActiveTab("stock");
+    setToastMessage("GPT item created. Complete purchase details and review the listing before saving/finalizing.");
+    return true;
+  }
+
   function closeItemEditor() {
     setEditingId(null);
     setForm(emptyItem);
@@ -1514,6 +1529,7 @@ export default function ResellerItApp() {
       if (inventoryStatus !== "All statuses" && inventoryStatus !== "In Stock" && itemStatusValue(item) !== inventoryStatus) return false;
       if (inventoryCategory !== "All categories" && item.category !== inventoryCategory) return false;
       if (inventoryIssueFilter === "Missing proof" && !needsProofRecord(item)) return false;
+      if (inventoryIssueFilter === "Needs Purchase Details" && purchaseDetailsReadiness(item).status !== "Needs Purchase Details") return false;
       if (inventoryIssueFilter === "Needs attention" && !(needsProofRecord(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION)) return false;
       if (inventoryIssueFilter === "Missing listing draft" && hasListingDraft(item)) return false;
       if (inventoryIssueFilter === "Review later" && itemClassification(item) !== DEFAULT_CLASSIFICATION) return false;
@@ -2736,6 +2752,8 @@ export default function ResellerItApp() {
               expectedListingValue={expectedListingValue}
               stockResizeHandle={stockResizeHandle}
               onOpenNewItemEditor={openNewItemEditor}
+              onCreateGptItem={createGptImportedItem}
+              gptItemDefaults={{ ...emptyItem, status: "Draft", language: "de", listingLanguage: "German" }}
               onOpenPurchaseManager={() => { setPurchaseManagerInitialTransactionId(""); setPurchaseManagerOpen(true); }}
               onCreateQuickLedgerItem={createQuickLedgerItem}
               onSetQuickAddItem={setQuickAddItem}
