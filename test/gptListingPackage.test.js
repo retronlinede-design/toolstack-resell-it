@@ -5,6 +5,7 @@ import {
   LISTING_PACKAGE_FIELD_MAP,
   LISTING_PACKAGE_READINESS_METADATA,
   applyListingPackagePatchToItem,
+  buildReviewedListingPackage,
   compareListingPackage,
   generateGptItemTemplateOutput,
   parseAndValidateListingPackage,
@@ -111,6 +112,88 @@ test("null optional values and allowed fact enums remain valid", () => {
     research: { low: 10, mid: 20, high: 30 },
   }));
   assert.equal(result.ok, true);
+});
+
+test("review overrides preserve the original package and feed selected typed values into the Draft", () => {
+  const original = validateListingPackage(validPackage({
+    generated: { productDescriptionText: "Original product description." },
+    recommendations: { chosenListingPrice: 25 },
+  }));
+  const snapshot = structuredClone(original.package);
+  const reviewed = buildReviewedListingPackage(original, {
+    itemName: "Edited canonical name",
+    "generated.ebayTitle": "Edited eBay title",
+    "generated.productDescriptionText": "Edited multiline product description.",
+    "recommendations.chosenListingPrice": 39.5,
+  });
+
+  assert.equal(reviewed.ok, true);
+  assert.deepEqual(original.package, snapshot);
+  const prepared = prepareGptImportedItem(reviewed, [
+    "itemName",
+    "generated.ebayTitle",
+    "generated.productDescriptionText",
+    "recommendations.chosenListingPrice",
+  ], {});
+  assert.equal(prepared.item.name, "Edited canonical name");
+  assert.equal(prepared.item.ebayTitle, "Edited eBay title");
+  assert.equal(prepared.item.productDescriptionText, "Edited multiline product description.");
+  assert.equal(prepared.item.chosenListingPrice, 39.5);
+  assert.equal(typeof prepared.item.chosenListingPrice, "number");
+  assert.match(prepared.item.generatedPlainDescription, /Edited multiline product description\./);
+  assert.match(prepared.item.generatedHtmlDescription, /Edited multiline product description\./);
+});
+
+test("review validation rejects invalid titles, numbers, enums, and research ordering", () => {
+  const original = validateListingPackage(validPackage({
+    facts: { condition: { testedStatus: "Tested working", conditionGrade: "Gut" } },
+    recommendations: { chosenListingPrice: 25 },
+    research: { low: 10, mid: 20, high: 30 },
+  }));
+  assert.ok(errorCodes(buildReviewedListingPackage(original, { "generated.ebayTitle": "x".repeat(81) })).includes("title_too_long"));
+  assert.ok(errorCodes(buildReviewedListingPackage(original, { "recommendations.chosenListingPrice": -1 })).includes("negative_number"));
+  assert.ok(errorCodes(buildReviewedListingPackage(original, { "recommendations.chosenListingPrice": "not a number" })).includes("invalid_number"));
+  assert.ok(errorCodes(buildReviewedListingPackage(original, { "facts.condition.testedStatus": "Maybe" })).includes("invalid_enum"));
+  assert.ok(errorCodes(buildReviewedListingPackage(original, { "facts.condition.conditionGrade": "Perfect" })).includes("invalid_enum"));
+  assert.ok(errorCodes(buildReviewedListingPackage(original, { "research.low": 25 })).includes("invalid_research_order"));
+});
+
+test("review optional values can be cleared to null and valid controlled values remain valid", () => {
+  const original = validateListingPackage(validPackage({
+    facts: { identity: { brand: "Sony" }, condition: { testedStatus: "Not tested", conditionGrade: "Gut" } },
+  }));
+  const reviewed = buildReviewedListingPackage(original, {
+    "facts.identity.brand": null,
+    "facts.condition.testedStatus": "Tested working",
+    "facts.condition.conditionGrade": "Sehr gut",
+  });
+  assert.equal(reviewed.ok, true);
+  assert.equal(reviewed.mappedFields.find((field) => field.id === "facts.identity.brand").value, null);
+  assert.equal(reviewed.package.facts.identity.brand, null);
+});
+
+test("edited but excluded fields do not affect the Draft, while selected edits do", () => {
+  const original = validateListingPackage(validPackage({ recommendations: { category: "Original category" } }));
+  const reviewed = buildReviewedListingPackage(original, { "recommendations.category": "Edited category" });
+  const excluded = prepareGptImportedItem(reviewed, ["itemName"], {});
+  const included = prepareGptImportedItem(reviewed, ["itemName", "recommendations.category"], {});
+  assert.notEqual(excluded.item.category, "Edited category");
+  assert.equal(included.item.category, "Edited category");
+});
+
+test("review reset restores normalized values and accessories remain structured and read-only", () => {
+  const accessories = [{ name: "Original charger", type: "accessory", titlePriority: false, notes: null }];
+  const original = validateListingPackage(validPackage({
+    itemName: "  Normalized   original  ",
+    facts: { condition: { includedAccessories: accessories } },
+  }));
+  const edited = buildReviewedListingPackage(original, { itemName: "Edited" });
+  const reset = buildReviewedListingPackage(original, {});
+  assert.equal(edited.package.itemName, "Edited");
+  assert.equal(reset.package.itemName, "Normalized   original");
+  assert.deepEqual(reset.package.facts.condition.includedAccessories, accessories);
+  assert.equal(LISTING_PACKAGE_FIELD_MAP.find((field) => field.id === "facts.condition.includedAccessories").editor, "readonly");
+  assert.ok(errorCodes(buildReviewedListingPackage(original, { "facts.condition.includedAccessories": [] })).includes("invalid_review_override"));
 });
 
 test("optional fields may be omitted while required objects and currency remain", () => {
@@ -596,6 +679,12 @@ test("Stock Control GPT item creation entry point persists once and opens Purcha
   assert.match(importSource, />Parse & Review<\/button>/);
   assert.match(importSource, />Create Item<\/button>/);
   assert.match(importSource, /prepared\?\.validationErrors/);
+  assert.match(importSource, /buildReviewedListingPackage\(result, reviewOverrides\)/);
+  assert.match(importSource, />Reviewed Value</);
+  assert.match(importSource, />Restore original</);
+  assert.match(importSource, />Reset all edits</);
+  assert.match(importSource, /setReviewOverrides\(\{\}\);\s*const parsed = parseAndValidateListingPackage/);
+  assert.match(importSource, /setReviewOverrides\(\(current\) => \(\{ \.\.\.current, \[row\.sourcePath\]: value \}\)\)/);
   assert.match(importSource, /commitGuard\.current/);
   assert.match(importSource, /disabled=\{committing\}/);
   assert.match(appSource, /function createGptImportedItem\(proposedItem\)/);

@@ -17,15 +17,16 @@ const REQUIRED_GENERATED_FIELDS = [
   "generatedPlainDescription",
 ];
 
-const TESTED_STATUSES = new Set([
+export const TESTED_STATUS_VALUES = Object.freeze([
   "Not specified",
   "Tested working",
   "Partially tested",
   "Not tested",
   "Defective / repair needed",
 ]);
+const TESTED_STATUSES = new Set(TESTED_STATUS_VALUES);
 
-const CONDITION_GRADES = new Set([
+export const CONDITION_GRADE_VALUES = Object.freeze([
   "Neu",
   "Sehr gut",
   "Gut",
@@ -33,6 +34,7 @@ const CONDITION_GRADES = new Set([
   "Defekt / Ersatzteile",
   "Sonstiges",
 ]);
+const CONDITION_GRADES = new Set(CONDITION_GRADE_VALUES);
 
 const ALLOWED_KEYS = {
   "": ["format", "version", "language", "itemName", "facts", "generated", "recommendations", "research"],
@@ -69,35 +71,36 @@ export const LISTING_PACKAGE_READINESS_METADATA = Object.freeze({
 });
 
 export const LISTING_PACKAGE_FIELD_MAP = Object.freeze([
-  field("itemName", "name", "Item Name", "Listing Inputs", "safe_generated"),
-  field("generated.ebayTitle", "ebayTitle", "eBay Title", "Listing Inputs", "safe_generated"),
-  field("generated.ebayConditionText", "ebay.conditionText", "eBay Condition Text", "Listing Inputs", "review_condition"),
-  field("generated.productDescriptionText", "productDescriptionText", "Product Description", "Listing Inputs", "safe_generated"),
-  field("generated.generatedPlainDescription", "generatedPlainDescription", "Deprecated Package Plain Description", "Compatibility Output", "deprecated_output"),
-  field("generated.generatedHtmlDescription", "generatedHtmlDescription", "Deprecated Package HTML Description", "Compatibility Output", "deprecated_output"),
-  field("generated.keyFeatures", "keyFeatures", "Key Features", "Listing Inputs", "safe_generated"),
-  field("facts.identity.brand", "brand", "Brand", "Facts", "review_fact"),
-  field("facts.identity.model", "model", "Model", "Facts", "review_fact"),
-  field("facts.identity.colour", "colour", "Colour", "Facts", "review_fact"),
-  field("facts.identity.measurements", "measurements", "Measurements & Specifications", "Facts", "review_fact"),
-  field("facts.identity.compatibilityInfo", "compatibilityInfo", "Compatibility Information", "Facts", "review_fact"),
-  field("facts.condition.testedStatus", "testedStatus", "Tested Status", "Condition", "review_fact"),
-  field("facts.condition.conditionGrade", "conditionGrade", "Condition Grade", "Condition", "review_fact"),
-  field("facts.condition.conditionNotes", "conditionNotes", "Condition Notes", "Condition", "review_condition"),
-  field("facts.condition.defectsNotes", "defectsNotes", "Defects & Wear", "Condition", "review_condition"),
-  field("facts.condition.includedAccessories", "includedAccessories", "Included Accessories & Items", "Facts", "review_fact"),
-  field("recommendations.category", "category", "Category", "Recommendations", "review_recommendation"),
-  field("recommendations.suggestedListingPrice", "suggestedListingPrice", "Suggested Listing Price (€)", "Recommendations", "review_recommendation", true),
-  field("recommendations.chosenListingPrice", "chosenListingPrice", "Chosen Listing Price (€)", "Recommendations", "review_recommendation", true),
-  field("recommendations.shippingNotes", "shippingNotes", "Shipping Notes", "Recommendations", "review_recommendation"),
-  field("research.low", "priceResearchLow", "Research Low (€)", "Research", "research_context", true),
-  field("research.mid", "priceResearchMid", "Research Mid (€)", "Research", "research_context", true),
-  field("research.high", "priceResearchHigh", "Research High (€)", "Research", "research_context", true),
-  field("research.summary", "researchNotes", "Research Summary", "Research", "research_context"),
+  field("itemName", "name", "Item Name", "Listing Inputs", "safe_generated", { editor: "text", required: true }),
+  field("generated.ebayTitle", "ebayTitle", "eBay Title", "Listing Inputs", "safe_generated", { editor: "text", required: true }),
+  field("generated.ebayConditionText", "ebay.conditionText", "eBay Condition Text", "Listing Inputs", "review_condition", { editor: "textarea", required: true }),
+  field("generated.productDescriptionText", "productDescriptionText", "Product Description", "Listing Inputs", "safe_generated", { editor: "textarea", required: true }),
+  field("generated.generatedPlainDescription", "generatedPlainDescription", "Deprecated Package Plain Description", "Compatibility Output", "deprecated_output", { editor: "readonly" }),
+  field("generated.generatedHtmlDescription", "generatedHtmlDescription", "Deprecated Package HTML Description", "Compatibility Output", "deprecated_output", { editor: "readonly" }),
+  field("generated.keyFeatures", "keyFeatures", "Key Features", "Listing Inputs", "safe_generated", { editor: "textarea" }),
+  field("facts.identity.brand", "brand", "Brand", "Facts", "review_fact", { editor: "text" }),
+  field("facts.identity.model", "model", "Model", "Facts", "review_fact", { editor: "text" }),
+  field("facts.identity.colour", "colour", "Colour", "Facts", "review_fact", { editor: "text" }),
+  field("facts.identity.measurements", "measurements", "Measurements & Specifications", "Facts", "review_fact", { editor: "text" }),
+  field("facts.identity.compatibilityInfo", "compatibilityInfo", "Compatibility Information", "Facts", "review_fact", { editor: "textarea" }),
+  field("facts.condition.testedStatus", "testedStatus", "Tested Status", "Condition", "review_fact", { editor: "select", options: TESTED_STATUS_VALUES }),
+  field("facts.condition.conditionGrade", "conditionGrade", "Condition Grade", "Condition", "review_fact", { editor: "select", options: CONDITION_GRADE_VALUES }),
+  field("facts.condition.conditionNotes", "conditionNotes", "Condition Notes", "Condition", "review_condition", { editor: "textarea" }),
+  field("facts.condition.defectsNotes", "defectsNotes", "Defects & Wear", "Condition", "review_condition", { editor: "textarea" }),
+  field("facts.condition.includedAccessories", "includedAccessories", "Included Accessories & Items", "Facts", "review_fact", { editor: "readonly" }),
+  field("recommendations.category", "category", "Category", "Recommendations", "review_recommendation", { editor: "text" }),
+  field("recommendations.suggestedListingPrice", "suggestedListingPrice", "Suggested Listing Price (€)", "Recommendations", "review_recommendation", { editor: "number" }),
+  field("recommendations.chosenListingPrice", "chosenListingPrice", "Chosen Listing Price (€)", "Recommendations", "review_recommendation", { editor: "number" }),
+  field("recommendations.shippingNotes", "shippingNotes", "Shipping Notes", "Recommendations", "review_recommendation", { editor: "textarea" }),
+  field("research.low", "priceResearchLow", "Research Low (€)", "Research", "research_context", { editor: "number" }),
+  field("research.mid", "priceResearchMid", "Research Mid (€)", "Research", "research_context", { editor: "number" }),
+  field("research.high", "priceResearchHigh", "Research High (€)", "Research", "research_context", { editor: "number" }),
+  field("research.summary", "researchNotes", "Research Summary", "Research", "research_context", { editor: "textarea" }),
 ]);
 
-function field(sourcePath, targetPath, label, group, safetyClass, numeric = false) {
-  return Object.freeze({ id: sourcePath, sourcePath, targetPath, label, group, safetyClass, numeric });
+function field(sourcePath, targetPath, label, group, safetyClass, config = {}) {
+  const { editor = "readonly", required = false, options = null } = config;
+  return Object.freeze({ id: sourcePath, sourcePath, targetPath, label, group, safetyClass, numeric: editor === "number", editor, required, options });
 }
 
 function diagnostic(code, path, message, kind = "invalid") {
@@ -334,6 +337,38 @@ export function parseAndValidateListingPackage(text) {
   return validateListingPackage(parsed.value);
 }
 
+export function buildReviewedListingPackage(validationResult, reviewOverrides = {}) {
+  if (!validationResult?.ok || !validationResult.package) {
+    return validationResult || { ok: false, package: null, errors: [diagnostic("invalid_result", "", "A validated Listing Package is required")], warnings: [], protectedKeys: [], mappedFields: [], metadata: LISTING_PACKAGE_READINESS_METADATA };
+  }
+
+  const originalMappedIds = new Set((validationResult.mappedFields || []).map((proposal) => proposal.id));
+  const editableFields = new Map(LISTING_PACKAGE_FIELD_MAP.filter((definition) => definition.editor !== "readonly").map((definition) => [definition.sourcePath, definition]));
+  const candidate = structuredClone(validationResult.package);
+  const overrideErrors = [];
+
+  for (const [sourcePath, value] of Object.entries(reviewOverrides || {})) {
+    if (!editableFields.has(sourcePath) || !originalMappedIds.has(sourcePath)) {
+      overrideErrors.push(diagnostic("invalid_review_override", sourcePath, `Field cannot be edited during review: ${sourcePath}`));
+      continue;
+    }
+    setPath(candidate, sourcePath, structuredClone(value));
+  }
+
+  const revalidated = validateListingPackage(candidate);
+  const mappedFields = LISTING_PACKAGE_FIELD_MAP
+    .filter((definition) => originalMappedIds.has(definition.id))
+    .map((definition) => ({ ...definition, value: getPath(candidate, definition.sourcePath) }));
+  const errors = [...overrideErrors, ...revalidated.errors];
+  return {
+    ...revalidated,
+    ok: errors.length === 0,
+    package: errors.length === 0 ? revalidated.package : null,
+    errors,
+    mappedFields,
+  };
+}
+
 function valuesEqual(currentValue, packageValue, numeric, targetPath) {
   if (targetPath === "includedAccessories") {
     return JSON.stringify(semanticIncludedAccessories(currentValue)) === JSON.stringify(semanticIncludedAccessories(packageValue));
@@ -366,6 +401,10 @@ export function compareListingPackage(validationResult, currentItem = {}) {
       packageValue: proposal.value,
       state,
       safetyClass: proposal.safetyClass,
+      sourcePath: proposal.sourcePath,
+      editor: proposal.editor,
+      required: proposal.required,
+      options: proposal.options,
       defaultSelected,
       disabled: state === "Same",
       reason: state === "New" ? (defaultSelected ? "Safe empty target" : "Manual review required") : state === "Same" ? "Values are equivalent" : "Existing value requires explicit approval",
