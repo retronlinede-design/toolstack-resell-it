@@ -1909,7 +1909,7 @@ export default function ResellerItApp() {
               </button>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                 {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
-                  <button key={key} type="button" aria-current={activeTab === key ? "page" : undefined} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
+                  <button key={key} type="button" aria-current={activeTab === key ? "page" : undefined} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); if (key === "tools") setActiveToolPanel(null); }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
                     <div className="px-3 py-2.5 lg:px-2.5 lg:py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
@@ -3871,52 +3871,8 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Backup & Import</h2>
-                      <p className="mt-1 text-xs text-neutral-500">Local JSON backup tools.</p>
-                    </div>
-                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={() => { setActiveToolPanel(null); exportJson(); }} className="rounded-2xl border border-[#1f9d99]/30 bg-[#1f9d99]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/50 hover:bg-[#1f9d99]/15 hover:shadow-sm">
-                      <p className="text-sm font-semibold text-neutral-950">Export Backup</p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">Download all local ResellIt data.</p>
-                    </button>
-                    <label className="cursor-pointer rounded-2xl border border-[#1f9d99]/30 bg-[#1f9d99]/10 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/50 hover:bg-[#1f9d99]/15 hover:shadow-sm" onClick={() => setActiveToolPanel(null)}>
-                      <span className="block text-sm font-semibold text-neutral-950">Import Backup</span>
-                      <span className="mt-1 block text-xs leading-5 text-neutral-600">Restore a local JSON backup.</span>
-                      <input type="file" accept="application/json,.json" onChange={importBackupJson} className="hidden" />
-                    </label>
-                  </div>
-                  {backupMessage && <p className="mt-3 rounded-xl bg-stone-50 p-3 text-sm text-stone-700">{backupMessage}</p>}
-                </section>
-
-                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Reports</h2>
-                      <p className="mt-1 text-xs text-neutral-500">Exports and summaries.</p>
-                    </div>
-                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Coming soon</span>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    {[
-                      ["Monthly Report", "Month-end overview."],
-                      ["Tax Export Package", "Accountant-ready bundle."],
-                      ["Profit Summary", "Sales and cost summary."],
-                    ].map(([label, description]) => (
-                      <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
-                        <p className="text-sm font-semibold text-stone-700">{label}</p>
-                        <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Issues</h2>
-                      <p className="mt-1 text-xs text-neutral-500">Data quality checks.</p>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Issues & Diagnostics</h2>
+                      <p className="mt-1 text-xs text-neutral-500">Data quality and consistency checks.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
@@ -3925,14 +3881,10 @@ export default function ResellerItApp() {
                       <p className="text-sm font-semibold text-neutral-950">Compliance Center</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Review item readiness queues.</p>
                     </button>
-                    {[
-                      ["Unmatched eBay Transactions", "Find imports needing matching."],
-                    ].map(([label, description]) => (
-                      <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
-                        <p className="text-sm font-semibold text-stone-700">{label}</p>
-                        <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
-                      </button>
-                    ))}
+                    <button type="button" aria-expanded={activeToolPanel === "canonical_field_audit"} aria-controls="tools-panel-canonical-field-audit" onClick={() => setActiveToolPanel("canonical_field_audit")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "canonical_field_audit" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                      <p className="text-sm font-semibold text-neutral-950">Canonical Field Audit</p>
+                      <p className="mt-1 text-xs leading-5 text-neutral-600">Inspect legacy and canonical field conflicts without changing data.</p>
+                    </button>
                   </div>
                 </section>
 
@@ -3959,48 +3911,10 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Templates</h2>
-                      <p className="mt-1 text-xs text-neutral-500">Reusable text presets.</p>
-                    </div>
-                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Coming soon</span>
-                  </div>
-                  <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    {[
-                      ["Listing Templates", "Reusable listing structures."],
-                      ["Condition Text Templates", "Saved condition wording."],
-                      ["Eigenbeleg Text Templates", "Reusable self-receipt text."],
-                    ].map(([label, description]) => (
-                      <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-stone-50 p-4 text-left opacity-75">
-                        <p className="text-sm font-semibold text-stone-700">{label}</p>
-                        <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Diagnostics</h2>
-                      <p className="mt-1 text-xs text-neutral-500">Read-only data consistency checks.</p>
-                    </div>
-                    <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
-                  </div>
-                  <div className="mt-4 grid gap-3">
-                    <button type="button" aria-expanded={activeToolPanel === "canonical_field_audit"} aria-controls="tools-panel-canonical-field-audit" onClick={() => setActiveToolPanel("canonical_field_audit")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "canonical_field_audit" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
-                      <p className="text-sm font-semibold text-neutral-950">Canonical Field Audit</p>
-                      <p className="mt-1 text-xs leading-5 text-neutral-600">Inspect legacy and canonical field conflicts without changing data.</p>
-                    </button>
-                  </div>
-                </section>
-
-                <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Settings & Help</h2>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Help & Information</h2>
                       <p className="mt-1 text-xs text-neutral-500">App information and guidance.</p>
                     </div>
-                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Mixed</span>
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Available</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
                     <button type="button" onClick={() => setActiveToolPanel("app_info")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "app_info" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
@@ -4015,6 +3929,48 @@ export default function ResellerItApp() {
                       <p className="text-sm font-semibold text-neutral-950">Backup Instructions</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Backup and restore notes.</p>
                     </button>
+                  </div>
+                </section>
+
+                <section className="rounded-3xl border border-neutral-200 bg-stone-50 p-4 xl:col-span-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">Planned</h2>
+                      <p className="mt-1 text-xs text-neutral-500">Future reports, exports, and reusable templates.</p>
+                    </div>
+                    <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Disabled</span>
+                  </div>
+                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                    <div>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Reports</h3>
+                      <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                        {[
+                          ["Monthly Report", "Month-end overview."],
+                          ["Tax Export Package", "Accountant-ready bundle."],
+                          ["Profit Summary", "Sales and cost summary."],
+                        ].map(([label, description]) => (
+                          <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-white p-4 text-left opacity-75">
+                            <p className="text-sm font-semibold text-stone-700">{label}</p>
+                            <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-600">Templates</h3>
+                      <div className="mt-2 grid gap-3 sm:grid-cols-3">
+                        {[
+                          ["Listing Templates", "Reusable listing structures."],
+                          ["Condition Text Templates", "Saved condition wording."],
+                          ["Eigenbeleg Text Templates", "Reusable self-receipt text."],
+                        ].map(([label, description]) => (
+                          <button key={label} type="button" disabled className="rounded-2xl border border-stone-200 bg-white p-4 text-left opacity-75">
+                            <p className="text-sm font-semibold text-stone-700">{label}</p>
+                            <p className="mt-1 text-xs leading-5 text-stone-500">{description}</p>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </section>
               </div>

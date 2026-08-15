@@ -1001,7 +1001,11 @@ test("Tools Hub uses tile-driven panels without rendering the generic item list"
   assert.match(source, /activeToolPanel === "backup_instructions"/);
   assert.match(source, /activeToolPanel === "compliance_center"/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\(null\)\}[^>]*>Close<\/button>/);
-  assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); exportJson\(\); \}\}/);
+  assert.match(source, />Issues & Diagnostics</);
+  assert.match(source, />Help & Information</);
+  assert.match(source, />Planned</);
+  assert.doesNotMatch(source, /setActiveToolPanel\(null\); exportJson\(\)/);
+  assert.match(source, /if \(key === "tools"\) setActiveToolPanel\(null\)/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openStockQueue\("needsAttention", "Missing listing draft"\); \}\}/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openFinanceQueue\("reconciliation"\); \}\}/);
   assert.match(source, /activeTab !== "stock" && activeTab !== "sales" && activeTab !== "finance" && activeTab !== "tools" && filtered\.map/);
