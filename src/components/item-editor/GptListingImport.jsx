@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { listingReadiness } from "../../ebayListingTemplate.js";
 import { ebayConditionText } from "../../resellitSchema.js";
 import {
@@ -68,6 +68,23 @@ export function GptListingImport({ form, setForm, sanitizeHtmlPreview }) {
     setStage("paste");
   }
 
+  useEffect(() => {
+    if (!open) return undefined;
+    function handleKeyDown(event) {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      setPasteText("");
+      setValidationResult(null);
+      setSelectedFieldIds([]);
+      setApplyErrors([]);
+      setStage("paste");
+    }
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [open]);
+
   function parseForReview() {
     const result = parseAndValidateListingPackage(pasteText);
     setValidationResult(result);
@@ -134,7 +151,7 @@ export function GptListingImport({ form, setForm, sanitizeHtmlPreview }) {
       )}
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/55 p-3" role="dialog" aria-modal="true" aria-labelledby="gpt-listing-import-title">
+        <div data-item-editor-nested-dialog="true" className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/55 p-3" role="dialog" aria-modal="true" aria-labelledby="gpt-listing-import-title">
           <div className="max-h-[92vh] w-full max-w-6xl overflow-auto rounded-3xl border border-stone-200 bg-[#fffdf8] p-4 shadow-2xl sm:p-5">
             <div className="flex items-start justify-between gap-3">
               <div>

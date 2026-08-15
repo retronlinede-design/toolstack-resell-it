@@ -7,6 +7,7 @@ import { EbayStudio } from "./components/item-editor/EbayStudio.jsx";
 import { IncludedAccessoriesEditor } from "./components/item-editor/IncludedAccessoriesEditor.jsx";
 import { includedAccessoryNames } from "./includedAccessories.js";
 import { PurchaseInvoiceManager } from "./components/purchases/PurchaseInvoiceManager.jsx";
+import { createItemEditorBaseline, draftEigenbelegEditorSnapshot, itemEditorHasChanges, updateItemEditorBaselineField } from "./itemEditorDirtyState.js";
 import { StatCard } from "./components/shared/Cards.jsx";
 import { ModalDialog } from "./components/shared/ModalDialog.jsx";
 import { Input, Select } from "./components/shared/FormControls.jsx";
@@ -510,6 +511,10 @@ export default function ResellerItApp() {
     acquisitionDescription: "",
   });
   const [editingId, setEditingId] = useState(null);
+  const [itemEditorBaseline, setItemEditorBaseline] = useState(null);
+  const [draftEigenbelegBaseline, setDraftEigenbelegBaseline] = useState(null);
+  const [unsavedChangesOpen, setUnsavedChangesOpen] = useState(false);
+  const pendingItemEditorActionRef = useRef(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [activeToolPanel, setActiveToolPanel] = useState(null);
   const [activeToolInfoModal, setActiveToolInfoModal] = useState(null);
@@ -566,20 +571,6 @@ export default function ResellerItApp() {
     purchasePrice: "",
     classification: "Business Stock / Resale Inventory",
   });
-
-  useEffect(() => {
-    if (!editingId && !itemFormOpen) return undefined;
-    function handleKeyDown(event) {
-      if (event.key === "Escape") {
-        setEditingId(null);
-        setForm(emptyItem);
-        setSearchQueryManuallyEdited(false);
-        setItemFormOpen(false);
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [editingId, itemFormOpen]);
 
   useEffect(() => {
     if (!toastMessage) return undefined;
@@ -792,10 +783,13 @@ export default function ResellerItApp() {
       updatedAt: new Date().toISOString(),
     };
     const existingDraft = eigenbelege.find((entry) => entry.itemId === itemId && ["draft", "Draft"].includes(entry.status));
+    const persistedDraft = existingDraft ? { ...draft, id: existingDraft.id, createdAt: existingDraft.createdAt || draft.createdAt } : draft;
     const nextEigenbelege = existingDraft
-      ? eigenbelege.map((entry) => (entry.id === existingDraft.id ? { ...draft, id: existingDraft.id, createdAt: entry.createdAt || draft.createdAt } : entry))
-      : [draft, ...eigenbelege];
+      ? eigenbelege.map((entry) => (entry.id === existingDraft.id ? persistedDraft : entry))
+      : [persistedDraft, ...eigenbelege];
     if (!persistEigenbelege(nextEigenbelege)) return;
+    setDraftEigenbelegForm(draftEigenbelegEditorSnapshot(persistedDraft));
+    setDraftEigenbelegBaseline(draftEigenbelegEditorSnapshot(persistedDraft));
     setToastMessage("Draft Eigenbeleg generated.");
   }
 
@@ -817,6 +811,7 @@ export default function ResellerItApp() {
       sellerDescription: draft.sellerDescription,
       acquisitionDescription: draft.acquisitionDescription,
     });
+    setDraftEigenbelegBaseline(draftEigenbelegEditorSnapshot(draft));
     setToastMessage("Draft Eigenbeleg regenerated.");
   }
 
@@ -832,6 +827,8 @@ export default function ResellerItApp() {
     });
     const nextEigenbelege = eigenbelege.map((entry) => (entry.id === updatedDraft.id ? updatedDraft : entry));
     if (!persistEigenbelege(nextEigenbelege)) return;
+    setDraftEigenbelegForm(draftEigenbelegEditorSnapshot(updatedDraft));
+    setDraftEigenbelegBaseline(draftEigenbelegEditorSnapshot(updatedDraft));
     setToastMessage("Draft Eigenbeleg saved.");
   }
 
@@ -865,10 +862,7 @@ export default function ResellerItApp() {
       ? items.map((item) => (item.id === editingId ? { ...item, ...clean } : item))
       : [{ id: crypto.randomUUID(), ...clean }, ...items];
     if (!persist(next)) return;
-    setForm(emptyItem);
-    setSearchQueryManuallyEdited(false);
-    setEditingId(null);
-    setItemFormOpen(false);
+    closeItemEditorUnconditionally();
   }
 
   function saveItem(e) {
@@ -888,19 +882,30 @@ export default function ResellerItApp() {
     }
   }
 
-  function editItem(item) {
+  function openPersistedItemEditor(item, workflowSection = "item") {
     const normalized = normalizeItem(item);
     const title = normalized.ebayTitle || normalized.listingTitle || "";
-    setForm({ ...normalized, researchQuery: normalized.researchQuery || title });
+    const openedForm = { ...normalized, researchQuery: normalized.researchQuery || title };
+    const draftEigenbeleg = eigenbelege.find((entry) => entry.itemId === item.id && ["draft", "Draft"].includes(entry.status));
+    setForm(openedForm);
+    setItemEditorBaseline(createItemEditorBaseline(openedForm));
+    setDraftEigenbelegBaseline(draftEigenbelegEditorSnapshot(draftEigenbeleg));
+    setDraftEigenbelegForm(draftEigenbelegEditorSnapshot(draftEigenbeleg) || { id: "", reasonNoReceipt: "", sellerDescription: "", acquisitionDescription: "" });
     setSearchQueryManuallyEdited(Boolean(normalized.researchQuery && normalized.researchQuery !== title));
     setEditingId(item.id);
     setAdvancedFeesOpen(false);
     setItemFormOpen(true);
-    setActiveWorkflowSection("item");
+    setActiveWorkflowSection(workflowSection);
   }
 
-  function openNewItemEditor() {
-    setForm({
+  function editItem(item) {
+    const openItem = () => openPersistedItemEditor(item);
+    if (editingId || itemFormOpen) requestItemEditorReplacement(openItem);
+    else openItem();
+  }
+
+  function establishNewItemEditor() {
+    const openedForm = {
       ...emptyItem,
       purchaseDate: CURRENT_DATE,
       status: "Draft",
@@ -910,12 +915,21 @@ export default function ResellerItApp() {
       listingLanguage: "German",
       hasReceipt: "No",
       proofStoredExternally: "No",
-    });
+    };
+    setForm(openedForm);
+    setItemEditorBaseline(createItemEditorBaseline(openedForm));
+    setDraftEigenbelegBaseline(null);
+    setDraftEigenbelegForm({ id: "", reasonNoReceipt: "", sellerDescription: "", acquisitionDescription: "" });
     setEditingId(null);
     setAdvancedFeesOpen(false);
     setSearchQueryManuallyEdited(false);
     setItemFormOpen(true);
     setActiveWorkflowSection("item");
+  }
+
+  function openNewItemEditor() {
+    if (editingId || itemFormOpen) requestItemEditorReplacement(establishNewItemEditor);
+    else establishNewItemEditor();
   }
 
   function createQuickLedgerItem({ openEditor = false } = {}) {
@@ -952,28 +966,58 @@ export default function ResellerItApp() {
       purchasePrice: "",
       classification: newItem.classification,
     });
-    if (openEditor) editItem(newItem);
+    if (openEditor) openPersistedItemEditor(newItem);
   }
 
   function createGptImportedItem(proposedItem) {
     const createdItem = normalizeItem({ ...proposedItem, id: crypto.randomUUID(), status: "Draft" });
     if (!persist([createdItem, ...items])) return false;
-    setForm(createdItem);
-    setEditingId(createdItem.id);
-    setAdvancedFeesOpen(false);
-    setSearchQueryManuallyEdited(false);
-    setItemFormOpen(true);
-    setActiveWorkflowSection("purchase");
+    openPersistedItemEditor(createdItem, "purchase");
     setActiveTab("stock");
     setToastMessage("GPT item created. Complete purchase details and review the listing before saving/finalizing.");
     return true;
   }
 
-  function closeItemEditor() {
+  function closeItemEditorUnconditionally() {
     setEditingId(null);
     setForm(emptyItem);
+    setItemEditorBaseline(null);
+    setDraftEigenbelegBaseline(null);
+    setDraftEigenbelegForm({ id: "", reasonNoReceipt: "", sellerDescription: "", acquisitionDescription: "" });
     setSearchQueryManuallyEdited(false);
     setItemFormOpen(false);
+    setUnsavedChangesOpen(false);
+    pendingItemEditorActionRef.current = null;
+  }
+
+  function requestCloseItemEditor() {
+    if (itemEditorIsDirty || draftEigenbelegIsDirty) {
+      pendingItemEditorActionRef.current = null;
+      setUnsavedChangesOpen(true);
+      return;
+    }
+    closeItemEditorUnconditionally();
+  }
+
+  function requestItemEditorReplacement(action) {
+    if (itemEditorIsDirty || draftEigenbelegIsDirty) {
+      pendingItemEditorActionRef.current = action;
+      setUnsavedChangesOpen(true);
+      return;
+    }
+    closeItemEditorUnconditionally();
+    action();
+  }
+
+  function keepEditingItem() {
+    pendingItemEditorActionRef.current = null;
+    setUnsavedChangesOpen(false);
+  }
+
+  function discardItemEditorChanges() {
+    const pendingAction = pendingItemEditorActionRef.current;
+    closeItemEditorUnconditionally();
+    pendingAction?.();
   }
 
   function openStockQueue(section, issueFilter = "All items", status = "All statuses") {
@@ -1023,7 +1067,7 @@ export default function ResellerItApp() {
     const nextItems = items.filter((entry) => entry.id !== id);
     const nextEigenbelege = eigenbelege.filter((entry) => entry.itemId !== id || !["draft", "Draft"].includes(entry.status));
     if (!persistAll(nextItems, expenses, purchaseRecords, evidenceRecords, nextEigenbelege)) return;
-    if (editingId === id || form.id === id) closeItemEditor();
+    if (editingId === id || form.id === id) closeItemEditorUnconditionally();
     setToastMessage("Item deleted. Draft Eigenbelege removed.");
   }
 
@@ -1035,6 +1079,7 @@ export default function ResellerItApp() {
     const nextItems = items.map((item) => (item.id === form.id ? { ...item, status: "personal_collection" } : item));
     if (!persist(nextItems)) return;
     setForm({ ...form, status: "personal_collection" });
+    setItemEditorBaseline((baseline) => updateItemEditorBaselineField(baseline, "status", "personal_collection"));
     setToastMessage("Moved to Personal Collection.");
   }
 
@@ -1187,9 +1232,8 @@ export default function ResellerItApp() {
 
       if (!persistAll(nextItems, nextExpenses, nextPurchaseRecords, nextEvidenceRecords, nextEigenbelege, nextPurchaseTransactions, nextPurchaseAllocations, nextNormalizedEbayRecords, nextEbayMappingProfiles)) return;
       setStartupLoadWarning("");
-      setForm(emptyItem);
+      closeItemEditorUnconditionally();
       setExpenseForm(emptyExpense);
-      setEditingId(null);
       setEditingExpenseId(null);
       setBackupMessage(`Import complete: restored ${nextItems.length} items and ${nextExpenses.length} expenses.`);
     } catch {
@@ -1424,6 +1468,23 @@ export default function ResellerItApp() {
         sellerDescription: currentDraftEigenbeleg?.sellerDescription || "",
         acquisitionDescription: currentDraftEigenbeleg?.acquisitionDescription || "",
       };
+  const itemEditorIsDirty = itemEditorHasChanges(form, itemEditorBaseline);
+  const draftEigenbelegIsDirty = itemEditorHasChanges(draftEigenbelegValues, draftEigenbelegBaseline);
+
+  useEffect(() => {
+    if (!editingId && !itemFormOpen) return undefined;
+    function handleKeyDown(event) {
+      if (event.key !== "Escape" || unsavedChangesOpen || document.querySelector('[data-item-editor-nested-dialog="true"]')) return;
+      if (itemEditorIsDirty || draftEigenbelegIsDirty) {
+        pendingItemEditorActionRef.current = null;
+        setUnsavedChangesOpen(true);
+      } else {
+        closeItemEditorUnconditionally();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [draftEigenbelegIsDirty, editingId, itemEditorIsDirty, itemFormOpen, unsavedChangesOpen]);
 
   const classificationCounts = useMemo(() => (
     classificationOptions.reduce((counts, classification) => {
@@ -1965,7 +2026,7 @@ export default function ResellerItApp() {
           )}
 
         {(editingId || itemFormOpen) && (
-          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1f120f]/75 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) closeItemEditor(); }}>
+          <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-[#1f120f]/75 p-3 backdrop-blur-sm sm:p-6" onMouseDown={(event) => { if (event.target === event.currentTarget) requestCloseItemEditor(); }}>
             <div className="w-full max-w-6xl" onMouseDown={(event) => event.stopPropagation()}>
         <form onSubmit={saveItem} className="premium-panel max-h-[calc(100vh-3rem)] overflow-y-auto rounded-3xl border border-[#eadfce] bg-[#fffaf0] p-3 shadow-[0_18px_50px_rgba(0,0,0,0.18)] md:p-4">
           <div className="mb-4 rounded-2xl border border-[#eadfce] bg-white/80 p-3 shadow-sm">
@@ -1979,7 +2040,7 @@ export default function ResellerItApp() {
             </div>
             <div className="flex flex-wrap gap-2">
               <button type="button" onClick={moveItemToPersonalCollection} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Move to Personal Collection</button>
-              <button type="button" onClick={closeItemEditor} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
+              <button type="button" onClick={requestCloseItemEditor} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
             </div>
             </div>
           </div>
@@ -2605,6 +2666,15 @@ export default function ResellerItApp() {
         </form>
             </div>
           </div>
+        )}
+
+        {unsavedChangesOpen && (
+          <ModalDialog title="Unsaved changes" closeLabel="Keep Editing" onClose={keepEditingItem}>
+            <p className="text-sm leading-6 text-stone-700">You have changes that haven&apos;t been saved. Discard them and close?</p>
+            <div className="mt-5 flex justify-end">
+              <button type="button" onClick={discardItemEditorChanges} className="rounded-xl border border-red-300 bg-white px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">Discard Changes</button>
+            </div>
+          </ModalDialog>
         )}
 
         {activeTab === "finance" && (

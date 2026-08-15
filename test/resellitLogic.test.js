@@ -896,7 +896,7 @@ test("missing eigenbelege initialize to an empty collection", () => {
 test("persistence failure guards preserve form/editor state before reset behavior", () => {
   const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
 
-  assert.match(source, /if \(!persist\(next\)\) return;\s*setForm\(emptyItem\);\s*setSearchQueryManuallyEdited\(false\);\s*setEditingId\(null\);\s*setItemFormOpen\(false\);/s);
+  assert.match(source, /if \(!persist\(next\)\) return;\s*closeItemEditorUnconditionally\(\);/s);
   assert.match(source, /if \(!persist\(\[newItem, \.\.\.items\]\)\) return;\s*setQuickAddItem\(/s);
   assert.match(source, /if \(!persistExpenses\(nextExpenses\)\) return;\s*setExpenseForm\(emptyExpense\);\s*setEditingExpenseId\(null\);/s);
   assert.match(source, /function persistExpenses\(nextExpenses\) {\s*return persistAll\(items, nextExpenses\);\s*}/s);
@@ -938,8 +938,9 @@ test("App draft Eigenbeleg action updates existing drafts without overwriting fi
   assert.match(source, /function generateDraftEigenbeleg\(itemId\) {/);
   assert.match(source, /createDraftEigenbelegForItem\(item, purchaseRecords, evidenceRecords\)/);
   assert.match(source, /const existingDraft = eigenbelege\.find\(\(entry\) => entry\.itemId === itemId && \["draft", "Draft"\]\.includes\(entry\.status\)\);/);
-  assert.match(source, /eigenbelege\.map\(\(entry\) => \(entry\.id === existingDraft\.id \? { \.\.\.draft, id: existingDraft\.id, createdAt: entry\.createdAt \|\| draft\.createdAt } : entry\)\)/);
-  assert.match(source, /: \[draft, \.\.\.eigenbelege\];/);
+  assert.match(source, /const persistedDraft = existingDraft \? { \.\.\.draft, id: existingDraft\.id, createdAt: existingDraft\.createdAt \|\| draft\.createdAt } : draft;/);
+  assert.match(source, /eigenbelege\.map\(\(entry\) => \(entry\.id === existingDraft\.id \? persistedDraft : entry\)\)/);
+  assert.match(source, /: \[persistedDraft, \.\.\.eigenbelege\];/);
 });
 
 test("App exposes draft Eigenbeleg preview, editing, saving, and regeneration only for drafts", () => {

@@ -690,8 +690,7 @@ test("Stock Control GPT item creation entry point persists once and opens Purcha
   assert.match(appSource, /function createGptImportedItem\(proposedItem\)/);
   assert.match(appSource, /normalizeItem\(\{ \.\.\.proposedItem, id: crypto\.randomUUID\(\), status: "Draft" \}\)/);
   assert.match(appSource, /persist\(\[createdItem, \.\.\.items\]\)/);
-  assert.match(appSource, /setEditingId\(createdItem\.id\)/);
-  assert.match(appSource, /setActiveWorkflowSection\("purchase"\)/);
+  assert.match(appSource, /openPersistedItemEditor\(createdItem, "purchase"\)/);
   assert.match(appSource, /GPT item created\. Complete purchase details and review the listing before saving\/finalizing\./);
   assert.match(tableSource, /Needs Purchase Details/);
 });
