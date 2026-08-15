@@ -4125,10 +4125,23 @@ export default function ResellerItApp() {
               )}
               {activeToolInfoModal === "help" && (
                 <ModalDialog title="Help Guide" onClose={() => setActiveToolInfoModal(null)}>
-                  <div className="grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
-                    <p className="rounded-2xl bg-stone-50 p-3">Use Stock Control for item entry and active selling work.</p>
-                    <p className="rounded-2xl bg-stone-50 p-3">Use Finance for expenses, imports, and tax record checks.</p>
-                    <p className="rounded-2xl bg-stone-50 p-3">Use Tools for backups and utility shortcuts.</p>
+                  <div className="text-sm text-neutral-700">
+                    <p className="leading-6 text-neutral-600">ResellIt keeps stock, selling, and financial review work together. Start with an item, prepare it for sale, then record and review the outcome.</p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      {[
+                        ["Getting Started", "Create or import an item in Stock Control, complete its details and listing preparation, then use Sales and Finance to review activity and records."],
+                        ["Stock Control", "Create Draft items, review and complete their details, filter the Stock Register, and prepare listing content. Import GPT Item can also create a Draft from a pasted ResellIt Listing Package."],
+                        ["Sales", "Use Sales Activity to review sold, completed, and returned items. Sales Review highlights data gaps and profit checks, while Platform Data covers imported marketplace activity."],
+                        ["Finance", "Review Monthly Closing, add or check expenses in Expense Manager, manage purchases and invoices, and import and review eBay report data."],
+                        ["Tools", "Open diagnostics, use eBay workflow shortcuts, or view help and app information. Reports and Templates shown under Planned are not yet available."],
+                        ["AI Tools", "Use Import GPT Item in the sidebar to paste and review a Listing Package, create a new Draft stock item, and continue through the normal item-completion workflow."],
+                      ].map(([title, description]) => (
+                        <section key={title} className="rounded-2xl border border-[#1f9d99]/20 bg-[#1f9d99]/5 p-4">
+                          <h3 className="font-semibold text-neutral-950">{title}</h3>
+                          <p className="mt-1.5 leading-6 text-neutral-600">{description}</p>
+                        </section>
+                      ))}
+                    </div>
                   </div>
                 </ModalDialog>
               )}
