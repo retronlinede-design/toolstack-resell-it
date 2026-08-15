@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Package, ReceiptText, ShoppingCart, FileText, Euro, Download, Trash2, Edit3, Info, Search, ClipboardList, Truck, StickyNote, RotateCcw } from "lucide-react";
-import resellItLogo from "./assets/resellitlogo2.png";
+import resellItLogo from "./assets/resellitlogo3.png";
 import { ExpenseManager } from "./components/finance/ExpenseManager.jsx";
 import { InventoryTable } from "./components/inventory/InventoryTable.jsx";
 import { EbayStudio } from "./components/item-editor/EbayStudio.jsx";
@@ -1892,7 +1892,7 @@ export default function ResellerItApp() {
           <div className="space-y-3.5">
             <div>
               <div className="bg-transparent px-1 pt-1 lg:px-0">
-                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto max-h-24 w-full object-contain sm:max-h-28 lg:max-h-28" />
+                <img src={resellItLogo} alt="Resell-It" className="mx-auto h-auto w-full max-w-[14rem] object-contain" />
               </div>
               <p className="-mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f0be45] sm:text-xs">THE COMPLETE RESELLER SYSTEM.</p>
             </div>
