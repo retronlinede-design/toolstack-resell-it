@@ -1010,6 +1010,12 @@ test("Tools Hub uses tile-driven panels without rendering the generic item list"
   assert.match(source, /\["Finance",/);
   assert.match(source, /\["Tools",/);
   assert.match(source, /\["AI Tools",/);
+  assert.match(source, />About Backups<\/h3>/);
+  assert.match(source, />Export a Backup<\/h3>/);
+  assert.match(source, />Restore a Backup<\/h3>/);
+  assert.match(source, />Important Before Restoring<\/h3>/);
+  assert.match(source, />Good Backup Practice<\/h3>/);
+  assert.match(source, /does not merge them/);
   assert.match(source, /<ModalDialog title="App Info" onClose=\{\(\) => setActiveToolInfoModal\(null\)\}>/);
   assert.match(source, /activeToolPanel === "compliance_center"/);
   assert.match(source, /onClick=\{\(\) => setActiveToolPanel\(null\)\}[^>]*>Close<\/button>/);

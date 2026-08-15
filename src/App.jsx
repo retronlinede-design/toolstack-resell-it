@@ -4147,10 +4147,43 @@ export default function ResellerItApp() {
               )}
               {activeToolInfoModal === "backup_instructions" && (
                 <ModalDialog title="Backup Instructions" onClose={() => setActiveToolInfoModal(null)}>
-                  <div className="grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
-                    <p className="rounded-2xl bg-stone-50 p-3">Export a backup after important inventory, sales, or expense updates.</p>
-                    <p className="rounded-2xl bg-stone-50 p-3">Keep the JSON file somewhere outside the browser.</p>
-                    <p className="rounded-2xl bg-stone-50 p-3">Import replaces current local data after confirmation.</p>
+                  <div className="text-sm text-neutral-700">
+                    <p className="leading-6 text-neutral-600">A ResellIt backup is a dated JSON file you can keep outside the browser and use to restore your working records.</p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <section className="rounded-2xl border border-[#1f9d99]/20 bg-[#1f9d99]/5 p-4">
+                        <h3 className="font-semibold text-neutral-950">About Backups</h3>
+                        <p className="mt-1.5 leading-6 text-neutral-600">Backups include items, expenses, purchase records and allocations, evidence metadata, Eigenbelege, normalized eBay records, and mapping profiles. External files, raw eBay import batch history, and display preferences are not bundled.</p>
+                      </section>
+                      <section className="rounded-2xl border border-[#1f9d99]/20 bg-[#1f9d99]/5 p-4">
+                        <h3 className="font-semibold text-neutral-950">Export a Backup</h3>
+                        <ol className="mt-2 space-y-1.5 leading-6 text-neutral-600">
+                          <li><strong className="text-neutral-800">1.</strong> Open Backup in the left sidebar.</li>
+                          <li><strong className="text-neutral-800">2.</strong> Choose Export Backup.</li>
+                          <li><strong className="text-neutral-800">3.</strong> ResellIt downloads a dated JSON backup file.</li>
+                        </ol>
+                      </section>
+                      <section className="rounded-2xl border border-[#1f9d99]/20 bg-[#1f9d99]/5 p-4">
+                        <h3 className="font-semibold text-neutral-950">Restore a Backup</h3>
+                        <ol className="mt-2 space-y-1.5 leading-6 text-neutral-600">
+                          <li><strong className="text-neutral-800">1.</strong> Open Backup and choose Import Backup.</li>
+                          <li><strong className="text-neutral-800">2.</strong> Select a ResellIt JSON backup file.</li>
+                          <li><strong className="text-neutral-800">3.</strong> ResellIt checks and prepares the backup.</li>
+                          <li><strong className="text-neutral-800">4.</strong> Review the item and expense counts, then confirm the restore.</li>
+                        </ol>
+                      </section>
+                      <section className="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+                        <h3 className="font-semibold text-neutral-950">Good Backup Practice</h3>
+                        <ul className="mt-2 space-y-1.5 leading-6 text-neutral-600">
+                          <li>• Export regularly and before significant imports or data changes.</li>
+                          <li>• Store backup files somewhere safe outside the browser.</li>
+                          <li>• Keep more than the latest backup where practical.</li>
+                        </ul>
+                      </section>
+                      <section className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-950 sm:col-span-2">
+                        <h3 className="font-semibold">Important Before Restoring</h3>
+                        <p className="mt-1.5 leading-6">Restoring replaces the current ResellIt records covered by the backup; it does not merge them. Export a current backup first if you may need today’s data later. There is no automatic rollback or restore history.</p>
+                      </section>
+                    </div>
                   </div>
                 </ModalDialog>
               )}
