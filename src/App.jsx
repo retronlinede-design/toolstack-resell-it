@@ -14,7 +14,6 @@ import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
 import { buildPurchaseFinanceDiagnostics } from "./financeDiagnostics.js";
 import { createExpenseEvidenceRecord, expenseTotal, filterExpenses, updateExpenseEvidenceRecord } from "./expenseManager.js";
-import { purchaseDetailsReadiness } from "./gptListingPackage.js";
 import { addMatchSuggestions, compareEbayRecordToItem, ebayCostPostingReview, ebayImportTargetFields, ebaySalePostingReview, isEbayCostPostingEligible, isEbaySalePostingEligible, mapEbayRows, markEbayDuplicates, normalizeEbayImportRecords, normalizeEbayMappingProfiles, parseEbayCsv, prepareEbayCostPosting, prepareEbaySalePosting, suggestEbayMappings } from "./ebayImport.js";
 import {
   createPurchaseAllocationRecord,
@@ -27,6 +26,7 @@ import {
   updateTransactionEvidenceRecord,
 } from "./purchaseManager.js";
 import { preparePurchaseWithItems } from "./purchaseBatch.js";
+import { matchesStockIssueFilter, stockItemNeedsProof as needsProofRecord } from "./stockControlFilters.js";
 import {
   generateHtmlDescription,
   generateListingDraft,
@@ -226,7 +226,7 @@ const modules = [
   ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12", "Manage backups, reports, listing helpers, issue checks, and app utilities."],
 ];
 const stockSectionDetails = {
-  needsAttention: ["Needs Attention", "Items missing information, proof, pricing, or listing preparation."],
+  needsAttention: ["Needs Attention", "Items missing acquisition details, proof, classification review, or listing preparation."],
   inventory: ["Active Stock", "Active stock being managed and tracked."],
   readyToList: ["Ready for Listing", "Items ready for eBay listing."],
   listingStudio: ["eBay Listing", "Create and manage listing titles, descriptions, and HTML templates."],
@@ -279,17 +279,6 @@ function timelineGroupLabel(date, grouping) {
     return `Week of ${monday.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}`;
   }
   return parsed.toLocaleDateString("de-DE", { month: "long", year: "numeric" });
-}
-
-function needsProofRecord(item) {
-  return !(
-    item.hasReceipt === "Yes" ||
-    item.proofStoredExternally === "Yes" ||
-    item.proofFileName ||
-    item.proofFolderLocation ||
-    item.proofImageDataUrl ||
-    item.proofNotes
-  );
 }
 
 function quickProofStatus(item) {
@@ -990,8 +979,12 @@ export default function ResellerItApp() {
   function openStockQueue(section, issueFilter = "All items", status = "All statuses") {
     setActiveTab("stock");
     setStockSection(section);
+    setInventorySearch("");
     setInventoryIssueFilter(issueFilter);
     setInventoryStatus(status);
+    setInventoryCategory("All categories");
+    setInventoryClassification("All classifications");
+    setInventoryTimelineMonth("");
   }
 
   function openSalesQueue(panel = null) {
@@ -1537,11 +1530,7 @@ export default function ResellerItApp() {
       if (inventoryStatus === "In Stock" && (!isActiveStockItem(item) || isSoldStatus(item))) return false;
       if (inventoryStatus !== "All statuses" && inventoryStatus !== "In Stock" && itemStatusValue(item) !== inventoryStatus) return false;
       if (inventoryCategory !== "All categories" && item.category !== inventoryCategory) return false;
-      if (inventoryIssueFilter === "Missing proof" && !needsProofRecord(item)) return false;
-      if (inventoryIssueFilter === "Needs Purchase Details" && purchaseDetailsReadiness(item).status !== "Needs Purchase Details") return false;
-      if (inventoryIssueFilter === "Needs attention" && !(needsProofRecord(item) || !hasListingDraft(item) || itemClassification(item) === DEFAULT_CLASSIFICATION)) return false;
-      if (inventoryIssueFilter === "Missing listing draft" && hasListingDraft(item)) return false;
-      if (inventoryIssueFilter === "Review later" && itemClassification(item) !== DEFAULT_CLASSIFICATION) return false;
+      if (!["All items", "Sold only", "Unsold only"].includes(inventoryIssueFilter) && !matchesStockIssueFilter(item, inventoryIssueFilter)) return false;
       if (inventoryIssueFilter === "Sold only" && !isSoldStatus(item)) return false;
       if (inventoryIssueFilter === "Unsold only" && isSoldStatus(item)) return false;
       return true;
@@ -1911,7 +1900,7 @@ export default function ResellerItApp() {
               </button>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                 {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
-                  <button key={key} type="button" aria-current={activeTab === key ? "page" : undefined} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); if (key === "tools") { setActiveToolPanel(null); setActiveToolInfoModal(null); } }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
+                <button key={key} type="button" aria-current={activeTab === key ? "page" : undefined} onClick={() => { if (key === "stock") openStockQueue("all"); else setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); if (key === "tools") { setActiveToolPanel(null); setActiveToolInfoModal(null); } }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
                     <div className="px-3 py-2.5 lg:px-2.5 lg:py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
@@ -2008,7 +1997,7 @@ export default function ResellerItApp() {
                   <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
                       <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Purchase</p><p className="font-semibold">{money(form.purchasePrice)}</p></div>
                       <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Proof</p><p className="font-semibold">{needsProofRecord(form) ? "Missing" : quickProofStatus(form)}</p></div>
-                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Listing Preparation</p><p className="font-semibold">{hasListingDraft(form) ? "Prepared" : "Needs Preparation"}</p></div>
+                      <div className="rounded-xl bg-stone-50 p-2"><p className="text-xs text-stone-500">Listing Preparation</p><p className="font-semibold">{hasListingDraft(form) ? "Listing started" : "Needs Listing Preparation"}</p></div>
                   </div>
                 </div>
               </div>
@@ -3025,11 +3014,11 @@ export default function ResellerItApp() {
                 {todayWorkflow.readyToList.length || dashboardSalesDataGapCount || salesWorkflow.problemItems.length || todayWorkflow.needsListing.length || todayWorkflow.missingProof.length || complianceSummary.incomplete || complianceSummary.needsEigenbeleg ? (
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                     {[
-                      ["Ready for Listing", todayWorkflow.readyToList.length, () => openStockQueue("readyToList")],
+                      ["Ready for Listing", todayWorkflow.readyToList.length, () => openStockQueue("readyToList", "Ready for Listing")],
                       ["Sales Data Gaps", dashboardSalesDataGapCount, () => openSalesQueue("sales_data_gaps")],
                       ["Sales Issues", salesWorkflow.problemItems.length, () => openSalesQueue("problemItems")],
-                      ["Needs Listing Preparation", todayWorkflow.needsListing.length, () => openStockQueue("needsAttention", "Missing listing draft")],
-                      ["Missing Proof", todayWorkflow.missingProof.length, () => openStockQueue("needsAttention", "Missing proof")],
+                      ["Needs Listing Preparation", todayWorkflow.needsListing.length, () => openStockQueue("needsAttention", "Needs Listing Preparation")],
+                      ["Missing Proof", todayWorkflow.missingProof.length, () => openStockQueue("needsAttention", "Missing Proof")],
                       ["Compliance Issues", complianceSummary.incomplete + complianceSummary.needsEigenbeleg, () => { setActiveTab("tools"); setActiveToolPanel("compliance_center"); }],
                     ].filter(([, count]) => count > 0).map(([label, count, action]) => (
                       <button key={label} type="button" onClick={action} className="flex items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-white px-3 py-2.5 text-left transition hover:border-orange-300 hover:bg-orange-50">
@@ -3466,7 +3455,7 @@ export default function ResellerItApp() {
               <div className="grid gap-4 lg:grid-cols-3">
                 <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h3 className="font-semibold text-neutral-950">Sales Issues</h3><p className="mt-2 text-3xl font-semibold">{salesIssueCount}</p><button type="button" onClick={() => openSalesQueue("sales_data_gaps")} className="mt-3 text-sm font-semibold text-[#9c481b]">Open Sales Data Gaps</button></section>
                 <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h3 className="font-semibold text-neutral-950">Expense Issues</h3><p className="mt-2 text-3xl font-semibold">{taxRecordQueues.expensesWithoutReceiptNote.length}</p><button type="button" onClick={() => openFinanceQueue("expenses")} className="mt-3 text-sm font-semibold text-[#9c481b]">Open Expense Manager</button></section>
-                <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h3 className="font-semibold text-neutral-950">Record & Proof Issues</h3><p className="mt-2 text-3xl font-semibold">{taxRecordQueues.missingProof.length}</p><p className="mt-1 text-sm text-neutral-600">Transaction documents missing: {purchaseFinanceDiagnostics.counts.missingDocuments}. This is readiness information, not a requirement for private purchases.</p><div className="mt-3 flex flex-wrap gap-2">{purchaseFinanceDiagnostics.evidenceReadiness.map((entry) => <button key={entry.transactionId} type="button" onClick={() => { setPurchaseManagerInitialTransactionId(entry.transactionId); setPurchaseManagerOpen(true); }} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${entry.documentPresent ? "border-lime-200 bg-lime-50 text-lime-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{entry.documentPresent ? "Document Present" : "Missing Document"}</button>)}</div><button type="button" onClick={() => openStockQueue("needsAttention", "Missing proof")} className="mt-3 text-sm font-semibold text-[#9c481b]">Open Missing Proof</button></section>
+                <section className="rounded-3xl border border-neutral-200 bg-white p-5 shadow-sm"><h3 className="font-semibold text-neutral-950">Record & Proof Issues</h3><p className="mt-2 text-3xl font-semibold">{taxRecordQueues.missingProof.length}</p><p className="mt-1 text-sm text-neutral-600">Transaction documents missing: {purchaseFinanceDiagnostics.counts.missingDocuments}. This is readiness information, not a requirement for private purchases.</p><div className="mt-3 flex flex-wrap gap-2">{purchaseFinanceDiagnostics.evidenceReadiness.map((entry) => <button key={entry.transactionId} type="button" onClick={() => { setPurchaseManagerInitialTransactionId(entry.transactionId); setPurchaseManagerOpen(true); }} className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${entry.documentPresent ? "border-lime-200 bg-lime-50 text-lime-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>{entry.documentPresent ? "Document Present" : "Missing Document"}</button>)}</div><button type="button" onClick={() => openStockQueue("needsAttention", "Missing Proof")} className="mt-3 text-sm font-semibold text-[#9c481b]">Open Missing Proof</button></section>
               </div>
             </div>
           )}
@@ -3899,9 +3888,9 @@ export default function ResellerItApp() {
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <button type="button" onClick={() => { setActiveToolPanel(null); openStockQueue("needsAttention", "Missing listing draft"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
+                    <button type="button" onClick={() => { setActiveToolPanel(null); openStockQueue("needsAttention", "Needs Listing Preparation"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
                       <p className="text-sm font-semibold text-orange-950">Open Listing Queue</p>
-                      <p className="mt-1 text-xs leading-5 text-orange-900/75">Show items missing listing drafts.</p>
+                      <p className="mt-1 text-xs leading-5 text-orange-900/75">Show items that need listing preparation.</p>
                     </button>
                     <button type="button" onClick={() => { setActiveToolPanel(null); openFinanceQueue("reconciliation"); }} className="rounded-2xl border border-orange-200 bg-orange-50 p-4 text-left transition hover:-translate-y-0.5 hover:border-orange-300 hover:bg-orange-100 hover:shadow-sm">
                       <p className="text-sm font-semibold text-orange-950">Open eBay Import & Review</p>

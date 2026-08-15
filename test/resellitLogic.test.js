@@ -72,6 +72,7 @@ import {
   loadInitialAppData,
   loadInitialBrowserAppData,
 } from "../src/resellitStorage.js";
+import { matchesStockIssueFilter, stockItemNeedsAttention } from "../src/stockControlFilters.js";
 
 function memoryStorage(initial = {}) {
   const values = new Map(Object.entries(initial));
@@ -982,6 +983,58 @@ test("App item archive and permanent delete controls preserve compliance records
   assert.match(tableSource, /statusLabel\(status\)/);
 });
 
+test("Stock Control active issue filters keep readiness separate from lifecycle status", () => {
+  const ready = normalizeSchemaItem({
+    ...emptyItem,
+    id: "ready-item",
+    name: "Bereiter Artikel",
+    classification: "Business Stock / Resale Inventory",
+    purchasePrice: "10",
+    hasReceipt: "Yes",
+    ebayTitle: "Bereiter Artikel",
+    chosenListingPrice: "35",
+    productDescriptionText: "Beschreibung des Artikels",
+    ebay: { conditionText: "Gebrauchter Zustand" },
+    shippingNotes: "Versand mit DHL",
+  });
+  const noPurchase = { ...ready, purchasePrice: "" };
+  const noProof = { ...ready, hasReceipt: "No", proofType: "", receiptType: "", proofNotes: "" };
+  const noListing = { ...ready, ebayTitle: "", listingTitle: "", ebay: { conditionText: "" }, generatedPlainDescription: "", descriptionText: "", generatedHtmlDescription: "", htmlDescription: "" };
+  const listingStarted = { ...noListing, ebayTitle: "Started listing" };
+
+  assert.equal(matchesStockIssueFilter(ready, "Ready for Listing"), true);
+  assert.equal(matchesStockIssueFilter({ ...ready, status: "Sold" }, "Ready for Listing"), false);
+  assert.equal(matchesStockIssueFilter(listingStarted, "Ready for Listing"), false);
+  assert.equal(matchesStockIssueFilter(noListing, "Needs Listing Preparation"), true);
+  assert.equal(matchesStockIssueFilter(listingStarted, "Needs Listing Preparation"), false);
+  assert.equal(matchesStockIssueFilter(noProof, "Missing Proof"), true);
+  assert.equal(matchesStockIssueFilter(noPurchase, "Needs Purchase Details"), true);
+  assert.equal(stockItemNeedsAttention(ready), false);
+  assert.equal(stockItemNeedsAttention(noPurchase), true);
+  assert.equal(stockItemNeedsAttention(noProof), true);
+  assert.equal(stockItemNeedsAttention(noListing), true);
+  assert.equal(stockItemNeedsAttention({ ...ready, classification: DEFAULT_CLASSIFICATION }), true);
+});
+
+test("Stock Control queue links use active filters and primary navigation clears query state", () => {
+  const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
+  const tableSource = readFileSync(new URL("../src/components/inventory/InventoryTable.jsx", import.meta.url), "utf8");
+
+  assert.match(source, /function openStockQueue\(section, issueFilter = "All items", status = "All statuses"\)/);
+  assert.match(source, /setInventorySearch\(""\);[\s\S]*setInventoryIssueFilter\(issueFilter\);[\s\S]*setInventoryStatus\(status\);[\s\S]*setInventoryCategory\("All categories"\);[\s\S]*setInventoryClassification\("All classifications"\);[\s\S]*setInventoryTimelineMonth\(""\);/);
+  assert.match(source, /if \(key === "stock"\) openStockQueue\("all"\)/);
+  assert.match(source, /openStockQueue\("readyToList", "Ready for Listing"\)/);
+  assert.match(source, /openStockQueue\("needsAttention", "Needs Listing Preparation"\)/);
+  assert.match(source, /openStockQueue\("needsAttention", "Missing Proof"\)/);
+  assert.match(source, /matchesStockIssueFilter\(item, inventoryIssueFilter\)/);
+  assert.match(tableSource, /<option>Ready for Listing<\/option>/);
+  assert.match(tableSource, /<option>Needs Listing Preparation<\/option>/);
+  assert.match(tableSource, /<option>Needs Purchase Details<\/option>/);
+  assert.match(tableSource, /<option>Missing Proof<\/option>/);
+  assert.match(tableSource, /<option>Needs Attention<\/option>/);
+  assert.match(source, /"Listing started" : "Needs Listing Preparation"/);
+});
+
 test("Tools Hub uses tile-driven panels without rendering the generic item list", () => {
   const source = readFileSync(new URL("../src/App.jsx", import.meta.url), "utf8");
   const modalSource = readFileSync(new URL("../src/components/shared/ModalDialog.jsx", import.meta.url), "utf8");
@@ -1024,7 +1077,7 @@ test("Tools Hub uses tile-driven panels without rendering the generic item list"
   assert.match(source, />Planned</);
   assert.doesNotMatch(source, /setActiveToolPanel\(null\); exportJson\(\)/);
   assert.match(source, /if \(key === "tools"\) \{ setActiveToolPanel\(null\); setActiveToolInfoModal\(null\); \}/);
-  assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openStockQueue\("needsAttention", "Missing listing draft"\); \}\}/);
+  assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openStockQueue\("needsAttention", "Needs Listing Preparation"\); \}\}/);
   assert.match(source, /onClick=\{\(\) => \{ setActiveToolPanel\(null\); openFinanceQueue\("reconciliation"\); \}\}/);
   assert.match(source, /activeTab !== "stock" && activeTab !== "sales" && activeTab !== "finance" && activeTab !== "tools" && filtered\.map/);
   assert.doesNotMatch(source, /setActiveToolPanel\("compliance_center"\)[^>]*disabled/s);
