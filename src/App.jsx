@@ -546,6 +546,7 @@ export default function ResellerItApp() {
   const toolPanelRef = useRef(null);
   const financePanelRef = useRef(null);
   const salesPanelRef = useRef(null);
+  const backupFileInputRef = useRef(null);
   const [itemFormOpen, setItemFormOpen] = useState(false);
   const [gptItemImportOpen, setGptItemImportOpen] = useState(false);
   const [purchaseManagerOpen, setPurchaseManagerOpen] = useState(false);
@@ -1894,7 +1895,7 @@ export default function ResellerItApp() {
               <p className="-mt-2 text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f0be45] sm:text-xs">THE COMPLETE RESELLER SYSTEM.</p>
             </div>
             <nav className="space-y-1.5">
-              <button type="button" onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === "dashboard" ? "border-[#f0be45]/60 bg-white/8 shadow-[0_8px_22px_rgba(240,190,69,0.12)]" : "border-[#5a3028] bg-[#45251f] hover:border-[#f0be45]/35 hover:bg-white/7"}`}>
+              <button type="button" aria-current={activeTab === "dashboard" ? "page" : undefined} onClick={() => setActiveTab("dashboard")} className={`w-full overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] ${activeTab === "dashboard" ? "border-[#f0be45]/60 bg-white/8 shadow-[0_8px_22px_rgba(240,190,69,0.12)]" : "border-[#5a3028] bg-[#45251f] hover:border-[#f0be45]/35 hover:bg-white/7"}`}>
                 <div className="flex h-1.5">
                   <div className="flex-1 bg-[#b7412e]" />
                   <div className="flex-1 bg-[#e06b2c]" />
@@ -1908,7 +1909,7 @@ export default function ResellerItApp() {
               </button>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                 {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
-                  <button key={key} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
+                  <button key={key} type="button" aria-current={activeTab === key ? "page" : undefined} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
                     <div className="px-3 py-2.5 lg:px-2.5 lg:py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
@@ -1921,22 +1922,22 @@ export default function ResellerItApp() {
 
             <section aria-labelledby="ai-tools-heading" className="rounded-3xl border border-[#5a3028] bg-[#45251f] p-3">
               <h2 id="ai-tools-heading" className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">AI Tools</h2>
-              <button type="button" onClick={openGptItemImport} className="w-full rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Import GPT Item</button>
+              <button type="button" onClick={openGptItemImport} className="w-full rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45]">Import GPT Item</button>
             </section>
 
             <div className="relative flex w-full flex-col items-start gap-2">
-              <button type="button" onClick={() => setBackupMenuOpen(!backupMenuOpen)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#6c3a31] bg-[#45251f] px-3 py-2 text-xs font-semibold text-[#fff7e8] transition hover:bg-[#523029] sm:w-auto">
+              <button type="button" aria-expanded={backupMenuOpen} aria-controls="sidebar-backup-menu" onClick={() => setBackupMenuOpen(!backupMenuOpen)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#6c3a31] bg-[#45251f] px-3 py-2 text-xs font-semibold text-[#fff7e8] transition hover:bg-[#523029] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] sm:w-auto">
                 <Download size={14} /> Backup
               </button>
               {backupMenuOpen && (
-                <div className="z-10 w-full rounded-2xl border border-[#6c3a31] bg-[#fffaf0] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.22)] lg:absolute lg:left-0 lg:top-11">
-                  <button type="button" onClick={() => { exportJson(); setBackupMenuOpen(false); }} className="flex w-full items-center justify-start rounded-xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-100">
+                <div id="sidebar-backup-menu" className="z-10 w-full rounded-2xl border border-[#6c3a31] bg-[#fffaf0] p-2 shadow-[0_18px_40px_rgba(0,0,0,0.22)] lg:absolute lg:left-0 lg:top-11">
+                  <button type="button" onClick={() => { exportJson(); setBackupMenuOpen(false); }} className="flex w-full items-center justify-start rounded-xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b7412e]">
                     Export Backup
                   </button>
-                  <label className="flex w-full cursor-pointer items-center justify-start rounded-xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-100">
+                  <button type="button" onClick={() => backupFileInputRef.current?.click()} className="flex w-full items-center justify-start rounded-xl px-3 py-2 text-sm font-semibold text-stone-800 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b7412e]">
                     Import Backup
-                    <input type="file" accept="application/json,.json" onChange={(e) => { importBackupJson(e); setBackupMenuOpen(false); }} className="hidden" />
-                  </label>
+                  </button>
+                  <input ref={backupFileInputRef} type="file" accept="application/json,.json" onChange={(e) => { importBackupJson(e); setBackupMenuOpen(false); }} className="hidden" />
                 </div>
               )}
               {backupMessage && <p className="max-w-sm text-xs font-medium text-[#d8c7b5]">{backupMessage}</p>}
