@@ -15,8 +15,7 @@ function display(value) {
   return String(value);
 }
 
-export function GptItemImport({ newItemDefaults, onCreateItem }) {
-  const [open, setOpen] = useState(false);
+export function GptItemImport({ newItemDefaults, onCreateItem, open, onOpenChange }) {
   const [text, setText] = useState("");
   const [result, setResult] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -27,7 +26,7 @@ export function GptItemImport({ newItemDefaults, onCreateItem }) {
   const prepared = useMemo(() => result?.ok ? prepareGptImportedItem(result, selectedIds, newItemDefaults) : null, [result, selectedIds, newItemDefaults]);
 
   function reset() {
-    setOpen(false); setText(""); setResult(null); setSelectedIds([]); setStage("paste"); setCommitting(false); commitGuard.current = false;
+    onOpenChange(false); setText(""); setResult(null); setSelectedIds([]); setStage("paste"); setCommitting(false); commitGuard.current = false;
   }
 
   function parse() {
@@ -55,7 +54,7 @@ export function GptItemImport({ newItemDefaults, onCreateItem }) {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-[#e06b2c] px-3 py-2 text-xs font-semibold text-[#24110e] hover:bg-[#f0be45]">Import GPT Item</button>
+      <button type="button" onClick={() => onOpenChange(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-[#e06b2c] px-3 py-2 text-xs font-semibold text-[#24110e] hover:bg-[#f0be45]">Import GPT Item</button>
       {open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-stone-950/55 p-3" role="dialog" aria-modal="true" aria-labelledby="gpt-item-import-title">
         <div className="max-h-[92vh] w-full max-w-6xl overflow-auto rounded-3xl bg-[#fffdf8] p-5 shadow-2xl">
           <div className="flex items-start justify-between gap-3"><div><h2 id="gpt-item-import-title" className="text-xl font-semibold text-stone-950">Import GPT Item</h2><p className="mt-1 text-sm text-stone-600">Paste a ResellIt Listing Package to create a new Draft stock item.</p></div><button type="button" onClick={reset} className="rounded-xl border border-stone-200 px-3 py-2 text-sm font-semibold">Cancel</button></div>

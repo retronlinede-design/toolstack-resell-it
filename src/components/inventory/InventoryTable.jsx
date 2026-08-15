@@ -62,6 +62,8 @@ export function InventoryTable({
   stockResizeHandle,
   onOpenNewItemEditor,
   onCreateGptItem,
+  gptItemImportOpen,
+  onSetGptItemImportOpen,
   gptItemDefaults,
   onOpenPurchaseManager,
   onCreateQuickLedgerItem,
@@ -106,7 +108,7 @@ export function InventoryTable({
         <div className="flex flex-col gap-2 xl:flex-row xl:items-end xl:justify-between">
           <div className="flex flex-wrap gap-2">
             <button type="button" onClick={onOpenNewItemEditor} className="inline-flex items-center gap-1.5 rounded-lg bg-[#b7412e] px-3 py-2 text-xs font-semibold text-white hover:bg-[#963424]"><Plus size={14} /> Add Item</button>
-            <GptItemImport newItemDefaults={gptItemDefaults} onCreateItem={onCreateGptItem} />
+            <GptItemImport newItemDefaults={gptItemDefaults} onCreateItem={onCreateGptItem} open={gptItemImportOpen} onOpenChange={onSetGptItemImportOpen} />
             <button type="button" onClick={() => setQuickAddOpen((open) => !open)} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><PackagePlus size={14} /> Quick Add</button>
             <button type="button" onClick={() => onSetInventoryIssueFilter("Needs attention")} className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-semibold ${inventoryIssueFilter === "Needs attention" ? "border-red-200 bg-red-50 text-red-700" : "border-stone-200 bg-white text-stone-700 hover:bg-stone-50"}`}><AlertTriangle size={14} /> Issues</button>
             <button type="button" onClick={() => setMoreFiltersOpen((open) => !open)} className="inline-flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-50"><Filter size={14} /> More Filters</button>

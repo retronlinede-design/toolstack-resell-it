@@ -547,6 +547,7 @@ export default function ResellerItApp() {
   const financePanelRef = useRef(null);
   const salesPanelRef = useRef(null);
   const [itemFormOpen, setItemFormOpen] = useState(false);
+  const [gptItemImportOpen, setGptItemImportOpen] = useState(false);
   const [purchaseManagerOpen, setPurchaseManagerOpen] = useState(false);
   const [purchaseManagerInitialTransactionId, setPurchaseManagerInitialTransactionId] = useState("");
   const [advancedInventoryFiltersOpen, setAdvancedInventoryFiltersOpen] = useState(false);
@@ -1000,6 +1001,11 @@ export default function ResellerItApp() {
       completedSales: "completed_sales",
       problemItems: "returns_refunds",
     }[panelKey] || panelKey);
+  }
+
+  function openGptItemImport() {
+    setActiveTab("stock");
+    setGptItemImportOpen(true);
   }
 
   function openFinanceQueue(section) {
@@ -1913,6 +1919,11 @@ export default function ResellerItApp() {
               </div>
             </nav>
 
+            <section aria-labelledby="ai-tools-heading" className="rounded-3xl border border-[#5a3028] bg-[#45251f] p-3">
+              <h2 id="ai-tools-heading" className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">AI Tools</h2>
+              <button type="button" onClick={openGptItemImport} className="w-full rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Import GPT Item</button>
+            </section>
+
             <div className="relative flex w-full flex-col items-start gap-2">
               <button type="button" onClick={() => setBackupMenuOpen(!backupMenuOpen)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#6c3a31] bg-[#45251f] px-3 py-2 text-xs font-semibold text-[#fff7e8] transition hover:bg-[#523029] sm:w-auto">
                 <Download size={14} /> Backup
@@ -2739,6 +2750,8 @@ export default function ResellerItApp() {
               stockResizeHandle={stockResizeHandle}
               onOpenNewItemEditor={openNewItemEditor}
               onCreateGptItem={createGptImportedItem}
+              gptItemImportOpen={gptItemImportOpen}
+              onSetGptItemImportOpen={setGptItemImportOpen}
               gptItemDefaults={{ ...emptyItem, status: "Draft", language: "de", listingLanguage: "German" }}
               onOpenPurchaseManager={() => { setPurchaseManagerInitialTransactionId(""); setPurchaseManagerOpen(true); }}
               onCreateQuickLedgerItem={createQuickLedgerItem}
