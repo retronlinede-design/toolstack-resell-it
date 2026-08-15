@@ -8,6 +8,7 @@ import { IncludedAccessoriesEditor } from "./components/item-editor/IncludedAcce
 import { includedAccessoryNames } from "./includedAccessories.js";
 import { PurchaseInvoiceManager } from "./components/purchases/PurchaseInvoiceManager.jsx";
 import { StatCard } from "./components/shared/Cards.jsx";
+import { ModalDialog } from "./components/shared/ModalDialog.jsx";
 import { Input, Select } from "./components/shared/FormControls.jsx";
 import { loadInitialBrowserAppData, STORAGE_KEY } from "./resellitStorage.js";
 import { auditCanonicalFieldConflicts } from "./canonicalFieldAudit.js";
@@ -522,6 +523,7 @@ export default function ResellerItApp() {
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [activeToolPanel, setActiveToolPanel] = useState(null);
+  const [activeToolInfoModal, setActiveToolInfoModal] = useState(null);
   const [activeFinancePanel, setActiveFinancePanel] = useState(null);
   const [activeSalesPanel, setActiveSalesPanel] = useState(null);
   const [salesEditItemId, setSalesEditItemId] = useState(null);
@@ -1909,7 +1911,7 @@ export default function ResellerItApp() {
               </button>
               <div className="grid grid-cols-2 gap-2 lg:grid-cols-1">
                 {modules.map(([key, label, stripeClass, accentClass, activeTextClass, activeBgClass, hoverClass]) => (
-                  <button key={key} type="button" aria-current={activeTab === key ? "page" : undefined} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); if (key === "tools") setActiveToolPanel(null); }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
+                  <button key={key} type="button" aria-current={activeTab === key ? "page" : undefined} onClick={() => { setActiveTab(key); if (key === "finance") setActiveFinancePanel(null); if (key === "sales") setActiveSalesPanel(null); if (key === "tools") { setActiveToolPanel(null); setActiveToolInfoModal(null); } }} className={`overflow-hidden rounded-2xl border text-left transition-all duration-150 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f0be45] ${activeTab === key ? `${activeBgClass} ${activeTextClass} shadow-[0_8px_18px_rgba(0,0,0,0.16)]` : `border-[#5a3028] bg-[#45251f] text-[#f3e6d6] ${hoverClass}`}`}>
                     <div className={`h-1.5 ${stripeClass}`} />
                     <div className="px-3 py-2.5 lg:px-2.5 lg:py-2.5">
                       <p className={`text-[11px] font-semibold uppercase tracking-wide ${activeTab === key ? activeTextClass : accentClass}`}>Section</p>
@@ -3917,15 +3919,15 @@ export default function ResellerItApp() {
                     <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Available</span>
                   </div>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    <button type="button" onClick={() => setActiveToolPanel("app_info")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "app_info" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                    <button type="button" onClick={() => { setActiveToolPanel(null); setActiveToolInfoModal("app_info"); }} className="rounded-2xl border border-[#1f9d99]/25 bg-[#1f9d99]/8 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/40 hover:shadow-sm">
                       <p className="text-sm font-semibold text-neutral-950">App Info</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Storage and sync status.</p>
                     </button>
-                    <button type="button" onClick={() => setActiveToolPanel("help")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "help" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                    <button type="button" onClick={() => { setActiveToolPanel(null); setActiveToolInfoModal("help"); }} className="rounded-2xl border border-[#1f9d99]/25 bg-[#1f9d99]/8 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/40 hover:shadow-sm">
                       <p className="text-sm font-semibold text-neutral-950">Help Guide</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Workflow guide.</p>
                     </button>
-                    <button type="button" onClick={() => setActiveToolPanel("backup_instructions")} className={`rounded-2xl border p-4 text-left transition hover:-translate-y-0.5 hover:shadow-sm ${activeToolPanel === "backup_instructions" ? "border-[#1f9d99]/50 bg-[#1f9d99]/15" : "border-[#1f9d99]/25 bg-[#1f9d99]/8 hover:border-[#1f9d99]/40"}`}>
+                    <button type="button" onClick={() => { setActiveToolPanel(null); setActiveToolInfoModal("backup_instructions"); }} className="rounded-2xl border border-[#1f9d99]/25 bg-[#1f9d99]/8 p-4 text-left transition hover:-translate-y-0.5 hover:border-[#1f9d99]/40 hover:shadow-sm">
                       <p className="text-sm font-semibold text-neutral-950">Backup Instructions</p>
                       <p className="mt-1 text-xs leading-5 text-neutral-600">Backup and restore notes.</p>
                     </button>
@@ -3980,35 +3982,6 @@ export default function ResellerItApp() {
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#1f9d99]">Tool Details</p>
-                      {activeToolPanel === "app_info" && (
-                        <>
-                          <h2 className="mt-1 text-lg font-semibold text-neutral-950">App Info</h2>
-                          <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2">
-                            <p className="rounded-2xl bg-stone-50 p-3">ResellIt stores data in this browser using localStorage.</p>
-                            <p className="rounded-2xl bg-stone-50 p-3">No backend or cloud sync is connected.</p>
-                          </div>
-                        </>
-                      )}
-                      {activeToolPanel === "help" && (
-                        <>
-                          <h2 className="mt-1 text-lg font-semibold text-neutral-950">Help Guide</h2>
-                          <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
-                            <p className="rounded-2xl bg-stone-50 p-3">Use Stock Control for item entry and active selling work.</p>
-                            <p className="rounded-2xl bg-stone-50 p-3">Use Finance for expenses, imports, and tax record checks.</p>
-                            <p className="rounded-2xl bg-stone-50 p-3">Use Tools for backups and utility shortcuts.</p>
-                          </div>
-                        </>
-                      )}
-                      {activeToolPanel === "backup_instructions" && (
-                        <>
-                          <h2 className="mt-1 text-lg font-semibold text-neutral-950">Backup Instructions</h2>
-                          <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
-                            <p className="rounded-2xl bg-stone-50 p-3">Export a backup after important inventory, sales, or expense updates.</p>
-                            <p className="rounded-2xl bg-stone-50 p-3">Keep the JSON file somewhere outside the browser.</p>
-                            <p className="rounded-2xl bg-stone-50 p-3">Import replaces current local data after confirmation.</p>
-                          </div>
-                        </>
-                      )}
                       {activeToolPanel === "compliance_center" && (
                         <>
                           <h2 id="tools-panel-compliance-center" className="mt-1 text-lg font-semibold text-neutral-950">Compliance Center</h2>
@@ -4140,6 +4113,33 @@ export default function ResellerItApp() {
                     <button type="button" onClick={() => setActiveToolPanel(null)} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
                   </div>
                 </section>
+              )}
+
+              {activeToolInfoModal === "app_info" && (
+                <ModalDialog title="App Info" onClose={() => setActiveToolInfoModal(null)}>
+                  <div className="grid gap-3 text-sm text-neutral-700 sm:grid-cols-2">
+                    <p className="rounded-2xl bg-stone-50 p-3">ResellIt stores data in this browser using localStorage.</p>
+                    <p className="rounded-2xl bg-stone-50 p-3">No backend or cloud sync is connected.</p>
+                  </div>
+                </ModalDialog>
+              )}
+              {activeToolInfoModal === "help" && (
+                <ModalDialog title="Help Guide" onClose={() => setActiveToolInfoModal(null)}>
+                  <div className="grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
+                    <p className="rounded-2xl bg-stone-50 p-3">Use Stock Control for item entry and active selling work.</p>
+                    <p className="rounded-2xl bg-stone-50 p-3">Use Finance for expenses, imports, and tax record checks.</p>
+                    <p className="rounded-2xl bg-stone-50 p-3">Use Tools for backups and utility shortcuts.</p>
+                  </div>
+                </ModalDialog>
+              )}
+              {activeToolInfoModal === "backup_instructions" && (
+                <ModalDialog title="Backup Instructions" onClose={() => setActiveToolInfoModal(null)}>
+                  <div className="grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
+                    <p className="rounded-2xl bg-stone-50 p-3">Export a backup after important inventory, sales, or expense updates.</p>
+                    <p className="rounded-2xl bg-stone-50 p-3">Keep the JSON file somewhere outside the browser.</p>
+                    <p className="rounded-2xl bg-stone-50 p-3">Import replaces current local data after confirmation.</p>
+                  </div>
+                </ModalDialog>
               )}
             </div>
           )}
