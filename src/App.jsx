@@ -219,10 +219,10 @@ const advancedFormSections = [
 ];
 
 const modules = [
-  ["stock", "Stock Control", "bg-[#b7412e]", "text-[#b7412e]", "text-[#fff7e8]", "border-[#b7412e]/45 bg-[#b7412e]/18", "hover:border-[#b7412e]/40 hover:bg-[#b7412e]/12"],
-  ["sales", "Sales", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#fff7e8]", "border-[#e06b2c]/45 bg-[#e06b2c]/18", "hover:border-[#e06b2c]/40 hover:bg-[#e06b2c]/12"],
-  ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#fff7e8]", "border-[#f0be45]/45 bg-[#f0be45]/16", "hover:border-[#f0be45]/45 hover:bg-[#f0be45]/12"],
-  ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12"],
+  ["stock", "Stock Control", "bg-[#b7412e]", "text-[#b7412e]", "text-[#fff7e8]", "border-[#b7412e]/45 bg-[#b7412e]/18", "hover:border-[#b7412e]/40 hover:bg-[#b7412e]/12", "Track purchased stock, current status, sale outcome, and source records."],
+  ["sales", "Sales", "bg-[#e06b2c]", "text-[#e06b2c]", "text-[#fff7e8]", "border-[#e06b2c]/45 bg-[#e06b2c]/18", "hover:border-[#e06b2c]/40 hover:bg-[#e06b2c]/12", "Track sold items, profits, returns, refunds, and sales activity."],
+  ["finance", "Finance", "bg-[#f0be45]", "text-[#b88918]", "text-[#fff7e8]", "border-[#f0be45]/45 bg-[#f0be45]/16", "hover:border-[#f0be45]/45 hover:bg-[#f0be45]/12", "Review monthly performance, expenses, purchase records, imported platform data, and preparation issues."],
+  ["tools", "Tools", "bg-[#1f9d99]", "text-[#1f9d99]", "text-[#fff7e8]", "border-[#1f9d99]/45 bg-[#1f9d99]/18", "hover:border-[#1f9d99]/40 hover:bg-[#1f9d99]/12", "Manage backups, reports, listing helpers, issue checks, and app utilities."],
 ];
 const stockSectionDetails = {
   needsAttention: ["Needs Attention", "Items missing information, proof, pricing, or listing preparation."],
@@ -1858,6 +1858,7 @@ export default function ResellerItApp() {
 
   const activeModule = modules.find(([key]) => key === activeTab);
   const activeTitle = activeModule?.[1] || "Dashboard";
+  const activeDescription = activeModule?.[7] || "Overview of your stock, sales, and current work.";
   const formListingLabels = listingLabels(form);
   const formListingSectionHeadings = listingSectionHeadings(form);
   const conditionDescriptionLabel = isGermanListing(form) ? "Zustandsbeschreibung" : "Condition description";
@@ -1959,7 +1960,7 @@ export default function ResellerItApp() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">ResellIt Workspace</p>
                 <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-950">{activeTitle}</h1>
               </div>
-              <p className="max-w-xl text-sm text-stone-600">{activeTab === "dashboard" ? "Overview of your stock, sales, and current work." : activeTab === "stock" ? "Track purchased stock, current status, sale outcome, and source records." : "Clean local workspace for stock, sales, finance, and tax-prep records."}</p>
+              <p className="max-w-xl text-sm text-stone-600">{activeDescription}</p>
             </div>
           </div>
 
@@ -2614,17 +2615,11 @@ export default function ResellerItApp() {
 
         {activeTab === "finance" && (
           <div className="grid gap-4">
-            <div className="rounded-3xl border border-[#f0be45]/25 bg-white p-5 shadow-sm">
-              <div className="mb-4 h-1 w-12 rounded-full bg-[#f0be45]" />
-              <h2 className="text-2xl font-semibold text-neutral-950">Finance</h2>
-              <p className="mt-1 max-w-2xl text-sm text-neutral-600">Review monthly performance, expenses, purchase records, imported platform data, and preparation issues.</p>
-            </div>
-
             <div className="grid gap-4 xl:grid-cols-2">
               <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Core Finance</h3>
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Core Finance</h2>
                     <p className="mt-1 text-xs text-neutral-500">Monthly, expense, purchase, and import work.</p>
                   </div>
                   <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -2652,7 +2647,7 @@ export default function ResellerItApp() {
               <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Review & Preparation</h3>
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Review & Preparation</h2>
                     <p className="mt-1 text-xs text-neutral-500">Data quality and year-end estimates.</p>
                   </div>
                   <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -2672,7 +2667,7 @@ export default function ResellerItApp() {
               <section className="rounded-3xl border border-neutral-200 bg-stone-50 p-4 xl:col-span-2">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">Planned</h3>
+                    <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-700">Planned</h2>
                     <p className="mt-1 text-xs text-neutral-500">Future finance outputs and matching tools.</p>
                   </div>
                   <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Disabled</span>
@@ -3471,12 +3466,6 @@ export default function ResellerItApp() {
 
           {activeTab === "sales" && (
             <div className="grid gap-4">
-              <div className="rounded-3xl border border-[#e06b2c]/20 bg-white p-5 shadow-sm">
-                <div className="mb-4 h-1 w-12 rounded-full bg-[#e06b2c]" />
-                <h2 className="text-2xl font-semibold text-neutral-950">Sales</h2>
-                <p className="mt-1 max-w-2xl text-sm text-neutral-600">Track sold items, profits, returns, refunds, and sales activity.</p>
-              </div>
-
               <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <StatCard icon={ShoppingCart} label="Sold" value={salesWorkflow.counts.Sold || 0} accentClass="bg-[#e06b2c]" />
                 <StatCard icon={ShoppingCart} label="Completed Sales" value={salesWorkflow.counts.Complete || 0} accentClass="bg-[#e06b2c]" />
@@ -3488,7 +3477,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Sales Activity</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Sales Activity</h2>
                       <p className="mt-1 text-xs text-neutral-500">Sold, completed, and returned item queues.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -3512,7 +3501,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Sales Review</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Sales Review</h2>
                       <p className="mt-1 text-xs text-neutral-500">Data quality and profit review queues.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -3532,7 +3521,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm xl:col-span-2">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Platform Data</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Platform Data</h2>
                       <p className="mt-1 text-xs text-neutral-500">Use the existing eBay CSV import and reconciliation tools.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -3551,7 +3540,7 @@ export default function ResellerItApp() {
                   <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#9c481b]">Sales Panel</p>
-                      <h3 className="mt-1 text-lg font-semibold text-neutral-950">
+                      <h2 className="mt-1 text-lg font-semibold text-neutral-950">
                         {{
                           sold_items: "Sold Items",
                           completed_sales: "Completed Sales",
@@ -3559,7 +3548,7 @@ export default function ResellerItApp() {
                           sales_data_gaps: "Sales Data Gaps",
                           profit_review: "Profit Review",
                         }[activeSalesPanel]}
-                      </h3>
+                      </h2>
                     </div>
                     <button type="button" onClick={() => { setActiveSalesPanel(null); setSalesEditItemId(null); }} className="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 hover:bg-stone-50">Close</button>
                   </div>
@@ -3873,17 +3862,11 @@ export default function ResellerItApp() {
 
           {activeTab === "tools" && (
             <div className="grid gap-4">
-              <div className="rounded-3xl border border-[#1f9d99]/20 bg-white p-5 shadow-sm">
-                <div className="mb-4 h-1 w-12 rounded-full bg-[#1f9d99]" />
-                <h2 className="text-2xl font-semibold text-neutral-950">Tools</h2>
-                <p className="mt-1 max-w-2xl text-sm text-neutral-600">Manage backups, reports, listing helpers, issue checks, and app utilities.</p>
-              </div>
-
               <div className="grid gap-4 xl:grid-cols-2">
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Backup & Import</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Backup & Import</h2>
                       <p className="mt-1 text-xs text-neutral-500">Local JSON backup tools.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -3905,7 +3888,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Reports</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Reports</h2>
                       <p className="mt-1 text-xs text-neutral-500">Exports and summaries.</p>
                     </div>
                     <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Coming soon</span>
@@ -3927,7 +3910,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Issues</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Issues</h2>
                       <p className="mt-1 text-xs text-neutral-500">Data quality checks.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -3951,7 +3934,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">eBay Listing</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">eBay Listing</h2>
                       <p className="mt-1 text-xs text-neutral-500">Listing and import work queues.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -3971,7 +3954,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Templates</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Templates</h2>
                       <p className="mt-1 text-xs text-neutral-500">Reusable text presets.</p>
                     </div>
                     <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Coming soon</span>
@@ -3993,7 +3976,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Diagnostics</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Diagnostics</h2>
                       <p className="mt-1 text-xs text-neutral-500">Read-only data consistency checks.</p>
                     </div>
                     <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-semibold text-lime-800">Active</span>
@@ -4009,7 +3992,7 @@ export default function ResellerItApp() {
                 <section className="rounded-3xl border border-neutral-200 bg-white p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <h3 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Settings & Help</h3>
+                      <h2 className="text-sm font-semibold uppercase tracking-wide text-neutral-950">Settings & Help</h2>
                       <p className="mt-1 text-xs text-neutral-500">App information and guidance.</p>
                     </div>
                     <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-semibold text-stone-600">Mixed</span>
@@ -4038,7 +4021,7 @@ export default function ResellerItApp() {
                       <p className="text-xs font-semibold uppercase tracking-wide text-[#1f9d99]">Tool Details</p>
                       {activeToolPanel === "app_info" && (
                         <>
-                          <h3 className="mt-1 text-lg font-semibold text-neutral-950">App Info</h3>
+                          <h2 className="mt-1 text-lg font-semibold text-neutral-950">App Info</h2>
                           <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-2">
                             <p className="rounded-2xl bg-stone-50 p-3">ResellIt stores data in this browser using localStorage.</p>
                             <p className="rounded-2xl bg-stone-50 p-3">No backend or cloud sync is connected.</p>
@@ -4047,7 +4030,7 @@ export default function ResellerItApp() {
                       )}
                       {activeToolPanel === "help" && (
                         <>
-                          <h3 className="mt-1 text-lg font-semibold text-neutral-950">Help Guide</h3>
+                          <h2 className="mt-1 text-lg font-semibold text-neutral-950">Help Guide</h2>
                           <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
                             <p className="rounded-2xl bg-stone-50 p-3">Use Stock Control for item entry and active selling work.</p>
                             <p className="rounded-2xl bg-stone-50 p-3">Use Finance for expenses, imports, and tax record checks.</p>
@@ -4057,7 +4040,7 @@ export default function ResellerItApp() {
                       )}
                       {activeToolPanel === "backup_instructions" && (
                         <>
-                          <h3 className="mt-1 text-lg font-semibold text-neutral-950">Backup Instructions</h3>
+                          <h2 className="mt-1 text-lg font-semibold text-neutral-950">Backup Instructions</h2>
                           <div className="mt-3 grid gap-3 text-sm text-neutral-700 sm:grid-cols-3">
                             <p className="rounded-2xl bg-stone-50 p-3">Export a backup after important inventory, sales, or expense updates.</p>
                             <p className="rounded-2xl bg-stone-50 p-3">Keep the JSON file somewhere outside the browser.</p>
@@ -4067,7 +4050,7 @@ export default function ResellerItApp() {
                       )}
                       {activeToolPanel === "compliance_center" && (
                         <>
-                          <h3 id="tools-panel-compliance-center" className="mt-1 text-lg font-semibold text-neutral-950">Compliance Center</h3>
+                          <h2 id="tools-panel-compliance-center" className="mt-1 text-lg font-semibold text-neutral-950">Compliance Center</h2>
                           <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                             {[
                               ["Ready", complianceSummary.ready],
@@ -4089,7 +4072,7 @@ export default function ResellerItApp() {
                             ].map(([label, queue]) => (
                               <div key={label} className="rounded-2xl border border-stone-200 bg-stone-50 p-3">
                                 <div className="flex items-center justify-between gap-2">
-                                  <h4 className="text-sm font-semibold text-stone-950">{label}</h4>
+                                  <h3 className="text-sm font-semibold text-stone-950">{label}</h3>
                                   <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-stone-600">{queue.length}</span>
                                 </div>
                                 <div className="mt-3 space-y-2">
@@ -4109,7 +4092,7 @@ export default function ResellerItApp() {
                       )}
                       {activeToolPanel === "canonical_field_audit" && (
                         <div id="tools-panel-canonical-field-audit" className="mt-1 min-w-0">
-                          <h3 className="text-lg font-semibold text-neutral-950">Canonical Field Audit</h3>
+                          <h2 className="text-lg font-semibold text-neutral-950">Canonical Field Audit</h2>
                           <p className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900">Diagnostic only. No data is changed.</p>
                           <p className="mt-2 text-sm text-neutral-600">Audited {canonicalFieldAudit.itemCount} current in-memory items.</p>
 
@@ -4141,7 +4124,7 @@ export default function ResellerItApp() {
                           </div>
 
                           <div className="mt-5 space-y-3">
-                            <h4 className="text-sm font-semibold uppercase tracking-wide text-stone-700">True alias conflicts</h4>
+                            <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-700">True alias conflicts</h3>
                             {Object.values(canonicalFieldAudit.pairs).every((pair) => pair.conflicts.length === 0) && <p className="rounded-xl bg-lime-50 p-3 text-sm text-lime-900">No conflicting alias values found.</p>}
                             {Object.values(canonicalFieldAudit.pairs).flatMap((pair) => pair.conflicts.map((conflict) => ({ ...conflict, legacyPath: pair.legacyPath, canonicalPath: pair.canonicalPath }))).map((conflict) => {
                               const auditedItem = items[conflict.itemIndex];
@@ -4164,7 +4147,7 @@ export default function ResellerItApp() {
                           </div>
 
                           <div className="mt-5 rounded-2xl border border-stone-200 bg-stone-50 p-4">
-                            <h4 className="text-sm font-semibold uppercase tracking-wide text-stone-700">Classification Consistency</h4>
+                            <h3 className="text-sm font-semibold uppercase tracking-wide text-stone-700">Classification Consistency</h3>
                             <p className="mt-2 text-xs leading-5 text-stone-600">Operational classification and seller/compliance treatment are different concepts. Differences are shown for review, not as canonical-field conflicts. Seller classification affects compliance treatment and is not changed by this diagnostic.</p>
                             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                               {Object.entries(canonicalFieldAudit.classification.counts).map(([label, count]) => (
