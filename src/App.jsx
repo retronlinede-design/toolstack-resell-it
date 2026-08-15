@@ -1913,15 +1913,6 @@ export default function ResellerItApp() {
               </div>
             </nav>
 
-            <div className="rounded-3xl border border-[#5a3028] bg-[#45251f] p-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#f0be45]">Quick actions</p>
-              <div className="grid gap-2">
-                <button type="button" onClick={openNewItemEditor} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Quick Add</button>
-                <button type="button" onClick={() => openStockQueue("needsAttention")} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Open Stock Control</button>
-                <button type="button" onClick={openSalesQueue} className="rounded-xl border border-[#6c3a31] bg-[#351c17] px-3 py-2 text-left text-xs font-semibold text-[#fff7e8] hover:-translate-y-0.5 hover:bg-[#523029] hover:shadow-[0_8px_18px_rgba(0,0,0,0.16)]">Sales queue</button>
-              </div>
-            </div>
-
             <div className="relative flex w-full flex-col items-start gap-2">
               <button type="button" onClick={() => setBackupMenuOpen(!backupMenuOpen)} className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#6c3a31] bg-[#45251f] px-3 py-2 text-xs font-semibold text-[#fff7e8] transition hover:bg-[#523029] sm:w-auto">
                 <Download size={14} /> Backup
